@@ -1,0 +1,38 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { keysToZhuyin } from '../src/engine/layout.js';
+
+test('單一音節含三聲：ji3 → ㄨㄛˇ', () => {
+  assert.deepEqual(keysToZhuyin('ji3'), ['ㄨㄛˇ']);
+});
+
+test('四聲：94 → ㄞˋ', () => {
+  assert.deepEqual(keysToZhuyin('94'), ['ㄞˋ']);
+});
+
+test('一聲用空白鍵，且空白為分隔點：t → 空白 → ㄔ', () => {
+  assert.deepEqual(keysToZhuyin('t '), ['ㄔ']);
+});
+
+test('大寫輸入正常還原：JI394T AU04 → 我愛吃麵的注音', () => {
+  assert.deepEqual(
+    keysToZhuyin('JI394T AU04'),
+    ['ㄨㄛˇ', 'ㄞˋ', 'ㄔ', 'ㄇㄧㄢˋ']
+  );
+});
+
+test('第二聲：6 → ˊ（ej/6 → ㄍㄨㄥˊ）', () => {
+  assert.deepEqual(keysToZhuyin('ej/6'), ['ㄍㄨㄥˊ']);
+});
+
+test('輕聲：7（j7 → ㄨ˙）', () => {
+  assert.deepEqual(keysToZhuyin('j7'), ['ㄨ˙']);
+});
+
+test('結尾無聲調鍵時，手上的音節視為一聲收掉', () => {
+  assert.deepEqual(keysToZhuyin('ji'), ['ㄨㄛ']);
+});
+
+test('無法對應的字元會先收音節再略過', () => {
+  assert.deepEqual(keysToZhuyin('ji3@94'), ['ㄨㄛˇ', 'ㄞˋ']);
+});
