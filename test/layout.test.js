@@ -36,3 +36,15 @@ test('結尾無聲調鍵時，手上的音節視為一聲收掉', () => {
 test('無法對應的字元會先收音節再略過', () => {
   assert.deepEqual(keysToZhuyin('ji3@94'), ['ㄨㄛˇ', 'ㄞˋ']);
 });
+
+test('空字串回傳空陣列', () => {
+  assert.deepEqual(keysToZhuyin(''), []);
+});
+
+test('開頭的聲調鍵被忽略（前面沒有音節）', () => {
+  assert.deepEqual(keysToZhuyin(' 3ji3'), ['ㄨㄛˇ']);
+});
+
+test('連續聲調鍵不產生空音節（ji33 → 只有一個 ㄨㄛˇ）', () => {
+  assert.deepEqual(keysToZhuyin('ji33'), ['ㄨㄛˇ']);
+});
