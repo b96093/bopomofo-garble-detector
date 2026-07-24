@@ -1,0 +1,24 @@
+{
+  "project": "文字亂碼偵測（Chrome 擴充）",
+  "lastUpdated": "2026-07-24T00:00:00+08:00",
+  "parts": [
+    { "id": "design", "name": "設計與 spec", "progress": 100, "status": "completed" },
+    { "id": "scaffold", "name": "專案骨架與 manifest", "progress": 20, "status": "in_progress" },
+    { "id": "engine", "name": "核心引擎（亂碼→漢字）", "progress": 0, "status": "pending",
+      "subParts": [
+        { "id": "layout", "name": "大千對照表 → 注音", "progress": 0, "status": "pending" },
+        { "id": "dict", "name": "詞庫處理與查詢", "progress": 0, "status": "pending" },
+        { "id": "convert", "name": "詞庫選字演算法", "progress": 0, "status": "pending" }
+      ] },
+    { "id": "detect", "name": "偵測器（三道關卡）", "progress": 0, "status": "pending" },
+    { "id": "shell", "name": "擴充外殼（監看/替換）", "progress": 0, "status": "pending" },
+    { "id": "popup", "name": "候選窗 UI", "progress": 0, "status": "pending" },
+    { "id": "options", "name": "設定頁", "progress": 0, "status": "pending" },
+    { "id": "test", "name": "測試", "progress": 0, "status": "pending" },
+    { "id": "package", "name": "打包與散布", "progress": 0, "status": "pending" }
+  ],
+  "visual": {
+    "type": "svg",
+    "svg": "<svg viewBox='0 0 400 340' xmlns='http://www.w3.org/2000/svg'><rect x='20' y='22' width='360' height='296' rx='12' fill='none' stroke='var(--part-color)' stroke-width='3' data-part='shell'/><rect x='21' y='23' width='358' height='32' rx='11' fill='#e6e6e6'/><circle cx='42' cy='39' r='5' fill='#f56b5b'/><circle cx='60' cy='39' r='5' fill='#f7b955'/><circle cx='78' cy='39' r='5' fill='#7bc86c'/><circle cx='359' cy='39' r='9' fill='none' stroke='var(--part-color)' stroke-width='2.5' data-part='options'/><line x1='359' y1='30' x2='359' y2='48' stroke='var(--part-color)' stroke-width='2.5' data-part='options'/><line x1='350' y1='39' x2='368' y2='39' stroke='var(--part-color)' stroke-width='2.5' data-part='options'/><rect x='46' y='92' width='226' height='40' rx='12' fill='#fbfbfb' stroke='var(--part-color)' stroke-width='3' data-part='detect'/><text x='60' y='117' font-family='monospace' font-size='15' fill='#7a7a7a'>JI394T AU04</text><circle cx='305' cy='112' r='17' fill='var(--part-color)' data-part='engine'/><text x='305' y='118' font-size='15' fill='#ffffff' text-anchor='middle'>字</text><rect x='70' y='166' width='214' height='120' rx='12' fill='#fbfbfb' stroke='var(--part-color)' stroke-width='3' data-part='popup'/><rect x='82' y='180' width='190' height='34' rx='8' fill='#dfe9f7'/><text x='92' y='203' font-size='19' fill='#1b3a5c'>我愛吃麵</text><text x='250' y='202' font-size='12' fill='#5b7aa0'>Enter</text><text x='92' y='236' font-size='16' fill='#8a8a8a'>我愛吃面</text><text x='262' y='235' font-size='12' fill='#a0a0a0'>2</text><text x='92' y='266' font-size='16' fill='#8a8a8a'>窩愛吃麵</text><text x='262' y='265' font-size='12' fill='#a0a0a0'>3</text></svg>"
+  }
+}
