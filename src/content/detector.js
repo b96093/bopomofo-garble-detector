@@ -44,10 +44,8 @@ export function initDetector(dict, detect, opts = {}) {
     if (!popup.isVisible()) return;
     if (e.key === 'Escape') { popup.hide(); active = null; }
     else if (e.key === 'Enter') { e.preventDefault(); popup.commitDraft(); }
-    else if (e.key >= '2' && e.key <= '9') {
-      const i = Number(e.key) - 1;
-      if (i < popup.candidateCount()) { e.preventDefault(); popup.commitCandidate(i); }
-    }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); popup.move(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); popup.move(-1); }
   }, true);
 
   document.addEventListener('mousedown', (e) => {

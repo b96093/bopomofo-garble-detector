@@ -1,5 +1,5 @@
 // Shadow DOM 候選浮窗（方案 C）：上半 3 整句候選、下半逐字換字。
-// 逐字：點任一字 → 展開該字讀音的同音字 → 選一個改掉草稿 → 插入。
+// 選字：方向鍵 ↑↓ 移動高亮、Enter 插入；逐字換字用滑鼠點。（不用數字鍵，避免長句誤按）
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -17,7 +17,8 @@ export function createPopup() {
       .hdr{font-size:11px;color:#8a8a8a;padding:3px 8px 6px}
       .item{display:flex;justify-content:space-between;gap:14px;align-items:center;
         padding:6px 10px;border-radius:7px;cursor:pointer}
-      .item:hover,.item.sel{background:#e8f1fd}
+      .item:hover{background:#f0f0f0}
+      .item.sel{background:#e8f1fd}
       .z{font-size:18px;letter-spacing:1px}
       .k{font-size:11px;color:#3a76d8}
       .lbl{font-size:11px;color:#8a8a8a;padding:7px 8px 4px;border-top:1px solid #eee;margin-top:4px}
@@ -38,16 +39,16 @@ export function createPopup() {
   const box = root.getElementById('box');
   document.documentElement.appendChild(host);
 
-  let state = null; // { candidates, draft[], homophonesFor, onCommit, openChar }
+  let state = null; // { candidates, selected, draft[], homophonesFor, onCommit, openChar }
 
   function render() {
-    const { candidates, draft, homophonesFor, openChar } = state;
-    let h = `<div class="hdr">偵測到注音亂碼 · 選一個或逐字修改</div>`;
+    const { candidates, selected, draft, homophonesFor, openChar } = state;
+    let h = `<div class="hdr">偵測到注音亂碼 · ↑↓ 選句、Enter 插入，或點字換同音</div>`;
     h += candidates.map((c, i) =>
-      `<div class="item${i === 0 ? ' sel' : ''}" data-cand="${i}">` +
-      `<span class="z">${esc(c)}</span><span class="k">${i === 0 ? 'Enter' : i + 1}</span></div>`
+      `<div class="item${i === selected ? ' sel' : ''}" data-cand="${i}">` +
+      `<span class="z">${esc(c)}</span><span class="k">${i === selected ? 'Enter' : ''}</span></div>`
     ).join('');
-    h += `<div class="lbl">逐字換同音字：</div>`;
+    h += `<div class="lbl">逐字換同音字（點字）：</div>`;
     h += `<div class="chars">` +
       draft.map((ch, k) => `<span class="ch${k === openChar ? ' open' : ''}" data-ch="${k}">${esc(ch)}</span>`).join('') +
       `</div>`;
@@ -60,7 +61,7 @@ export function createPopup() {
         `</div>`;
     }
     h += `<div class="commit" data-commit="1">插入「${esc(draft.join(''))}」</div>`;
-    h += `<div class="ft"><span>點字換同音</span><span>Esc 忽略</span></div>`;
+    h += `<div class="ft"><span>↑↓ 選句 · 點字換同音</span><span>Esc 忽略</span></div>`;
     box.innerHTML = h;
 
     box.querySelectorAll('[data-cand]').forEach((el) =>
@@ -89,7 +90,8 @@ export function createPopup() {
   function show(rect, opts) {
     state = {
       candidates: opts.candidates,
-      draft: [...opts.best],
+      selected: 0,
+      draft: [...opts.candidates[0]],
       homophonesFor: opts.homophonesFor,
       onCommit: opts.onCommit,
       openChar: -1,
@@ -107,13 +109,22 @@ export function createPopup() {
     if (str != null && cb) cb(str);
   }
 
+  // 方向鍵移動高亮：切換選中的整句候選，並把草稿重設為該候選（清掉逐字暫改）
+  function move(delta) {
+    if (!state) return;
+    const n = state.candidates.length;
+    state.selected = (state.selected + delta + n) % n;
+    state.draft = [...state.candidates[state.selected]];
+    state.openChar = -1;
+    render();
+  }
+
   return {
     show,
     hide,
+    move,
     isVisible: () => host.style.display === 'block',
     contains: (t) => t === host || host.contains(t),
     commitDraft: () => { if (state) commit(state.draft.join('')); },
-    commitCandidate: (i) => { if (state && i >= 0 && i < state.candidates.length) commit(state.candidates[i]); },
-    candidateCount: () => (state ? state.candidates.length : 0),
   };
 }
