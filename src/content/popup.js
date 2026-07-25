@@ -30,6 +30,9 @@ export function createPopup() {
         border:1px dashed #c9c9c9;background:#fff;line-height:1.25}
       .ch:hover{background:#f0f6ff;border-color:#9dc2f5}
       .ch::after{content:"▾";font-size:9px;color:#b0b0b0;margin-left:3px;vertical-align:2px}
+      .ch.plain{border-color:transparent;cursor:default;color:#8a8a8a;padding-left:4px;padding-right:4px}
+      .ch.plain:hover{background:none;border-color:transparent}
+      .ch.plain::after{content:""}
       .ch.focus{border-style:solid;border-color:#3a76d8;background:#e8f1fd;color:#1a5fb4;
         box-shadow:0 0 0 2px rgba(58,118,216,.18)}
       .ch.open{border-style:solid;border-color:#3a76d8;background:#e8f1fd;color:#1a5fb4}
@@ -59,6 +62,14 @@ export function createPopup() {
     return i >= 0 ? i : 0;
   }
 
+  // 找下一個可換字的位置（跳過標點）；找不到就留在原地
+  function seekChar(from, d) {
+    for (let k = from; k >= 0 && k < state.draft.length; k += d) {
+      if (homsAt(k).length) return k;
+    }
+    return homsAt(state.charIdx).length ? state.charIdx : -1;
+  }
+
   function render() {
     const { candidates, selected, draft, zone, charIdx, homIdx } = state;
     const inSent = zone === 'sent';
@@ -71,6 +82,7 @@ export function createPopup() {
 
     h += `<div class="lbl">逐字換同音字（點字，或按 ↓ 進入）：</div>`;
     h += `<div class="chars">` + draft.map((ch, k) => {
+      if (!homsAt(k).length) return `<span class="ch plain">${esc(ch)}</span>`; // 標點：不可換
       const cls = (!inSent && k === charIdx) ? (zone === 'tray' ? ' open' : ' focus') : '';
       return `<span class="ch${cls}" data-ch="${k}">${esc(ch)}</span>`;
     }).join('') + `</div>`;
@@ -177,8 +189,11 @@ export function createPopup() {
     if (key === 'ArrowDown') {
       if (zone === 'sent') {
         if (state.selected < state.candidates.length - 1) selectCandidate(1);
-        else { state.zone = 'chars'; state.charIdx = 0; } // 最後一句再往下＝進逐字區
-      } else if (zone === 'chars') {
+        else { // 最後一句再往下＝進逐字區
+          const k = seekChar(0, 1);
+          if (k >= 0) { state.zone = 'chars'; state.charIdx = k; }
+        }
+      } else if (zone === 'chars' && homsAt(state.charIdx).length) {
         state.zone = 'tray';
         state.homIdx = currentHomIdx(state.charIdx);
       }
@@ -197,10 +212,11 @@ export function createPopup() {
     if (key === 'ArrowLeft' || key === 'ArrowRight') {
       const d = key === 'ArrowRight' ? 1 : -1;
       if (zone === 'sent') { // 從句子區用左右也能進逐字區
-        state.zone = 'chars';
-        state.charIdx = d > 0 ? 0 : state.draft.length - 1;
+        const k = seekChar(d > 0 ? 0 : state.draft.length - 1, d > 0 ? 1 : -1);
+        if (k >= 0) { state.zone = 'chars'; state.charIdx = k; }
       } else if (zone === 'chars') {
-        state.charIdx = Math.max(0, Math.min(state.charIdx + d, state.draft.length - 1));
+        const k = seekChar(state.charIdx + d, d); // 跳過標點
+        if (k >= 0) state.charIdx = k;
       } else {
         const n = homsAt(state.charIdx).length;
         if (n) state.homIdx = (state.homIdx + d + n) % n;

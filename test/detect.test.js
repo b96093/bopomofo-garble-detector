@@ -23,3 +23,21 @@ test('常見英文單字：不觸發', () => {
 test('空字串：不觸發', () => {
   assert.equal(detect('', dict), null);
 });
+
+test('句中標點：前後兩段一起轉，標點原樣保留', () => {
+  const r = detect('su35 2l4a8 ?ji394su3', dict);
+  assert.ok(r);
+  assert.equal(r.candidates[0], '你知道嗎?我愛你');
+});
+
+test('標點情境：syllables 與輸出字一一對應，標點位置為 null', () => {
+  const r = detect('su35 2l4a8 ?ji394su3', dict);
+  const best = r.candidates[0];
+  assert.equal(r.syllables.length, [...best].length);
+  assert.equal(r.syllables[[...best].indexOf('?')], null); // 標點不可換字
+  assert.equal(r.syllables[0], 'ㄋㄧˇ');                    // 首字對到「你」的注音
+});
+
+test('只有標點：不觸發', () => {
+  assert.equal(detect('???', dict), null);
+});
