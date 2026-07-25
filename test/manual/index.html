@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文字亂碼偵測 — 測試頁</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    textarea { font-size: 18px; width: 100%; box-sizing: border-box; }
+    pre { background: #f4f4f4; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
+    .ok { color: #178a4c; } .err { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <h1>文字亂碼偵測 — 測試頁</h1>
+  <p>階段 1：確認引擎能在瀏覽器載入。下面框可自由打字（之後階段會接上浮窗）。</p>
+  <p>試試貼上：<code>ji394t au04</code></p>
+  <textarea id="ta" rows="4" placeholder="在這裡打字…"></textarea>
+  <h3>引擎狀態</h3>
+  <pre id="log">載入中…</pre>
+
+  <script type="module">
+    const log = document.getElementById('log');
+    try {
+      const { loadDict } = await import('../../src/engine/dict.js');
+      const { detect } = await import('../../src/engine/detect.js');
+      const t0 = performance.now();
+      const dict = loadDict();
+      const ms = Math.round(performance.now() - t0);
+      let out = '';
+      out += `✅ 字典載入成功，條目：${dict.size.toLocaleString()}（耗時 ${ms}ms）\n\n`;
+      for (const s of ['ji394t au04', 'vu04g;4ej/ rm4j;3', 'the cat sat', 'hello']) {
+        out += `detect(${JSON.stringify(s)}) = ${JSON.stringify(detect(s, dict))}\n`;
+      }
+      log.textContent = out;
+      log.className = 'ok';
+      window.__dict = dict; window.__detect = detect;
+    } catch (e) {
+      log.textContent = '❌ 載入失敗：' + e.message + '\n' + e.stack;
+      log.className = 'err';
+    }
+  </script>
+</body>
+</html>
