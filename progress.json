@@ -11,8 +11,8 @@
         { "id": "convert", "name": "詞庫選字演算法（含多候選）", "progress": 100, "status": "completed" }
       ] },
     { "id": "detect", "name": "偵測器（三道關卡）", "progress": 100, "status": "completed" },
-    { "id": "shell", "name": "擴充外殼（監看/替換）", "progress": 65, "status": "in_progress" },
-    { "id": "popup", "name": "候選窗 UI", "progress": 40, "status": "in_progress" },
+    { "id": "shell", "name": "擴充外殼（監看/替換）", "progress": 70, "status": "in_progress" },
+    { "id": "popup", "name": "候選窗 UI（3候選+逐字換字）", "progress": 100, "status": "completed" },
     { "id": "options", "name": "設定頁", "progress": 0, "status": "pending" },
     { "id": "test", "name": "測試", "progress": 60, "status": "in_progress" },
     { "id": "package", "name": "打包與散布", "progress": 0, "status": "pending" }
