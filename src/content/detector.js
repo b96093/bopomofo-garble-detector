@@ -1,6 +1,7 @@
-// 偵測迴圈：監看輸入 → 抓亂碼段 → detect → 跳浮窗 → 選字替換。
+// 偵測迴圈：監看輸入 → 抓亂碼段 → detect → 跳浮窗（3 候選 + 逐字換字）→ 選字替換。
 // 被擴充內容腳本與測試頁共用（都呼叫 initDetector）。
 
+import { keysToZhuyin } from '../engine/layout.js';
 import { extractGarbleRun } from './extract.js';
 import { isTextField, getFieldText, getCaret, replaceInField } from './replace.js';
 import { createPopup } from './popup.js';
@@ -12,13 +13,7 @@ function debounce(fn, ms) {
 
 export function initDetector(dict, detect, opts = {}) {
   const popup = createPopup();
-  let active = null; // { field, start, end, candidates }
-
-  function apply(chosen) {
-    if (!active) return;
-    replaceInField(active.field, active.start, active.end, chosen);
-    active = null;
-  }
+  let active = null; // { field, start, end }
 
   function scan(field) {
     if (!isTextField(field)) { active = null; popup.hide(); return; }
@@ -26,8 +21,20 @@ export function initDetector(dict, detect, opts = {}) {
     if (!seg) { active = null; popup.hide(); return; }
     const res = detect(seg.run, dict, opts);
     if (!res) { active = null; popup.hide(); return; }
-    active = { field, start: seg.start, end: seg.end, candidates: res.candidates };
-    popup.show(res.candidates, field.getBoundingClientRect(), apply);
+
+    active = { field, start: seg.start, end: seg.end };
+    const syllables = keysToZhuyin(seg.run);
+    popup.show(field.getBoundingClientRect(), {
+      candidates: res.candidates,
+      best: res.candidates[0],
+      // 每個輸出字對應一個音節（字典的詞皆為一字一音節），故位置一一對應
+      homophonesFor: (k) => (dict.get(syllables[k]) || []).map(([w]) => w),
+      onCommit: (str) => {
+        if (!active) return;
+        replaceInField(active.field, active.start, active.end, str);
+        active = null;
+      },
+    });
   }
   const scanDebounced = debounce(scan, 160);
 
@@ -36,10 +43,10 @@ export function initDetector(dict, detect, opts = {}) {
   document.addEventListener('keydown', (e) => {
     if (!popup.isVisible()) return;
     if (e.key === 'Escape') { popup.hide(); active = null; }
-    else if (e.key === 'Enter') { e.preventDefault(); popup.pickIndex(0); }
+    else if (e.key === 'Enter') { e.preventDefault(); popup.commitDraft(); }
     else if (e.key >= '2' && e.key <= '9') {
       const i = Number(e.key) - 1;
-      if (i < popup.count()) { e.preventDefault(); popup.pickIndex(i); }
+      if (i < popup.candidateCount()) { e.preventDefault(); popup.commitCandidate(i); }
     }
   }, true);
 
