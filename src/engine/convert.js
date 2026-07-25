@@ -13,7 +13,7 @@ export function convert(input, dict) {
     let matched = false;
     const maxLen = Math.min(MAX_WORD_LEN, syllables.length - i);
     for (let len = maxLen; len >= 1; len--) {
-      const key = syllables.slice(i, i + len).join('');
+      const key = syllables.slice(i, i + len).join(' ');
       const entry = dict.get(key);
       if (entry && entry.length) {
         out += entry[0][0];
