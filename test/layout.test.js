@@ -57,6 +57,14 @@ test('落單聲調數字視為字面數字（keysToTokens）', () => {
   ]);
 });
 
-test('落單空白不會變成字面字元（仍是分隔）', () => {
-  assert.deepEqual(keysToTokens('a93 '), [{ t: 'syl', v: 'ㄇㄞˇ' }]);
+test('落單空白＝使用者要打的空格（一聲已用掉時）', () => {
+  assert.deepEqual(keysToTokens('a93 '), [
+    { t: 'syl', v: 'ㄇㄞˇ' },
+    { t: 'lit', v: ' ' },
+  ]);
+});
+
+test('一聲：空白有待標調注音時仍是聲調，不是空格', () => {
+  // cj8 = ㄏㄨㄚ，空白＝一聲 → 花
+  assert.deepEqual(keysToTokens('cj8 '), [{ t: 'syl', v: 'ㄏㄨㄚ' }]);
 });

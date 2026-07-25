@@ -22,7 +22,8 @@ export const TONE_MARKS = { 1: '', 2: 'ˊ', 3: 'ˇ', 4: 'ˋ', 5: '˙' };
 // 把英文鍵位字串拆成 token 陣列：
 //   { t:'syl', v:'ㄋㄧˇ' }  可轉成漢字的注音音節
 //   { t:'lit', v:'3' }      原樣保留的字元（標點、或使用者真的要打的數字）
-// 聲調數字（3/4/6/7）若前面沒有待標調的注音，就不可能是聲調 → 視為字面數字。
+// 聲調鍵（空白＝一聲，3/4/6/7）若前面沒有待標調的注音，就不可能是聲調
+// → 視為使用者真的要打的字元（數字或空格）。
 export function keysToTokens(input) {
   const tokens = [];
   let current = '';
@@ -32,7 +33,7 @@ export function keysToTokens(input) {
   for (const ch of input.toLowerCase()) {
     if (Object.hasOwn(TONE_KEYS, ch)) {
       if (current) flush(TONE_MARKS[TONE_KEYS[ch]]);
-      else if (ch !== ' ') tokens.push({ t: 'lit', v: ch }); // 落單的聲調數字＝字面數字
+      else tokens.push({ t: 'lit', v: ch }); // 落單的聲調鍵＝字面數字／空格
       continue;
     }
     if (Object.hasOwn(LAYOUT, ch)) {
