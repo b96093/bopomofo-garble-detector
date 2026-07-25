@@ -3,10 +3,12 @@ import { convertCandidates } from './convert.js';
 import { COMMON_ENGLISH } from './english-common.js';
 
 const HAN = /[一-鿿㐀-䶿]/;
+// 使用者自己打的標點（非大千鍵）：切段用，原樣保留不轉換。
+// 含半形與全形／中文標點（中文輸入法用 Ctrl+鍵 會直接打出全形標點）。
+export const PUNCT = `?!:"'()、，。？！；：「」『』（）〈〉《》【】…—～·`;
 // 亂碼由：字母、聲調數字、空白、大千標點鍵，加上使用者自己打的標點組成
-const KEYSTROKE = /^[a-z0-9 ;/.,\-?!:"'()]+$/i;
-// 使用者自己打的標點（非大千鍵）：切段用，原樣保留不轉換
-const PUNCT = `?!:"'()`;
+const KEYSTROKE_KEY = /[a-z0-9 ;/.,\-]/i;
+const isRunChar = (ch) => KEYSTROKE_KEY.test(ch) || PUNCT.includes(ch);
 
 function hanRatio(s) {
   if (!s) return 0;
@@ -36,7 +38,7 @@ export function detect(input, dict, opts = {}) {
   const threshold = opts.threshold ?? 0.8; // 保守；設定頁「積極」可調低
   const minSyllables = opts.minSyllables ?? 2;
 
-  if (!input || !KEYSTROKE.test(input)) return null;
+  if (!input || ![...input].every(isRunChar)) return null;
 
   // Gate 3：整串就是常見英文字 → 不理
   if (COMMON_ENGLISH.has(input.trim().toLowerCase())) return null;

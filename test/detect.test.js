@@ -41,3 +41,17 @@ test('標點情境：syllables 與輸出字一一對應，標點位置為 null',
 test('只有標點：不觸發', () => {
   assert.equal(detect('???', dict), null);
 });
+
+test('全形中文標點（頓號、逗號）：不中斷，原樣保留', () => {
+  const r = detect('ji394su3、su35 2l4a8', dict);
+  assert.ok(r);
+  assert.ok(r.candidates[0].includes('、'), '應保留頓號');
+  assert.equal(r.candidates[0], '我愛你、你知道嗎');
+});
+
+test('全形標點位置的 syllables 為 null', () => {
+  const r = detect('ji394su3、su35 2l4a8', dict);
+  const best = [...r.candidates[0]];
+  assert.equal(r.syllables[best.indexOf('、')], null);
+  assert.equal(r.syllables.length, best.length);
+});
