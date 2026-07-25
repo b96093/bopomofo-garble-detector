@@ -42,10 +42,12 @@ export function initDetector(dict, detect, opts = {}) {
 
   document.addEventListener('keydown', (e) => {
     if (!popup.isVisible()) return;
-    if (e.key === 'Escape') { popup.hide(); active = null; }
-    else if (e.key === 'Enter') { e.preventDefault(); popup.commitDraft(); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); popup.move(1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); popup.move(-1); }
+    // 浮窗開著時，方向鍵/Enter 由浮窗接手；攔下以免網頁自己的選單（如搜尋建議）跟著動
+    if (popup.handleKey(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!popup.isVisible()) active = null;
+    }
   }, true);
 
   document.addEventListener('mousedown', (e) => {
