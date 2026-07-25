@@ -12,7 +12,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/engine/*.js"],
+      "resources": ["src/engine/*.js", "src/content/*.js"],
       "matches": ["<all_urls>"]
     }
   ],

@@ -6,16 +6,22 @@
   <title>文字亂碼偵測 — 測試頁</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
-    textarea { font-size: 18px; width: 100%; box-sizing: border-box; }
-    pre { background: #f4f4f4; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
+    textarea, input { font-size: 18px; width: 100%; box-sizing: border-box; padding: 8px; }
+    label { display:block; margin: 1rem 0 4px; color:#555; font-size:14px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 8px; white-space: pre-wrap; font-size:13px; }
     .ok { color: #178a4c; } .err { color: #c0392b; }
   </style>
 </head>
 <body>
   <h1>文字亂碼偵測 — 測試頁</h1>
-  <p>階段 1：確認引擎能在瀏覽器載入。下面框可自由打字（之後階段會接上浮窗）。</p>
-  <p>試試貼上：<code>ji394t au04</code></p>
+  <p>階段 2：在下面框打字，試打 <code>ji394t au04</code>（會跳候選窗，Enter/點擊替換）。</p>
+
+  <label>多行輸入（textarea）</label>
   <textarea id="ta" rows="4" placeholder="在這裡打字…"></textarea>
+
+  <label>單行輸入（input）</label>
+  <input id="in" type="text" placeholder="也可以在這裡試…">
+
   <h3>引擎狀態</h3>
   <pre id="log">載入中…</pre>
 
@@ -24,15 +30,11 @@
     try {
       const { loadDict } = await import('../../src/engine/dict.js');
       const { detect } = await import('../../src/engine/detect.js');
+      const { initDetector } = await import('../../src/content/detector.js');
       const t0 = performance.now();
       const dict = loadDict();
-      const ms = Math.round(performance.now() - t0);
-      let out = '';
-      out += `✅ 字典載入成功，條目：${dict.size.toLocaleString()}（耗時 ${ms}ms）\n\n`;
-      for (const s of ['ji394t au04', 'vu04g;4ej/ rm4j;3', 'the cat sat', 'hello']) {
-        out += `detect(${JSON.stringify(s)}) = ${JSON.stringify(detect(s, dict))}\n`;
-      }
-      log.textContent = out;
+      initDetector(dict, detect);
+      log.textContent = `✅ 已啟用，字典 ${dict.size.toLocaleString()} 條（載入 ${Math.round(performance.now() - t0)}ms）。到上面框打字試試。`;
       log.className = 'ok';
       window.__dict = dict; window.__detect = detect;
     } catch (e) {
