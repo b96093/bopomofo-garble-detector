@@ -49,16 +49,19 @@ test('連續聲調鍵不產生空音節（ji33 → 只有一個 ㄨㄛˇ）', ()
   assert.deepEqual(keysToZhuyin('ji33'), ['ㄨㄛˇ']);
 });
 
+// token 另含來源位置 start/end，測試只比對種類與內容
+const tv = (s) => keysToTokens(s).map(({ t, v }) => ({ t, v }));
+
 test('落單聲調數字視為字面數字（keysToTokens）', () => {
   // a93 = ㄇㄞˇ（買），第二個 3 前面已無待標調注音 → 字面數字
-  assert.deepEqual(keysToTokens('a933'), [
+  assert.deepEqual(tv('a933'), [
     { t: 'syl', v: 'ㄇㄞˇ' },
     { t: 'lit', v: '3' },
   ]);
 });
 
 test('落單空白＝使用者要打的空格（一聲已用掉時）', () => {
-  assert.deepEqual(keysToTokens('a93 '), [
+  assert.deepEqual(tv('a93 '), [
     { t: 'syl', v: 'ㄇㄞˇ' },
     { t: 'lit', v: ' ' },
   ]);
@@ -66,5 +69,5 @@ test('落單空白＝使用者要打的空格（一聲已用掉時）', () => {
 
 test('一聲：空白有待標調注音時仍是聲調，不是空格', () => {
   // cj8 = ㄏㄨㄚ，空白＝一聲 → 花
-  assert.deepEqual(keysToTokens('cj8 '), [{ t: 'syl', v: 'ㄏㄨㄚ' }]);
+  assert.deepEqual(tv('cj8 '), [{ t: 'syl', v: 'ㄏㄨㄚ' }]);
 });

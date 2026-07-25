@@ -68,3 +68,22 @@ test('數字位置的 syllables 為 null（不可換同音字）', () => {
   assert.equal(r.syllables[best.indexOf('3')], null);
   assert.equal(r.syllables.length, best.length);
 });
+
+test('注音符號鍵上的數字：音節查無時自動改判為數字（買N個，0-9）', () => {
+  for (let n = 0; n <= 9; n++) {
+    const r = detect('a93' + n + 'ek7', dict);
+    assert.ok(r, `買${n}個 應被偵測`);
+    assert.equal(r.candidates[0], `買${n}個`);
+  }
+});
+
+test('長句混合數字與標點', () => {
+  const r = detect('ji3u/ e9 3wu0 1j4vu3w.6?c96g42wu0', dict);
+  assert.ok(r);
+  assert.equal(r.candidates[0], '我應該3天不洗頭?還是2天');
+});
+
+test('數字修正不會讓英文誤判', () => {
+  assert.equal(detect('abc123', dict), null);
+  assert.equal(detect('r2d2', dict), null);
+});

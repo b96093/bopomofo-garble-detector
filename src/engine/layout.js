@@ -24,27 +24,35 @@ export const TONE_MARKS = { 1: '', 2: 'ˊ', 3: 'ˇ', 4: 'ˋ', 5: '˙' };
 //   { t:'lit', v:'3' }      原樣保留的字元（標點、或使用者真的要打的數字）
 // 聲調鍵（空白＝一聲，3/4/6/7）若前面沒有待標調的注音，就不可能是聲調
 // → 視為使用者真的要打的字元（數字或空格）。
-export function keysToTokens(input) {
+// forcedLiteral：一組字元索引，強制當成字面字元而非注音鍵
+// （給 detect 用來修正「1/2/5/8/9/0 其實是數字」的情況）
+// 每個 token 附上來源字元範圍 [start, end)，方便回頭修正。
+export function keysToTokens(input, forcedLiteral = null) {
   const tokens = [];
+  const lower = input.toLowerCase();
   let current = '';
-  const flush = (mark = '') => {
-    if (current) { tokens.push({ t: 'syl', v: current + mark }); current = ''; }
+  let start = 0;
+  const flush = (mark, end) => {
+    if (current) { tokens.push({ t: 'syl', v: current + mark, start, end }); current = ''; }
   };
-  for (const ch of input.toLowerCase()) {
-    if (Object.hasOwn(TONE_KEYS, ch)) {
-      if (current) flush(TONE_MARKS[TONE_KEYS[ch]]);
-      else tokens.push({ t: 'lit', v: ch }); // 落單的聲調鍵＝字面數字／空格
+  for (let i = 0; i < lower.length; i++) {
+    const ch = lower[i];
+    const forced = forcedLiteral && forcedLiteral.has(i);
+    if (!forced && Object.hasOwn(TONE_KEYS, ch)) {
+      if (current) flush(TONE_MARKS[TONE_KEYS[ch]], i + 1);
+      else tokens.push({ t: 'lit', v: input[i], start: i, end: i + 1 }); // 落單聲調鍵＝數字／空格
       continue;
     }
-    if (Object.hasOwn(LAYOUT, ch)) {
+    if (!forced && Object.hasOwn(LAYOUT, ch)) {
+      if (!current) start = i;
       current += LAYOUT[ch];
       continue;
     }
-    // 無法對應的字元（標點等）：先收掉手上的音節（視為一聲），該字元原樣保留
-    flush();
-    tokens.push({ t: 'lit', v: ch });
+    // 標點、或被強制視為字面的字元：先收掉手上的音節（視為一聲），該字元原樣保留
+    flush('', i);
+    tokens.push({ t: 'lit', v: input[i], start: i, end: i + 1 });
   }
-  flush();
+  flush('', lower.length);
   return tokens;
 }
 

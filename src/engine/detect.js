@@ -18,6 +18,24 @@ function hanRatio(s) {
   return n / chars.length;
 }
 
+// 數字鍵在注音鍵盤上多半是注音符號（1=ㄅ、2=ㄉ、5=ㄓ、8=ㄚ、9=ㄞ、0=ㄡ），
+// 但使用者也可能真的要打數字。若某音節查不到（如 2天 → ㄉㄊㄧㄢ，結構上不可能），
+// 就把該音節裡的數字改判為字面數字後重試。
+function tokenizeResolving(input, dict) {
+  const forced = new Set();
+  for (let i = 0; i <= 6; i++) { // 上限：避免病態輸入無限重試
+    const tokens = keysToTokens(input, forced);
+    const bad = tokens.find((t) => t.t === 'syl' && !dict.has(t.v));
+    if (!bad) return tokens;
+    let adjusted = false;
+    for (let k = bad.start; k < bad.end; k++) {
+      if (input[k] >= '0' && input[k] <= '9' && !forced.has(k)) { forced.add(k); adjusted = true; break; }
+    }
+    if (!adjusted) return tokens; // 沒有數字可調整 → 交給 Gate 1 擋掉
+  }
+  return keysToTokens(input, forced);
+}
+
 // 把 token 串成「可轉換的音節段」與「原樣保留段」交替的片段清單
 function toPieces(tokens) {
   const pieces = [];
@@ -41,7 +59,7 @@ export function detect(input, dict, opts = {}) {
   // Gate 3：整串就是常見英文字 → 不理
   if (COMMON_ENGLISH.has(input.trim().toLowerCase())) return null;
 
-  const pieces = toPieces(keysToTokens(input));
+  const pieces = toPieces(tokenizeResolving(input, dict));
   const sylPieces = pieces.filter((p) => p.syls);
   if (!sylPieces.length) return null;
 
