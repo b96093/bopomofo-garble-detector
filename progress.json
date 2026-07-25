@@ -1,20 +1,20 @@
 {
   "project": "文字亂碼偵測（Chrome 擴充）",
-  "lastUpdated": "2026-07-25T00:00:00+08:00",
+  "lastUpdated": "2026-07-25T12:00:00+08:00",
   "parts": [
     { "id": "design", "name": "設計與 spec", "progress": 100, "status": "completed" },
     { "id": "scaffold", "name": "專案骨架與 manifest", "progress": 100, "status": "completed" },
-    { "id": "engine", "name": "核心引擎（亂碼→漢字）", "progress": 80, "status": "in_progress",
+    { "id": "engine", "name": "核心引擎（亂碼→漢字）", "progress": 100, "status": "completed",
       "subParts": [
         { "id": "layout", "name": "大千對照表 → 注音", "progress": 100, "status": "completed" },
-        { "id": "dict", "name": "詞庫處理與查詢", "progress": 40, "status": "in_progress" },
-        { "id": "convert", "name": "詞庫選字演算法", "progress": 100, "status": "completed" }
+        { "id": "dict", "name": "詞庫處理與查詢", "progress": 100, "status": "completed" },
+        { "id": "convert", "name": "詞庫選字演算法（含多候選）", "progress": 100, "status": "completed" }
       ] },
-    { "id": "detect", "name": "偵測器（三道關卡）", "progress": 0, "status": "pending" },
+    { "id": "detect", "name": "偵測器（三道關卡）", "progress": 100, "status": "completed" },
     { "id": "shell", "name": "擴充外殼（監看/替換）", "progress": 0, "status": "pending" },
     { "id": "popup", "name": "候選窗 UI", "progress": 0, "status": "pending" },
     { "id": "options", "name": "設定頁", "progress": 0, "status": "pending" },
-    { "id": "test", "name": "測試", "progress": 0, "status": "pending" },
+    { "id": "test", "name": "測試", "progress": 60, "status": "in_progress" },
     { "id": "package", "name": "打包與散布", "progress": 0, "status": "pending" }
   ],
   "visual": {
