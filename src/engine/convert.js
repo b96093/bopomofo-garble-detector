@@ -2,11 +2,14 @@ import { keysToZhuyin } from './layout.js';
 
 const MAX_WORD_LEN = 4;
 
+// input 可以是英文鍵位字串，或已算好的注音音節陣列（避免重複斷詞）
+const toSyllables = (input) => (Array.isArray(input) ? input : keysToZhuyin(input));
+
 // input：英文鍵位亂碼字串
 // dict：Map，key = 注音音節串接，value = [[詞, 詞頻], ...]（依詞頻降冪）
 // 回傳：最可能的漢字串
 export function convert(input, dict) {
-  const syllables = keysToZhuyin(input);
+  const syllables = toSyllables(input);
   let out = '';
   let i = 0;
   while (i < syllables.length) {
@@ -32,7 +35,7 @@ export function convert(input, dict) {
 
 // 貪婪斷詞，回傳每段的候選清單
 function segment(input, dict) {
-  const syllables = keysToZhuyin(input);
+  const syllables = toSyllables(input);
   const segments = [];
   let i = 0;
   while (i < syllables.length) {

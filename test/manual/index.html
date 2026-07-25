@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文字亂碼偵測 — 測試頁</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    textarea, input { font-size: 18px; width: 100%; box-sizing: border-box; padding: 8px; }
+    label { display:block; margin: 1rem 0 4px; color:#555; font-size:14px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 8px; white-space: pre-wrap; font-size:13px; }
+    .ok { color: #178a4c; } .err { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <h1>文字亂碼偵測 — 測試頁</h1>
+  <p>階段 2：在下面框打字，試打 <code>ji394t au04</code>（會跳候選窗，Enter/點擊替換）。</p>
+
+  <label>多行輸入（textarea）</label>
+  <textarea id="ta" rows="4" placeholder="在這裡打字…"></textarea>
+
+  <label>單行輸入（input）</label>
+  <input id="in" type="text" placeholder="也可以在這裡試…">
+
+  <label>富文字框（contenteditable，模擬 FB 留言框）</label>
+  <div id="ce" contenteditable="true"
+       style="border:1px solid #ccc;border-radius:6px;padding:8px;min-height:44px;font-size:18px"></div>
+
+  <h3>引擎狀態</h3>
+  <pre id="log">載入中…</pre>
+
+  <script type="module">
+    const log = document.getElementById('log');
+    try {
+      const { loadDict } = await import('../../src/engine/dict.js');
+      const { detect } = await import('../../src/engine/detect.js');
+      const { initDetector } = await import('../../src/content/detector.js');
+      const t0 = performance.now();
+      const dict = loadDict();
+      initDetector(dict, detect);
+      log.textContent = `✅ 已啟用，字典 ${dict.size.toLocaleString()} 條（載入 ${Math.round(performance.now() - t0)}ms）。到上面框打字試試。`;
+      log.className = 'ok';
+      window.__dict = dict; window.__detect = detect;
+    } catch (e) {
+      log.textContent = '❌ 載入失敗：' + e.message + '\n' + e.stack;
+      log.className = 'err';
+    }
+  </script>
+</body>
+</html>

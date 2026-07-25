@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>文字亂碼偵測 — 設定</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 460px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+    h1 { font-size: 20px; }
+    .row { margin: 1.2rem 0; }
+    .hint { color: #777; font-size: 13px; margin-top: 4px; }
+    label { font-size: 15px; }
+    fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; }
+    legend { font-size: 13px; color: #666; }
+    #status { color: #178a4c; font-size: 13px; height: 16px; }
+  </style>
+</head>
+<body>
+  <h1>文字亂碼偵測 — 設定</h1>
+
+  <div class="row">
+    <label><input type="checkbox" id="enabled"> 啟用偵測</label>
+    <div class="hint">關閉後，打字時不會跳出候選窗。</div>
+  </div>
+
+  <fieldset>
+    <legend>偵測靈敏度</legend>
+    <div class="row">
+      <label><input type="radio" name="mode" value="conservative"> 保守（建議）</label>
+      <div class="hint">只有很有把握才跳，幾乎不打擾；偶爾可能漏接短亂碼。</div>
+    </div>
+    <div class="row">
+      <label><input type="radio" name="mode" value="aggressive"> 積極</label>
+      <div class="hint">寧可多跳、抓好抓滿；打英文時偶爾可能被跳出打擾。</div>
+    </div>
+  </fieldset>
+
+  <p id="status"></p>
+  <p class="hint">變更後，重新整理正在編輯的網頁即可生效。</p>
+
+  <script src="options.js"></script>
+</body>
+</html>

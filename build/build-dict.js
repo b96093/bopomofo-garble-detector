@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const MAX_CANDIDATES_PER_KEY = 10;
+const MAX_WORD_CANDIDATES = 10;  // 多音節詞（含空格）：整句候選夠用即可
+const MAX_CHAR_CANDIDATES = 50;  // 單音節：供「逐字換同音字」，需較完整的同音字表
 
 function readLines(url) {
   return readFileSync(url, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean);
@@ -39,9 +40,10 @@ export function buildDict({ mappings, base, occ }) {
 
   const out = new Map();
   for (const [key, inner] of acc) {
+    const cap = key.includes(' ') ? MAX_WORD_CANDIDATES : MAX_CHAR_CANDIDATES;
     const entries = [...inner.entries()]
       .sort((a, b) => b[1] - a[1])
-      .slice(0, MAX_CANDIDATES_PER_KEY);
+      .slice(0, cap);
     out.set(key, entries);
   }
   return out;
