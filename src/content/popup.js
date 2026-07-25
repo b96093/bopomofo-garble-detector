@@ -26,7 +26,8 @@ export function createPopup() {
       .ch{font-size:19px;padding:2px 7px;border-radius:6px;cursor:pointer;border:1px solid transparent}
       .ch:hover{background:#f0f0f0}
       .ch.open{background:#e8f1fd;border-color:#bcd6f7;color:#1a5fb4}
-      .tray{display:flex;flex-wrap:wrap;gap:5px;padding:6px 8px;margin:2px 6px;background:#f7f7f7;border-radius:8px}
+      .tray{display:flex;flex-wrap:wrap;gap:5px;padding:6px 8px;margin:2px 6px;background:#f7f7f7;
+        border-radius:8px;max-height:132px;overflow-y:auto}
       .hom{font-size:17px;padding:3px 9px;border-radius:6px;cursor:pointer;border:1px solid #e2e2e2;background:#fff}
       .hom:hover{background:#e8f1fd;border-color:#bcd6f7}
       .hom.cur{background:#e8f1fd;border-color:#3a76d8;color:#1a5fb4}
@@ -53,7 +54,7 @@ export function createPopup() {
       draft.map((ch, k) => `<span class="ch${k === openChar ? ' open' : ''}" data-ch="${k}">${esc(ch)}</span>`).join('') +
       `</div>`;
     if (openChar >= 0) {
-      const homs = homophonesFor(openChar).slice(0, 16);
+      const homs = homophonesFor(openChar);
       h += `<div class="tray">` +
         (homs.length
           ? homs.map((w) => `<span class="hom${w === draft[openChar] ? ' cur' : ''}" data-hom="${esc(w)}">${esc(w)}</span>`).join('')
