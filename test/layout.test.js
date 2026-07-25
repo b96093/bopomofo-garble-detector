@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { keysToZhuyin } from '../src/engine/layout.js';
+import { keysToZhuyin, keysToTokens } from '../src/engine/layout.js';
 
 test('單一音節含三聲：ji3 → ㄨㄛˇ', () => {
   assert.deepEqual(keysToZhuyin('ji3'), ['ㄨㄛˇ']);
@@ -47,4 +47,16 @@ test('開頭的聲調鍵被忽略（前面沒有音節）', () => {
 
 test('連續聲調鍵不產生空音節（ji33 → 只有一個 ㄨㄛˇ）', () => {
   assert.deepEqual(keysToZhuyin('ji33'), ['ㄨㄛˇ']);
+});
+
+test('落單聲調數字視為字面數字（keysToTokens）', () => {
+  // a93 = ㄇㄞˇ（買），第二個 3 前面已無待標調注音 → 字面數字
+  assert.deepEqual(keysToTokens('a933'), [
+    { t: 'syl', v: 'ㄇㄞˇ' },
+    { t: 'lit', v: '3' },
+  ]);
+});
+
+test('落單空白不會變成字面字元（仍是分隔）', () => {
+  assert.deepEqual(keysToTokens('a93 '), [{ t: 'syl', v: 'ㄇㄞˇ' }]);
 });

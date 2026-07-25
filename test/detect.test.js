@@ -55,3 +55,16 @@ test('全形標點位置的 syllables 為 null', () => {
   assert.equal(r.syllables[best.indexOf('、')], null);
   assert.equal(r.syllables.length, best.length);
 });
+
+test('落單的聲調數字＝使用者要打的數字，原樣保留', () => {
+  const r = detect('bj6eji3a933ek7sk', dict);
+  assert.ok(r);
+  assert.equal(r.candidates[0], '如果買3個呢');
+});
+
+test('數字位置的 syllables 為 null（不可換同音字）', () => {
+  const r = detect('bj6eji3a933ek7sk', dict);
+  const best = [...r.candidates[0]];
+  assert.equal(r.syllables[best.indexOf('3')], null);
+  assert.equal(r.syllables.length, best.length);
+});
