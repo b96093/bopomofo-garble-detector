@@ -5,6 +5,8 @@
 ;
 ; 隱私設計：輸入緩衝只存在記憶體、永不寫入檔案、完全不連網；
 ; 按下 Enter/Tab/Esc/方向鍵、點滑鼠、切換視窗都會立刻清空緩衝。
+;
+; 效能：候選窗的控制項只建立一次，之後只更新內容與位置（避免重建造成閃爍）。
 #Include engine.ahk
 
 global DICT := ""
@@ -15,13 +17,19 @@ global BUSY := false      ; 執行替換中，暫停監看避免吃到自己送�
 global PAUSED := false
 global LASTWIN := 0
 global POPUP := ""
+global UI := ""           ; 控制項池
 global POPUP_ON := false
 ; 注意：所有全域初始化都必須寫在第一個熱鍵之前，
 ; 因為 AHK 的自動執行區在遇到熱鍵定義時就結束了。
 
 ; 版面尺寸
-global PAD := 12, CANDH := 27, CELL := 31, TRAYCELL := 29, TRAYCOLS := 10, CHARCOLS := 10
-global CW := TRAYCOLS * TRAYCELL + 6      ; 內容寬度
+global PAD := 13, CANDH := 27, CELL := 32, TCELL := 30, TCOLS := 10, CCOLS := 10
+global MAXCAND := 3, MAXCHAR := 24, MAXHOM := 50
+global CW := TCOLS * TCELL + 4
+
+; 配色
+global C_BG := "FFFFFF", C_SEL := "E8F1FD", C_SELDIM := "F3F3F3", C_CELL := "F7F7F7"
+global C_TEXT := "1E1E1E", C_MUTED := "8A8A8A", C_ACCENT := "1A5FB4", C_LINE := "ECECEC"
 
 ; ---------- 啟動 ----------
 TraySetIcon(A_ScriptDir "\icon.ico", 1, true)
@@ -31,6 +39,7 @@ A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
 A_TrayMenu.Add("結束", (*) => ExitApp())
 
 DICT := LoadDict(A_ScriptDir "\dict.txt")
+BuildPopup()
 A_IconTip := "注音亂碼偵測（監看中）"
 Tip("注音亂碼偵測已啟動`n詞庫 " . DICT.Count . " 讀音", 2000)
 
@@ -45,7 +54,6 @@ IH.Start()
 SetTimer(WatchWindow, 400)
 
 OnChar(hook, ch) {
-    global BUF, BUSY, PAUSED
     if (BUSY || PAUSED)
         return
     if !IsRunChar(ch) {           ; 中文字等非按鍵字元 → 視為新段落
@@ -57,10 +65,7 @@ OnChar(hook, ch) {
 }
 
 OnResetKey(hook, vk, sc) {
-    global BUF, BUSY, POPUP_ON
-    if (BUSY)
-        return
-    if (POPUP_ON)                 ; 候選窗開著時，方向鍵等交給熱鍵處理
+    if (BUSY || POPUP_ON)         ; 候選窗開著時，方向鍵等交給熱鍵處理
         return
     if (vk = 8) {                 ; 退格：跟著縮短緩衝
         if (BUF != "")
@@ -86,8 +91,7 @@ WatchWindow() {
 
 ; 點在候選窗上不算「點別處」，否則會在點到候選之前就先關掉視窗
 ClickAway() {
-    global POPUP
-    if (POPUP != "") {
+    if (POPUP != "" && POPUP_ON) {
         MouseGetPos(, , &hwnd)
         try {
             if (hwnd == POPUP.Hwnd)
@@ -105,7 +109,7 @@ Reset() {
 
 ; ---------- 偵測 ----------
 Scan() {
-    global BUF, HIT, DICT, PAUSED
+    global HIT
     if (PAUSED || BUF == "") {
         HidePopup()
         return
@@ -118,7 +122,6 @@ Scan() {
     OpenCandidates(HIT.res)
 }
 
-; ---------- 候選窗狀態 ----------
 StrChars(s) {
     out := []
     Loop Parse s
@@ -128,8 +131,7 @@ StrChars(s) {
 
 ; 第 k 個字可換的同音字（標點／數字回空陣列）
 HomsAt(k) {
-    global ST, DICT
-    if (k < 1 || k > ST.syls.Length)
+    if (ST == "" || k < 1 || k > ST.syls.Length)
         return []
     syl := ST.syls[k]
     if (syl == "")
@@ -152,7 +154,6 @@ OpenCandidates(res) {
 
 ; 找下一個可換字的位置（跳過標點／數字）；找不到回 0
 SeekChar(from, d) {
-    global ST
     k := from
     while (k >= 1 && k <= ST.draft.Length) {
         if (HomsAt(k).Length)
@@ -162,116 +163,186 @@ SeekChar(from, d) {
     return 0
 }
 
-; ---------- 繪製 ----------
-Render() {
-    global ST, POPUP, POPUP_ON, PAD, CANDH, CELL, TRAYCELL, TRAYCOLS, CHARCOLS, CW
-
-    if (POPUP != "") {
-        try POPUP.Destroy()
-        POPUP := ""
-    }
+; ---------- 建立候選窗（只做一次） ----------
+BuildPopup() {
+    global POPUP, UI
     POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
-    POPUP.BackColor := "FFFFFF"
+    POPUP.BackColor := C_BG
     POPUP.MarginX := 0, POPUP.MarginY := 0
+    UI := {cands: [], keys: [], chars: [], homs: []}
 
-    inSent := (ST.zone == "sent")
-    y := PAD
+    ; 標題列（logo + 說明）
+    try UI.logo := POPUP.Add("Picture", "x" . PAD . " y11 w16 h16", A_ScriptDir "\icon.ico")
+    POPUP.SetFont("s9", "Microsoft JhengHei")
+    UI.title := POPUP.Add("Text", "x" . (PAD + 22) . " y12 w220 h17 c" . C_MUTED, "偵測到注音亂碼")
 
     ; 整句候選
     POPUP.SetFont("s12", "Microsoft JhengHei")
-    for i, c in ST.cands {
-        bg := (i == ST.sel) ? (inSent ? "BackgroundE8F1FD" : "BackgroundF2F2F2") : "BackgroundFFFFFF"
-        t := POPUP.Add("Text", "x" . PAD . " y" . y . " w" . CW . " h" . (CANDH - 3) . " " . bg . " cBlack", "  " . c)
+    Loop MAXCAND {
+        i := A_Index
+        t := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h" . (CANDH - 3) . " Hidden Background" . C_BG . " c" . C_TEXT, "")
         t.OnEvent("Click", CandHandler(i))
+        UI.cands.Push(t)
+    }
+    POPUP.SetFont("s8", "Microsoft JhengHei")
+    Loop MAXCAND
+        UI.keys.Push(POPUP.Add("Text", "x0 y0 w40 h15 Hidden Background" . C_SEL . " c3A76D8", "Enter"))
+
+    ; 分隔線與說明
+    UI.line1 := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h1 Hidden Background" . C_LINE, "")
+    UI.label := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h16 Hidden c" . C_MUTED, "逐字換同音字（點字，或按 ↓ 進入）")
+
+    ; 逐字格
+    POPUP.SetFont("s12", "Microsoft JhengHei")
+    Loop MAXCHAR {
+        k := A_Index
+        t := POPUP.Add("Text", "x0 y0 w" . (CELL - 4) . " h" . (CELL - 5) . " Center Hidden Background" . C_CELL . " c" . C_TEXT, "")
+        t.OnEvent("Click", CharHandler(k))
+        UI.chars.Push(t)
+    }
+
+    ; 同音字格
+    POPUP.SetFont("s11", "Microsoft JhengHei")
+    UI.line2 := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h1 Hidden Background" . C_LINE, "")
+    Loop MAXHOM {
+        i := A_Index
+        t := POPUP.Add("Text", "x0 y0 w" . (TCELL - 4) . " h" . (TCELL - 4) . " Center Hidden Background" . C_CELL . " c" . C_TEXT, "")
+        t.OnEvent("Click", HomHandler(i))
+        UI.homs.Push(t)
+    }
+
+    ; 插入鈕與提示
+    POPUP.SetFont("s11", "Microsoft JhengHei")
+    UI.btn := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h27 Center Hidden Background" . C_SEL . " c" . C_ACCENT, "")
+    UI.btn.OnEvent("Click", (*) => SetTimer(() => Accept(DraftText()), -1))
+    POPUP.SetFont("s8", "Microsoft JhengHei")
+    UI.hint := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h16 Hidden c999999", "")
+
+    ; Windows 11 圓角與細邊框（舊版系統會靜默略過）
+    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
+    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 34, "UInt*", 0x00D8D8D8, "UInt", 4)
+}
+
+; 暫停重繪 → 更新 → 一次畫完，避免閃爍
+SetRedraw(hwnd, on) {
+    DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x000B, "Ptr", on ? 1 : 0, "Ptr", 0)
+}
+
+; ---------- 更新候選窗內容 ----------
+Render() {
+    global POPUP_ON
+    if (ST == "")
+        return
+    SetRedraw(POPUP.Hwnd, false)
+
+    inSent := (ST.zone == "sent")
+    y := 34
+
+    ; 整句候選
+    for i, ctrl in UI.cands {
+        key := UI.keys[i]
+        if (i > ST.cands.Length) {
+            ctrl.Visible := false, key.Visible := false
+            continue
+        }
+        bg := (i == ST.sel) ? (inSent ? C_SEL : C_SELDIM) : C_BG
+        ctrl.Value := "  " . ST.cands[i]
+        ctrl.Opt("Background" . bg)
+        ctrl.Move(PAD, y, CW, CANDH - 3)
+        ctrl.Visible := true
         if (i == ST.sel && inSent) {
-            POPUP.SetFont("s8")
-            POPUP.Add("Text", "x" . (PAD + CW - 42) . " y" . (y + 6) . " w40 h16 " . bg . " c3A76D8", "Enter")
-            POPUP.SetFont("s12", "Microsoft JhengHei")
+            key.Opt("Background" . bg)
+            key.Move(PAD + CW - 44, y + 6, 40, 15)
+            key.Visible := true
+        } else {
+            key.Visible := false
         }
         y += CANDH
     }
 
-    ; 分隔線 + 說明
-    y += 4
-    POPUP.Add("Text", "x" . PAD . " y" . y . " w" . CW . " h1 BackgroundEEEEEE", "")
-    y += 6
-    POPUP.SetFont("s8", "Microsoft JhengHei")
-    POPUP.Add("Text", "x" . PAD . " y" . y . " w" . CW . " h16 c888888", "逐字換同音字（點字，或按 ↓ 進入）")
-    y += 19
+    ; 分隔線與說明
+    y += 5
+    UI.line1.Move(PAD, y, CW, 1), UI.line1.Visible := true
+    y += 7
+    UI.label.Move(PAD, y, CW, 16), UI.label.Visible := true
+    y += 20
 
-    ; 逐字列
-    POPUP.SetFont("s12", "Microsoft JhengHei")
+    ; 逐字格
     col := 0
-    for k, ch in ST.draft {
-        editable := HomsAt(k).Length > 0
-        cx := PAD + col * CELL
-        if (!editable) {
-            POPUP.Add("Text", "x" . cx . " y" . y . " w" . (CELL - 3) . " h" . (CELL - 4) . " Center BackgroundFFFFFF c999999", ch)
-        } else {
-            bg := "BackgroundFFFFFF"
-            fg := "cBlack"
-            if (!inSent && k == ST.ci) {
-                bg := "BackgroundE8F1FD"
-                fg := "c1A5FB4"
-            }
-            t := POPUP.Add("Text", "x" . cx . " y" . y . " w" . (CELL - 3) . " h" . (CELL - 4) . " Center " . bg . " " . fg, ch)
-            t.OnEvent("Click", CharHandler(k))
+    for k, ctrl in UI.chars {
+        if (k > ST.draft.Length) {
+            ctrl.Visible := false
+            continue
         }
+        editable := HomsAt(k).Length > 0
+        bg := C_CELL, fg := C_TEXT
+        if (!editable) {
+            bg := C_BG, fg := C_MUTED
+        } else if (!inSent && k == ST.ci) {
+            bg := C_SEL, fg := C_ACCENT
+        }
+        ctrl.Value := ST.draft[k]
+        ctrl.Opt("Background" . bg . " c" . fg)
+        ctrl.Move(PAD + col * CELL, y, CELL - 4, CELL - 5)
+        ctrl.Visible := true
         col++
-        if (col >= CHARCOLS) {
+        if (col >= CCOLS) {
             col := 0
             y += CELL
         }
     }
     if (col > 0)
         y += CELL
-    y += 2
+    y += 3
 
-    ; 同音字盤
-    if (ST.zone == "tray") {
-        homs := HomsAt(ST.ci)
-        POPUP.Add("Text", "x" . PAD . " y" . y . " w" . CW . " h1 BackgroundEEEEEE", "")
-        y += 5
-        tcol := 0
-        for i, w in homs {
-            tx := PAD + tcol * TRAYCELL
-            bg := "BackgroundF7F7F7"
-            fg := "cBlack"
-            if (i == ST.hi) {
-                bg := "BackgroundE8F1FD"
-                fg := "c1A5FB4"
-            } else if (w == ST.draft[ST.ci]) {
-                bg := "BackgroundF0F6FF"
-            }
-            t := POPUP.Add("Text", "x" . tx . " y" . y . " w" . (TRAYCELL - 3) . " h" . (TRAYCELL - 3) . " Center " . bg . " " . fg, w)
-            t.OnEvent("Click", HomHandler(i))
-            tcol++
-            if (tcol >= TRAYCOLS) {
-                tcol := 0
-                y += TRAYCELL
-            }
-        }
-        if (tcol > 0)
-            y += TRAYCELL
-        y += 2
+    ; 同音字格
+    homs := (ST.zone == "tray") ? HomsAt(ST.ci) : []
+    if (homs.Length) {
+        UI.line2.Move(PAD, y, CW, 1), UI.line2.Visible := true
+        y += 6
+    } else {
+        UI.line2.Visible := false
     }
+    tcol := 0
+    for i, ctrl in UI.homs {
+        if (i > homs.Length) {
+            ctrl.Visible := false
+            continue
+        }
+        bg := C_CELL, fg := C_TEXT
+        if (i == ST.hi) {
+            bg := C_SEL, fg := C_ACCENT
+        } else if (homs[i] == ST.draft[ST.ci]) {
+            bg := "F0F6FF"
+        }
+        ctrl.Value := homs[i]
+        ctrl.Opt("Background" . bg . " c" . fg)
+        ctrl.Move(PAD + tcol * TCELL, y, TCELL - 4, TCELL - 4)
+        ctrl.Visible := true
+        tcol++
+        if (tcol >= TCOLS) {
+            tcol := 0
+            y += TCELL
+        }
+    }
+    if (tcol > 0)
+        y += TCELL
+    if (homs.Length)
+        y += 3
 
     ; 插入鈕
     y += 4
-    POPUP.SetFont("s11", "Microsoft JhengHei")
-    draftStr := ""
-    for ch in ST.draft
-        draftStr .= ch
-    b := POPUP.Add("Text", "x" . PAD . " y" . y . " w" . CW . " h26 Center BackgroundE8F1FD c1A5FB4", "插入「" . draftStr . "」")
-    b.OnEvent("Click", (*) => SetTimer(() => Accept(DraftText()), -1))
-    y += 30
+    UI.btn.Value := "插入「" . DraftText() . "」"
+    UI.btn.Move(PAD, y, CW, 27)
+    UI.btn.Visible := true
+    y += 31
 
     ; 操作提示
-    POPUP.SetFont("s8", "Microsoft JhengHei")
-    hint := inSent ? "↑↓ 選句 · ↓ 進逐字 · Enter 插入"
+    UI.hint.Value := inSent ? "↑↓ 選句 · ↓ 進逐字 · Enter 插入"
         : (ST.zone == "chars") ? "←→ 選字 · ↓ 展開同音 · Enter 插入"
         : "←→↑↓ 選同音字 · Enter 換上 · Esc 返回"
-    POPUP.Add("Text", "x" . PAD . " y" . y . " w" . CW . " h16 c999999", hint)
+    UI.hint.Move(PAD, y, CW, 16)
+    UI.hint.Visible := true
     y += 20
 
     px := 0, py := 0
@@ -279,12 +350,15 @@ Render() {
         MouseGetPos(&px, &py), py += 22
     POPUP.Show("NoActivate x" . px . " y" . (py + 24) . " w" . (CW + PAD * 2) . " h" . y)
     POPUP_ON := true
+
+    SetRedraw(POPUP.Hwnd, true)
+    DllCall("RedrawWindow", "Ptr", POPUP.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
 }
 
 ; 事件處理工廠（在迴圈裡直接寫箭頭函式會共用同一個變數，必須用工廠函式）
-; 動作一律延後到事件處理結束後才執行 —— 因為這些動作會銷毀視窗本身
+; 動作延後到事件處理結束後執行
 CandHandler(i) {
-    return (*) => SetTimer(() => Accept(ST.cands[i]), -1)
+    return (*) => SetTimer(() => (ST != "" && i <= ST.cands.Length) ? Accept(ST.cands[i]) : 0, -1)
 }
 CharHandler(k) {
     return (*) => SetTimer(() => ToggleChar(k), -1)
@@ -294,15 +368,17 @@ HomHandler(i) {
 }
 
 DraftText() {
-    global ST
     s := ""
+    if (ST == "")
+        return s
     for ch in ST.draft
         s .= ch
     return s
 }
 
 ToggleChar(k) {
-    global ST
+    if (ST == "" || !HomsAt(k).Length)
+        return
     if (ST.zone == "tray" && ST.ci == k) {
         ST.zone := "chars"
     } else {
@@ -314,7 +390,6 @@ ToggleChar(k) {
 }
 
 CurrentHomIdx(k) {
-    global ST
     for i, w in HomsAt(k)
         if (w == ST.draft[k])
             return i
@@ -322,7 +397,8 @@ CurrentHomIdx(k) {
 }
 
 PickHom(i) {
-    global ST
+    if (ST == "")
+        return
     homs := HomsAt(ST.ci)
     if (!homs.Length)
         return
@@ -336,12 +412,11 @@ PickHom(i) {
 }
 
 HidePopup() {
-    global POPUP, POPUP_ON
-    if (POPUP != "") {
-        try POPUP.Destroy()
-        POPUP := ""
+    global POPUP_ON
+    if (POPUP_ON && POPUP != "") {
+        try POPUP.Hide()
+        POPUP_ON := false
     }
-    POPUP_ON := false
 }
 
 ; 取得游標（插入點）螢幕座標；取不到回 false
@@ -367,7 +442,6 @@ Right:: Move("right")
 #HotIf
 
 OnEnter() {
-    global ST
     if (ST == "")
         return
     if (ST.zone == "tray")
@@ -379,7 +453,6 @@ OnEnter() {
 }
 
 OnEsc() {
-    global ST
     if (ST != "" && ST.zone == "tray") {
         ST.zone := "chars"
         Render()
@@ -389,7 +462,6 @@ OnEsc() {
 }
 
 Move(dir) {
-    global ST
     if (ST == "")
         return
     zone := ST.zone
@@ -400,16 +472,12 @@ Move(dir) {
                 SelectCand(ST.sel + 1)
             else {
                 k := SeekChar(1, 1)
-                if (k) {
-                    ST.zone := "chars"
-                    ST.ci := k
-                }
+                if (k)
+                    ST.zone := "chars", ST.ci := k
             }
         } else if (zone == "chars") {
-            if (HomsAt(ST.ci).Length) {
-                ST.zone := "tray"
-                ST.hi := CurrentHomIdx(ST.ci)
-            }
+            if (HomsAt(ST.ci).Length)
+                ST.zone := "tray", ST.hi := CurrentHomIdx(ST.ci)
         } else {
             MoveHomRow(1)
         }
@@ -424,10 +492,8 @@ Move(dir) {
         d := (dir == "right") ? 1 : -1
         if (zone == "sent") {
             k := SeekChar(d > 0 ? 1 : ST.draft.Length, d)
-            if (k) {
-                ST.zone := "chars"
-                ST.ci := k
-            }
+            if (k)
+                ST.zone := "chars", ST.ci := k
         } else if (zone == "chars") {
             k := SeekChar(ST.ci + d, d)
             if (k)
@@ -447,7 +513,6 @@ Move(dir) {
 }
 
 SelectCand(i) {
-    global ST
     ST.sel := i
     ST.draft := StrChars(ST.cands[i])   ; 換句就重置逐字修改
     ST.zone := "sent"
@@ -455,11 +520,10 @@ SelectCand(i) {
 
 ; 同音字盤是固定欄數的格子，上下就是 ±欄數
 MoveHomRow(d) {
-    global ST, TRAYCOLS
     n := HomsAt(ST.ci).Length
     if (!n)
         return false
-    target := ST.hi + d * TRAYCOLS
+    target := ST.hi + d * TCOLS
     if (target < 1 || target > n)
         return false
     ST.hi := target
@@ -468,7 +532,7 @@ MoveHomRow(d) {
 
 ; ---------- 替換 ----------
 Accept(text) {
-    global BUF, HIT, BUSY, IH, ST
+    global BUF, HIT, BUSY, ST
     if (HIT == "")
         return
     n := StrLen(BUF) - HIT.offset          ; 只替換被辨識的那一段
