@@ -54,6 +54,7 @@ IH.Start()
 SetTimer(WatchWindow, 400)
 
 OnChar(hook, ch) {
+    global BUF          ; 函式內有指派的變數一定要宣告，否則會被當成區域變數
     if (BUSY || PAUSED)
         return
     if !IsRunChar(ch) {           ; 中文字等非按鍵字元 → 視為新段落
@@ -65,6 +66,7 @@ OnChar(hook, ch) {
 }
 
 OnResetKey(hook, vk, sc) {
+    global BUF
     if (BUSY || POPUP_ON)         ; 候選窗開著時，方向鍵等交給熱鍵處理
         return
     if (vk = 8) {                 ; 退格：跟著縮短緩衝
