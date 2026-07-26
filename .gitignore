@@ -2,3 +2,5 @@ node_modules/
 build/data/
 
 dist/
+
+desktop/dict.txt
