@@ -225,7 +225,27 @@ CalcWidth() {
         maxLen := Max(maxLen, StrLen(c))
     w := maxLen * 21 + 34
     w := Max(w, ST.draft.Length * CELL + 10)   ; 讓逐字列盡量排成一行
-    return Max(304, Min(w, 900))
+    return Max(304, Min(w, 720))
+}
+
+; 把視窗夾在螢幕可用範圍內；下方放不下就翻到插入點上方
+ClampToScreen(&x, &y, w, h) {
+    L := 0, T := 0, R := A_ScreenWidth, B := A_ScreenHeight
+    Loop MonitorGetCount() {
+        MonitorGetWorkArea(A_Index, &ml, &mt, &mr, &mb)
+        if (x >= ml && x < mr && y >= mt - 60 && y < mb + 60) {
+            L := ml, T := mt, R := mr, B := mb
+            break
+        }
+    }
+    if (x + w > R - 8)
+        x := R - 8 - w
+    if (x < L + 8)
+        x := L + 8
+    if (y + h > B - 8)
+        y := y - h - 28          ; 翻到插入點上方
+    if (y < T + 8)
+        y := T + 8
 }
 
 ; 放不下時截斷顯示（實際插入的仍是完整內容）
@@ -357,7 +377,9 @@ ShowIcon(preview) {
     ICONTEXT.Move(32, 9, w - 44, 22)
     ICONHINT.Move(32, 32, w - 44, 18)
     MouseGetPos(&mx, &my)
-    ICON.Show("NoActivate x" . (mx + 8) . " y" . (my + 18) . " w" . w . " h58")
+    ix := mx + 8, iy := my + 18
+    ClampToScreen(&ix, &iy, w, 58)
+    ICON.Show("NoActivate x" . ix . " y" . iy . " w" . w . " h58")
     ICON_ON := true
 }
 
@@ -510,9 +532,12 @@ Render() {
     y += 20
 
     ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
-    geo := ANCX . "," . ANCY . "," . (CW + PAD * 2) . "," . y
+    winW := CW + PAD * 2, winH := y
+    px := ANCX, py := ANCY
+    ClampToScreen(&px, &py, winW, winH)
+    geo := px . "," . py . "," . winW . "," . winH
     if (!POPUP_ON || geo != LASTGEO) {
-        POPUP.Show("NoActivate x" . ANCX . " y" . ANCY . " w" . (CW + PAD * 2) . " h" . y)
+        POPUP.Show("NoActivate x" . px . " y" . py . " w" . winW . " h" . winH)
         LASTGEO := geo
         POPUP_ON := true
         changed := true
