@@ -158,14 +158,12 @@ Accept() {
 
     BUSY := true
     IH.Stop()
-    saved := ClipboardAll()
-    A_Clipboard := text
-    if ClipWait(1) {
+    ; 直接送出 Unicode 文字，完全不動剪貼簿
+    ;（先前用「暫存剪貼簿→貼上→還原」會因為程式讀取剪貼簿較慢而貼到舊內容）
+    if (n > 0)
         Send("{BackSpace " . n . "}")
-        Send("^v")
-        Sleep(180)
-    }
-    A_Clipboard := saved
+    SendText(text)
+    Sleep(30)
     BUF := "", HIT := ""
     IH.Start()
     BUSY := false
