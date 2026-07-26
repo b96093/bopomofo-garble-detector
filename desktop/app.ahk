@@ -23,7 +23,7 @@ global CELLSTATE := Map() ; 每個控制項目前的內容簽章，用來跳過�
 global LASTGEO := ""      ; 視窗目前的位置與大小
 global ANCX := 0, ANCY := 0  ; 候選窗定位點（開啟時算一次，導航期間不再變動）
 ; 選取轉換用
-global ICON := "", ICONTEXT := "", ICON_ON := false
+global ICON := "", ICONTEXT := "", ICONHINT := "", ICON_ON := false
 global SELRES := ""       ; 選取內容的偵測結果
 global MDX := 0, MDY := 0 ; 滑鼠按下的位置（用來判斷是否為拖曳選取）
 global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
@@ -338,20 +338,23 @@ BuildIcon() {
         pic.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
     }
     ICON.SetFont("s11", "Microsoft JhengHei")
-    ICONTEXT := ICON.Add("Text", "x32 y8 w240 h20 c" . C_ACCENT, "")
+    ICONTEXT := ICON.Add("Text", "x32 y9 w240 h22 c" . C_TEXT, "")
     ICONTEXT.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
+    ICON.SetFont("s9", "Microsoft JhengHei")
+    ICONHINT := ICON.Add("Text", "x32 y32 w240 h18 c" . C_ACCENT, "↵ 轉中文或編輯")
+    ICONHINT.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", ICON.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", ICON.Hwnd, "UInt", 34, "UInt*", 0x00D8D8D8, "UInt", 4)
 }
 
 ShowIcon(preview) {
     global ICON_ON
-    txt := "→ " . preview . "　點我轉為中文"
-    w := 40 + StrLen(preview) * 20 + 110
-    ICONTEXT.Value := txt
-    ICONTEXT.Move(32, 8, w - 40, 20)
+    w := Max(230, Min(50 + StrLen(preview) * 21, 900))
+    ICONTEXT.Value := "→ " . Fit(preview, (w - 54) // 21)
+    ICONTEXT.Move(32, 9, w - 44, 22)
+    ICONHINT.Move(32, 32, w - 44, 18)
     MouseGetPos(&mx, &my)
-    ICON.Show("NoActivate x" . (mx + 8) . " y" . (my + 18) . " w" . w . " h36")
+    ICON.Show("NoActivate x" . (mx + 8) . " y" . (my + 18) . " w" . w . " h58")
     ICON_ON := true
 }
 
@@ -493,7 +496,7 @@ Render() {
 
     ; 插入鈕
     y += 4
-    changed := SetCell(UI.btn, "插入「" . Fit(DraftText(), (CW - 90) // 21) . "」", C_SEL, C_ACCENT, PAD, y, CW, 27) || changed
+    changed := SetCell(UI.btn, "↵ 改為「" . Fit(DraftText(), (CW - 96) // 21) . "」", C_SEL, C_ACCENT, PAD, y, CW, 27) || changed
     y += 31
 
     ; 操作提示
@@ -634,6 +637,12 @@ ImeChineseMode() {
 }
 
 ; ---------- 鍵盤操作 ----------
+; icon 顯示中：Enter 進候選窗、Esc 收起（畫面上寫了 ↵ 就要真的能用）
+#HotIf ICON_ON && !POPUP_ON
+Enter:: IconClicked()
+Escape:: HideIcon()
+#HotIf
+
 #HotIf POPUP_ON
 Enter:: OnEnter()
 Escape:: OnEsc()
