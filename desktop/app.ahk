@@ -22,6 +22,11 @@ global POPUP_ON := false
 global CELLSTATE := Map() ; 每個控制項目前的內容簽章，用來跳過沒變化的更新
 global LASTGEO := ""      ; 視窗目前的位置與大小
 global ANCX := 0, ANCY := 0  ; 候選窗定位點（開啟時算一次，導航期間不再變動）
+; 選取轉換用
+global ICON := "", ICONTEXT := "", ICON_ON := false
+global SELRES := ""       ; 選取內容的偵測結果
+global MDX := 0, MDY := 0 ; 滑鼠按下的位置（用來判斷是否為拖曳選取）
+global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 ; 注意：所有全域初始化都必須寫在第一個熱鍵之前，
 ; 因為 AHK 的自動執行區在遇到熱鍵定義時就結束了。
 
@@ -43,6 +48,7 @@ A_TrayMenu.Add("結束", (*) => ExitApp())
 
 DICT := LoadDict(A_ScriptDir "\dict.txt")
 BuildPopup()
+BuildIcon()
 A_IconTip := "注音亂碼偵測（監看中）"
 Tip("注音亂碼偵測已啟動`n詞庫 " . DICT.Count . " 讀音", 2000)
 
@@ -91,17 +97,36 @@ WatchWindow() {
     }
 }
 
-~LButton::ClickAway()
+~LButton::MouseDown()
+~LButton Up::MouseUp()
 ~RButton::ClickAway()
 
-; 點在候選窗上不算「點別處」，否則會在點到候選之前就先關掉視窗
+MouseDown() {
+    global MDX, MDY
+    MouseGetPos(&x, &y)
+    MDX := x, MDY := y
+    ClickAway()
+}
+
+; 放開左鍵時判斷是不是「選取了文字」（拖曳，或雙擊選字）
+MouseUp() {
+    global LASTUPT, LASTUPX, LASTUPY
+    MouseGetPos(&x, &y)
+    dragged := (Abs(x - MDX) > 4 || Abs(y - MDY) > 4)
+    dbl := (A_TickCount - LASTUPT < 450 && Abs(x - LASTUPX) < 5 && Abs(y - LASTUPY) < 5)
+    LASTUPT := A_TickCount, LASTUPX := x, LASTUPY := y
+    if (dragged || dbl)
+        SetTimer(CheckSelection, -120)
+}
+
+; 點在候選窗或 icon 上不算「點別處」，否則會在點到之前就先關掉視窗
 ClickAway() {
-    if (POPUP != "" && POPUP_ON) {
-        MouseGetPos(, , &hwnd)
-        try {
-            if (hwnd == POPUP.Hwnd)
-                return
-        }
+    MouseGetPos(, , &hwnd)
+    try {
+        if (POPUP_ON && POPUP != "" && hwnd == POPUP.Hwnd)
+            return
+        if (ICON_ON && ICON != "" && hwnd == ICON.Hwnd)
+            return
     }
     Reset()
 }
@@ -110,6 +135,7 @@ Reset() {
     global BUF, HIT, ST
     BUF := "", HIT := "", ST := ""
     HidePopup()
+    HideIcon()
 }
 
 ; ---------- 偵測 ----------
@@ -131,6 +157,37 @@ Scan() {
         return
     }
     OpenCandidates(HIT.res)
+}
+
+; ---------- 選取轉換 ----------
+; Windows 不讓程式直接讀別的程式裡選取的文字，只能靠送出「複製」再從剪貼簿讀回，
+; 讀完立刻還原原本的剪貼簿內容。整個過程只在記憶體，不寫檔、不外傳。
+GetSelectedText() {
+    saved := ClipboardAll()
+    A_Clipboard := ""
+    Send("^c")
+    text := ClipWait(0.4) ? A_Clipboard : ""
+    A_Clipboard := saved
+    return text
+}
+
+CheckSelection() {
+    global SELRES
+    if (BUSY || PAUSED || POPUP_ON)
+        return
+    text := Trim(GetSelectedText(), " `t`r`n")
+    if (text == "" || StrLen(text) > 120) {   ; 太長的選取不是我們的使用情境
+        HideIcon()
+        return
+    }
+    ; 使用者主動選取＝已表明意圖，門檻放寬（跳過常見英文那關、單字也能轉）
+    res := Detect(text, DICT, 0.5, 1, true)
+    if (res == "") {
+        HideIcon()
+        return
+    }
+    SELRES := res
+    ShowIcon(res.candidates[1])
 }
 
 StrChars(s) {
@@ -156,17 +213,22 @@ HomsAt(k) {
     return out
 }
 
-OpenCandidates(res) {
+; src："typing"（邊打邊偵測，用退格取代）或 "selection"（選取轉換，直接覆蓋選取）
+OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
     global ST, ANCX, ANCY
     ; 定位只在開啟時算一次：插入點會閃爍，重算會讓視窗在游標與滑鼠位置之間跳動
     if (ST == "") {
-        px := 0, py := 0
-        if !CaretPos(&px, &py)              ; CaretPos 回傳的已是插入點下緣
-            MouseGetPos(&px, &py), py += 22
-        ANCX := px, ANCY := py + 4
+        if (ax >= 0) {
+            ANCX := ax, ANCY := ay
+        } else {
+            px := 0, py := 0
+            if !CaretPos(&px, &py)          ; CaretPos 回傳的已是插入點下緣
+                MouseGetPos(&px, &py), py += 22
+            ANCX := px, ANCY := py + 4
+        }
     }
     ST := {cands: res.candidates, sel: 1, draft: StrChars(res.candidates[1]),
-           syls: res.syllables, zone: "sent", ci: 1, hi: 1}
+           syls: res.syllables, zone: "sent", ci: 1, hi: 1, src: src}
     Render()
 }
 
@@ -240,6 +302,53 @@ BuildPopup() {
     ; Windows 11 圓角與細邊框（舊版系統會靜默略過）
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 34, "UInt*", 0x00D8D8D8, "UInt", 4)
+}
+
+; ---------- 選取後浮出的小 icon ----------
+BuildIcon() {
+    global ICON, ICONTEXT
+    ICON := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 +E0x02000000")
+    ICON.BackColor := C_BG
+    ICON.MarginX := 0, ICON.MarginY := 0
+    try {
+        pic := ICON.Add("Picture", "x9 y8 w18 h18", A_ScriptDir "\icon.ico")
+        pic.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
+    }
+    ICON.SetFont("s11", "Microsoft JhengHei")
+    ICONTEXT := ICON.Add("Text", "x32 y8 w240 h20 c" . C_ACCENT, "")
+    ICONTEXT.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
+    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", ICON.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
+    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", ICON.Hwnd, "UInt", 34, "UInt*", 0x00D8D8D8, "UInt", 4)
+}
+
+ShowIcon(preview) {
+    global ICON_ON
+    txt := "→ " . preview . "　點我轉為中文"
+    w := 40 + StrLen(preview) * 20 + 110
+    ICONTEXT.Value := txt
+    ICONTEXT.Move(32, 8, w - 40, 20)
+    MouseGetPos(&mx, &my)
+    ICON.Show("NoActivate x" . (mx + 8) . " y" . (my + 18) . " w" . w . " h36")
+    ICON_ON := true
+}
+
+HideIcon() {
+    global ICON_ON, SELRES
+    if (ICON_ON && ICON != "") {
+        try ICON.Hide()
+        ICON_ON := false
+    }
+    SELRES := ""
+}
+
+IconClicked() {
+    global SELRES
+    if (SELRES == "")
+        return
+    res := SELRES
+    HideIcon()
+    MouseGetPos(&mx, &my)
+    OpenCandidates(res, "selection", mx, my + 18)
 }
 
 ; ---------- 更新候選窗內容 ----------
@@ -603,14 +712,18 @@ MoveHomRow(d) {
 ; ---------- 替換 ----------
 Accept(text) {
     global BUF, HIT, BUSY, ST
-    if (HIT == "")
+    if (ST == "")
         return
-    n := StrLen(BUF) - HIT.offset          ; 只替換被辨識的那一段
+    fromTyping := (ST.src == "typing")
+    if (fromTyping && HIT == "")
+        return
+    n := fromTyping ? StrLen(BUF) - HIT.offset : 0   ; 只替換被辨識的那一段
     HidePopup()
 
     BUSY := true
     IH.Stop()
     ; 直接送出 Unicode 文字，完全不動剪貼簿
+    ; 選取模式不必退格 —— 選取狀態還在，送字就會直接覆蓋掉
     if (n > 0)
         Send("{BackSpace " . n . "}")
     SendText(text)
