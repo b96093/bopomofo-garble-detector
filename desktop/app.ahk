@@ -34,6 +34,9 @@ global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 global PAD := 13, CANDH := 27, CELL := 32, TCELL := 30, TCOLS := 10, CCOLS := 10
 global MAXCAND := 3, MAXCHAR := 64, MAXHOM := 50
 global CW := TCOLS * TCELL + 4
+; 螢幕縮放：AHK 的視窗尺寸會自動乘上這個係數，但滑鼠/游標/螢幕邊界都是實體像素，
+; 兩者混用會算錯位置，所以外來的實體座標一律先換算成視窗單位。
+global DPIF := A_ScreenDPI / 96
 
 ; 配色
 global C_BG := "FFFFFF", C_SEL := "E8F1FD", C_SELDIM := "F3F3F3", C_CELL := "F7F7F7"
@@ -228,11 +231,18 @@ CalcWidth() {
     return Max(304, Min(w, 720))
 }
 
+; 實體像素 → 視窗單位
+ToGui(v) {
+    return Round(v / DPIF)
+}
+
 ; 把視窗夾在螢幕可用範圍內；下方放不下就翻到插入點上方
+; x/y/w/h 皆為「視窗單位」，螢幕邊界取得後要換算過來才能比較
 ClampToScreen(&x, &y, w, h) {
-    L := 0, T := 0, R := A_ScreenWidth, B := A_ScreenHeight
+    L := 0, T := 0, R := ToGui(A_ScreenWidth), B := ToGui(A_ScreenHeight)
     Loop MonitorGetCount() {
         MonitorGetWorkArea(A_Index, &ml, &mt, &mr, &mb)
+        ml := ToGui(ml), mt := ToGui(mt), mr := ToGui(mr), mb := ToGui(mb)
         if (x >= ml && x < mr && y >= mt - 60 && y < mb + 60) {
             L := ml, T := mt, R := mr, B := mb
             break
@@ -266,7 +276,7 @@ OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
             px := 0, py := 0
             if !CaretPos(&px, &py)          ; CaretPos 回傳的已是插入點下緣
                 MouseGetPos(&px, &py), py += 22
-            ANCX := px, ANCY := py + 4
+            ANCX := ToGui(px), ANCY := ToGui(py) + 4
         }
     }
     ST := {cands: res.candidates, sel: 1, draft: StrChars(res.candidates[1]),
@@ -377,7 +387,7 @@ ShowIcon(preview) {
     ICONTEXT.Move(32, 9, w - 44, 22)
     ICONHINT.Move(32, 32, w - 44, 18)
     MouseGetPos(&mx, &my)
-    ix := mx + 8, iy := my + 18
+    ix := ToGui(mx) + 8, iy := ToGui(my) + 18
     ClampToScreen(&ix, &iy, w, 58)
     ICON.Show("NoActivate x" . ix . " y" . iy . " w" . w . " h58")
     ICON_ON := true
@@ -399,7 +409,7 @@ IconClicked() {
     res := SELRES
     HideIcon()
     MouseGetPos(&mx, &my)
-    OpenCandidates(res, "selection", mx, my + 18)
+    OpenCandidates(res, "selection", ToGui(mx), ToGui(my) + 18)
 }
 
 ; ---------- 更新候選窗內容 ----------
