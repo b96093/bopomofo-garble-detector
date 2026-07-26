@@ -66,6 +66,7 @@ OnChar(hook, ch) {
     global BUF          ; 函式內有指派的變數一定要宣告，否則會被當成區域變數
     if (BUSY || PAUSED)
         return
+    HideIcon()          ; 一開始打字，原本的選取就沒了，icon 不能再留著
     if !IsRunChar(ch) {           ; 中文字等非按鍵字元 → 視為新段落
         Reset()
         return
@@ -78,6 +79,7 @@ OnResetKey(hook, vk, sc) {
     global BUF
     if (BUSY)
         return
+    HideIcon()                    ; 同上：按了鍵就代表選取已失效
     ; 退格：緩衝要跟著縮短 —— 候選窗開著時也一樣，否則會顯示刪除前的舊結果
     if (vk = 8) {
         if (BUF != "")
@@ -349,8 +351,9 @@ BuildIcon() {
 
 ShowIcon(preview) {
     global ICON_ON
-    w := Max(230, Min(50 + StrLen(preview) * 21, 900))
-    ICONTEXT.Value := "→ " . Fit(preview, (w - 54) // 21)
+    shown := Fit(preview, 32)                  ; 先決定要顯示多少字
+    w := Max(230, 56 + StrLen(shown) * 20)     ; 再依實際顯示長度決定寬度
+    ICONTEXT.Value := "→ " . shown
     ICONTEXT.Move(32, 9, w - 44, 22)
     ICONHINT.Move(32, 32, w - 44, 18)
     MouseGetPos(&mx, &my)
