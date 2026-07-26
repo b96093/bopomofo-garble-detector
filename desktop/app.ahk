@@ -221,8 +221,8 @@ CalcWidth() {
     maxLen := 0
     for c in ST.cands
         maxLen := Max(maxLen, StrLen(c))
-    maxLen := Max(maxLen, ST.draft.Length)
     w := maxLen * 21 + 34
+    w := Max(w, ST.draft.Length * CELL + 10)   ; 讓逐字列盡量排成一行
     return Max(304, Min(w, 900))
 }
 
@@ -678,8 +678,8 @@ Move(dir) {
                     ST.zone := "chars", ST.ci := k
             }
         } else if (zone == "chars") {
-            ; 逐字列可能有好幾行：先往下一行走，已在最後一行才展開同音字
-            if (!MoveCharRow(1) && HomsAt(ST.ci).Length)
+            ; ↓ 展開同音字（注音輸入法的慣例）；跨行移動交給 ←→ 連續走
+            if (HomsAt(ST.ci).Length)
                 ST.zone := "tray", ST.hi := CurrentHomIdx(ST.ci)
         } else {
             MoveHomRow(1)
@@ -687,10 +687,8 @@ Move(dir) {
     } else if (dir == "up") {
         if (zone == "sent")
             SelectCand(ST.sel > 1 ? ST.sel - 1 : ST.cands.Length)
-        else if (zone == "chars") {
-            if (!MoveCharRow(-1))       ; 已在第一行才回到句子區
-                ST.zone := "sent"
-        }
+        else if (zone == "chars")
+            ST.zone := "sent"
         else if (!MoveHomRow(-1))
             ST.zone := "chars"
     } else {
@@ -721,30 +719,6 @@ SelectCand(i) {
     ST.sel := i
     ST.draft := StrChars(ST.cands[i])   ; 換句就重置逐字修改
     ST.zone := "sent"
-}
-
-; 逐字列也是固定欄數的格子：上下移動一整行，落點取該行離原本位置最近的可換字
-MoveCharRow(d) {
-    global ST
-    target := ST.ci + d * CCOLS
-    if (target < 1 || target > ST.draft.Length)
-        return false
-    rowStart := target - Mod(target - 1, CCOLS)
-    rowEnd := Min(rowStart + CCOLS - 1, ST.draft.Length)
-    best := 0, bestDist := 9999
-    k := rowStart
-    while (k <= rowEnd) {
-        if (HomsAt(k).Length) {
-            dist := Abs(k - target)
-            if (dist < bestDist)
-                bestDist := dist, best := k
-        }
-        k++
-    }
-    if (!best)
-        return false
-    ST.ci := best
-    return true
 }
 
 ; 同音字盤是固定欄數的格子，上下就是 ±欄數

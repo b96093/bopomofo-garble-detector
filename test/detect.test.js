@@ -123,3 +123,20 @@ test('detectTail：真英文仍然不觸發', () => {
   assert.equal(detectTail('the cat sat on the mat', dict), null);
   assert.equal(detectTail('please review this document', dict), null);
 });
+
+test('注音打反順序：依結構歸位（跟注音輸入法一樣）', () => {
+  // uv;3 = ㄧㄒㄤˇ（打反）→ 歸位成 ㄒㄧㄤˇ = 想
+  assert.equal(detect('ji3uv;3t z04', dict).candidates[0], '我想吃飯');
+  // 順序本來就對的不受影響
+  assert.equal(detect('ji3vu;3t z04', dict).candidates[0], '我想吃飯');
+});
+
+test('歸位只在合理時發生，不會硬湊', () => {
+  // 兩個聲母（ㄉㄊ）不可能是打反 → 仍走數字修正那條路
+  assert.equal(detect('a932ek7', dict).candidates[0], '買2個');
+  // 英文與無意義字串仍然不觸發
+  assert.equal(detect('the cat sat', dict), null);
+  assert.equal(detect('r2d2', dict), null);
+  assert.equal(detect('abc123', dict), null);
+  assert.equal(detect('IEIEI', dict), null);
+});

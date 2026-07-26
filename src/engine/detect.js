@@ -18,6 +18,27 @@ function hanRatio(s) {
   return n / chars.length;
 }
 
+// 注音音節的固定結構：聲母 → 介音 → 韻母 → 聲調，每類最多一個。
+const INITIALS = 'ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙ';
+const MEDIALS = 'ㄧㄨㄩ';
+const FINALS = 'ㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ';
+const TONE_CHARS = 'ˊˇˋ˙';
+
+// 把打亂順序的注音依結構歸位（ㄐㄣㄧ → ㄐㄧㄣ），這正是注音輸入法本身的行為。
+// 每類出現兩個（如兩個聲母）就不可能是打反，回 null 不硬湊。
+function canonSyllable(syl) {
+  let i = '', m = '', f = '', t = '';
+  for (const ch of syl) {
+    if (INITIALS.includes(ch)) { if (i) return null; i = ch; }
+    else if (MEDIALS.includes(ch)) { if (m) return null; m = ch; }
+    else if (FINALS.includes(ch)) { if (f) return null; f = ch; }
+    else if (TONE_CHARS.includes(ch)) { if (t) return null; t = ch; }
+    else return null;
+  }
+  const out = i + m + f + t;
+  return out === syl ? null : out; // 順序本來就對就不必重試
+}
+
 // 數字鍵在注音鍵盤上多半是注音符號（1=ㄅ、2=ㄉ、5=ㄓ、8=ㄚ、9=ㄞ、0=ㄡ），
 // 但使用者也可能真的要打數字。若某音節查不到（如 2天 → ㄉㄊㄧㄢ，結構上不可能），
 // 就把該音節裡的數字改判為字面數字後重試。
@@ -25,6 +46,13 @@ function tokenizeResolving(input, dict) {
   const forced = new Set();
   for (let i = 0; i <= 6; i++) { // 上限：避免病態輸入無限重試
     const tokens = keysToTokens(input, forced);
+    // 先把打反順序的音節歸位（相鄰鍵打反是最常見的失誤）
+    for (const t of tokens) {
+      if (t.t === 'syl' && !dict.has(t.v)) {
+        const c = canonSyllable(t.v);
+        if (c && dict.has(c)) t.v = c;
+      }
+    }
     const bad = tokens.find((t) => t.t === 'syl' && !dict.has(t.v));
     if (!bad) return tokens;
     let adjusted = false;

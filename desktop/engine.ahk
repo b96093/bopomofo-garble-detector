@@ -207,11 +207,56 @@ HanRatio(s) {
     return han / total
 }
 
+; 注音音節的固定結構：聲母 → 介音 → 韻母 → 聲調，每類最多一個
+global INITIALS := "ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙ"
+global MEDIALS := "ㄧㄨㄩ"
+global FINALS := "ㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ"
+global TONE_CHARS := "ˊˇˋ˙"
+
+; 把打亂順序的注音依結構歸位（ㄐㄣㄧ → ㄐㄧㄣ），這正是注音輸入法本身的行為。
+; 每類出現兩個（如兩個聲母）就不可能是打反，回 "" 不硬湊。
+CanonSyllable(syl) {
+    i := "", m := "", f := "", t := ""
+    Loop Parse syl
+    {
+        ch := A_LoopField
+        if (InStr(INITIALS, ch, true)) {
+            if (i != "")
+                return ""
+            i := ch
+        } else if (InStr(MEDIALS, ch, true)) {
+            if (m != "")
+                return ""
+            m := ch
+        } else if (InStr(FINALS, ch, true)) {
+            if (f != "")
+                return ""
+            f := ch
+        } else if (InStr(TONE_CHARS, ch, true)) {
+            if (t != "")
+                return ""
+            t := ch
+        } else {
+            return ""
+        }
+    }
+    out := i . m . f . t
+    return (out == syl) ? "" : out      ; 順序本來就對就不必重試
+}
+
 ; 音節查無且含數字時，把數字改判為字面數字後重試（如 2天 → ㄉㄊㄧㄢ 不合法）
 TokenizeResolving(input, dict) {
     forced := Map()
     Loop 7 {
         tokens := KeysToTokens(input, forced)
+        ; 先把打反順序的音節歸位（相鄰鍵打反是最常見的失誤）
+        for tk in tokens {
+            if (tk.t == "syl" && !dict.Has(tk.v)) {
+                c := CanonSyllable(tk.v)
+                if (c != "" && dict.Has(c))
+                    tk.v := c
+            }
+        }
         bad := ""
         for tk in tokens {
             if (tk.t == "syl" && !dict.Has(tk.v)) {

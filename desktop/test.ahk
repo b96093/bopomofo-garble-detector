@@ -99,6 +99,13 @@ Check("ㄇㄚ 同音字數", (homs == "") ? 0 : homs.Length, 5)
 Check("ㄇㄚ 首選為嗎", (homs == "") ? "" : homs[1][1], "嗎")
 
 Say("")
+Say("── 打反順序容錯 ──")
+Check("ji3uv;3t z04（打反）", First(Detect("ji3uv;3t z04", dict)), "我想吃飯")
+Check("ji3vu;3t z04（正常）", First(Detect("ji3vu;3t z04", dict)), "我想吃飯")
+Check("兩個聲母不硬湊", First(Detect("a932ek7", dict)), "買2個")
+Check("IEIEI 仍不觸發", First(Detect("IEIEI", dict)), "null")
+
+Say("")
 Say(Format("結果：{1} 通過 / {2} 失敗", PASS, FAIL))
 Dump()
 ExitApp(FAIL > 0 ? 1 : 0)
