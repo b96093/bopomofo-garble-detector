@@ -57,7 +57,8 @@ export function detect(input, dict, opts = {}) {
   if (!input || ![...input].every(isRunChar)) return null;
 
   // Gate 3：整串就是常見英文字 → 不理
-  if (COMMON_ENGLISH.has(input.trim().toLowerCase())) return null;
+  // （手動選取觸發時使用者已表明意圖，跳過這關）
+  if (!opts.manual && COMMON_ENGLISH.has(input.trim().toLowerCase())) return null;
 
   const pieces = toPieces(tokenizeResolving(input, dict));
   const sylPieces = pieces.filter((p) => p.syls);

@@ -87,3 +87,18 @@ test('數字修正不會讓英文誤判', () => {
   assert.equal(detect('abc123', dict), null);
   assert.equal(detect('r2d2', dict), null);
 });
+
+test('手動觸發（manual）：跳過常見英文那道關卡', () => {
+  // 'up' 在常見英文清單裡（ㄧㄣ 是合法音節），自動偵測會放行不理
+  assert.equal(detect('up', dict, { minSyllables: 1 }), null);
+  // 但使用者主動選取要求轉換時，應該給出結果
+  const r = detect('up', dict, { manual: true, minSyllables: 1, threshold: 0.5 });
+  assert.ok(r, 'manual 模式應轉換');
+  assert.equal(r.candidates[0], '因');
+});
+
+test('手動模式不影響自動偵測的既有行為', () => {
+  assert.equal(detect('the cat sat', dict), null);
+  assert.equal(detect('hello', dict), null);
+  assert.equal(detect('ji394t au04', dict).candidates[0], '我愛吃面');
+});

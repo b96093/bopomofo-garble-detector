@@ -45,6 +45,45 @@ export function caretRect(ctx) {
   return (ctx.node.parentElement || ctx.host).getBoundingClientRect();
 }
 
+// 取得目前「選取起來的」可編輯文字（給手動熱鍵補救用）；沒有選取則回 null
+export function getSelectionContext() {
+  const ae = document.activeElement;
+  if (isTextField(ae)) {
+    const s = ae.selectionStart;
+    const e = ae.selectionEnd;
+    if (typeof s === 'number' && e > s) {
+      return { kind: 'input', el: ae, text: ae.value.slice(s, e), start: s, end: e };
+    }
+    return null;
+  }
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount && !sel.isCollapsed) {
+    const range = sel.getRangeAt(0);
+    if (closestEditableHost(range.commonAncestorContainer)) {
+      return { kind: 'range', range, text: sel.toString() };
+    }
+  }
+  return null;
+}
+
+// 浮窗定位用：選取範圍的位置
+export function selectionRect(sc) {
+  if (sc.kind === 'range') return sc.range.getBoundingClientRect();
+  return sc.el.getBoundingClientRect();
+}
+
+// 以 chosen 取代「選取的範圍」
+export function applySelectionReplacement(sc, chosen) {
+  if (sc.kind === 'input') {
+    applyReplacement({ kind: 'input', el: sc.el }, sc.start, sc.end, chosen);
+    return;
+  }
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(sc.range);
+  document.execCommand('insertText', false, chosen);
+}
+
 // 以 chosen 取代 [start, end)
 export function applyReplacement(ctx, start, end, chosen) {
   if (ctx.kind === 'input') {
