@@ -329,7 +329,7 @@ BuildPopup() {
 
 ; ---------- 選取後浮出的小 icon ----------
 BuildIcon() {
-    global ICON, ICONTEXT
+    global ICON, ICONTEXT, ICONHINT
     ICON := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 +E0x02000000")
     ICON.BackColor := C_BG
     ICON.MarginX := 0, ICON.MarginY := 0
