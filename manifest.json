@@ -17,5 +17,11 @@
     }
   ],
   "permissions": ["storage"],
-  "options_page": "src/options/options.html"
+  "options_page": "src/options/options.html",
+  "icons": {
+    "16": "src/icons/icon16.png",
+    "32": "src/icons/icon32.png",
+    "48": "src/icons/icon48.png",
+    "128": "src/icons/icon128.png"
+  }
 }

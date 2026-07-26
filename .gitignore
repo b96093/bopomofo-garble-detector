@@ -4,3 +4,6 @@ build/data/
 dist/
 
 desktop/dict.txt
+
+# logo 檢查用暫存圖
+assets/logo/_*
