@@ -7,3 +7,6 @@ desktop/dict.txt
 
 # logo 檢查用暫存圖
 assets/logo/_*
+
+desktop/test-result.txt
+desktop/_*
