@@ -21,6 +21,7 @@ global UI := ""           ; 控制項池
 global POPUP_ON := false
 global CELLSTATE := Map() ; 每個控制項目前的內容簽章，用來跳過沒變化的更新
 global LASTGEO := ""      ; 視窗目前的位置與大小
+global ANCX := 0, ANCY := 0  ; 候選窗定位點（開啟時算一次，導航期間不再變動）
 ; 注意：所有全域初始化都必須寫在第一個熱鍵之前，
 ; 因為 AHK 的自動執行區在遇到熱鍵定義時就結束了。
 
@@ -150,7 +151,14 @@ HomsAt(k) {
 }
 
 OpenCandidates(res) {
-    global ST
+    global ST, ANCX, ANCY
+    ; 定位只在開啟時算一次：插入點會閃爍，重算會讓視窗在游標與滑鼠位置之間跳動
+    if (ST == "") {
+        px := 0, py := 0
+        if !CaretPos(&px, &py)
+            MouseGetPos(&px, &py), py += 22
+        ANCX := px, ANCY := py + 24
+    }
     ST := {cands: res.candidates, sel: 1, draft: StrChars(res.candidates[1]),
            syls: res.syllables, zone: "sent", ci: 1, hi: 1}
     Render()
@@ -228,11 +236,6 @@ BuildPopup() {
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 34, "UInt*", 0x00D8D8D8, "UInt", 4)
 }
 
-; 暫停重繪 → 更新 → 一次畫完，避免閃爍
-SetRedraw(hwnd, on) {
-    DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x000B, "Ptr", on ? 1 : 0, "Ptr", 0)
-}
-
 ; ---------- 更新候選窗內容 ----------
 ; 只有在內容真的改變時才動控制項 —— 沒變化就完全不碰，這是消除閃爍的關鍵
 SetCell(ctrl, val, bg, fg, x, y, w, h) {
@@ -246,6 +249,7 @@ SetCell(ctrl, val, bg, fg, x, y, w, h) {
     ctrl.Opt("Background" . bg . " c" . fg)
     ctrl.Move(x, y, w, h)
     ctrl.Visible := true
+    ctrl.Redraw()          ; 只重繪這一格，不動其他控制項
     return true
 }
 
@@ -264,7 +268,6 @@ Render() {
     if (ST == "")
         return
     changed := false
-    SetRedraw(POPUP.Hwnd, false)
 
     inSent := (ST.zone == "sent")
     y := 34
@@ -363,20 +366,14 @@ Render() {
     y += 20
 
     ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
-    px := 0, py := 0
-    if !CaretPos(&px, &py)
-        MouseGetPos(&px, &py), py += 22
-    geo := px . "," . (py + 24) . "," . (CW + PAD * 2) . "," . y
+    geo := ANCX . "," . ANCY . "," . (CW + PAD * 2) . "," . y
     if (!POPUP_ON || geo != LASTGEO) {
-        POPUP.Show("NoActivate x" . px . " y" . (py + 24) . " w" . (CW + PAD * 2) . " h" . y)
+        POPUP.Show("NoActivate x" . ANCX . " y" . ANCY . " w" . (CW + PAD * 2) . " h" . y)
         LASTGEO := geo
         POPUP_ON := true
         changed := true
     }
 
-    SetRedraw(POPUP.Hwnd, true)
-    if (changed)
-        DllCall("RedrawWindow", "Ptr", POPUP.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
 }
 
 ; 事件處理工廠（在迴圈裡直接寫箭頭函式會共用同一個變數，必須用工廠函式）
