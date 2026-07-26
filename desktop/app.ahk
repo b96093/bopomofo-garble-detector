@@ -114,8 +114,14 @@ Reset() {
 
 ; ---------- 偵測 ----------
 Scan() {
-    global HIT
+    global HIT, BUF
     if (PAUSED || BUF == "") {
+        HidePopup()
+        return
+    }
+    ; 輸入法在中文模式 → 使用者正常打中文，不該出手
+    if (ImeChineseMode()) {
+        BUF := ""
         HidePopup()
         return
     }
@@ -155,9 +161,9 @@ OpenCandidates(res) {
     ; 定位只在開啟時算一次：插入點會閃爍，重算會讓視窗在游標與滑鼠位置之間跳動
     if (ST == "") {
         px := 0, py := 0
-        if !CaretPos(&px, &py)
+        if !CaretPos(&px, &py)              ; CaretPos 回傳的已是插入點下緣
             MouseGetPos(&px, &py), py += 22
-        ANCX := px, ANCY := py + 24
+        ANCX := px, ANCY := py + 4
     }
     ST := {cands: res.candidates, sel: 1, draft: StrChars(res.candidates[1]),
            syls: res.syllables, zone: "sent", ci: 1, hi: 1}
@@ -440,14 +446,57 @@ HidePopup() {
     }
 }
 
-; 取得游標（插入點）螢幕座標；取不到回 false
+; 取得插入點的「下緣」螢幕座標，讓浮窗貼在文字行下方而不是蓋住它；取不到回 false
 CaretPos(&x, &y) {
+    hwnd := WinExist("A")
+    if (!hwnd)
+        return false
     try {
-        ; 有些程式取不到會回傳 0,0 —— 視為失敗，改用滑鼠位置
+        tid := DllCall("GetWindowThreadProcessId", "Ptr", hwnd, "Ptr", 0, "UInt")
+        gti := Buffer(A_PtrSize = 8 ? 72 : 48, 0)
+        NumPut("UInt", gti.Size, gti, 0)
+        if DllCall("GetGUIThreadInfo", "UInt", tid, "Ptr", gti) {
+            hCaret := NumGet(gti, A_PtrSize = 8 ? 48 : 28, "Ptr")
+            off := A_PtrSize = 8 ? 56 : 32
+            left := NumGet(gti, off, "Int"), top := NumGet(gti, off + 4, "Int")
+            bottom := NumGet(gti, off + 12, "Int")
+            if (left != 0 || top != 0 || bottom != 0) {
+                pt := Buffer(8, 0)
+                NumPut("Int", left, pt, 0)
+                NumPut("Int", bottom, pt, 4)   ; 用下緣，浮窗才不會蓋到這一行文字
+                DllCall("ClientToScreen", "Ptr", hCaret ? hCaret : hwnd, "Ptr", pt)
+                x := NumGet(pt, 0, "Int"), y := NumGet(pt, 4, "Int")
+                return true
+            }
+        }
+    }
+    ; 退而求其次：用 AHK 內建（只給上緣，補一個行高）
+    try {
         if (CaretGetPos(&cx, &cy) && (cx != 0 || cy != 0)) {
-            x := cx, y := cy
+            x := cx, y := cy + 20
             return true
         }
+    }
+    return false
+}
+
+; 輸入法目前是不是中文模式？
+; 桌面版攔的是「輸入法之前」的原始按鍵，所以你正常打中文時我們看到的也是英文鍵；
+; 唯一能分辨的辦法就是問系統輸入法的狀態 —— 中文模式代表使用者打得好好的，不該出手。
+ImeChineseMode() {
+    hwnd := WinExist("A")
+    if (!hwnd)
+        return false
+    try {
+        hIME := DllCall("imm32\ImmGetDefaultIMEWnd", "Ptr", hwnd, "Ptr")
+        if (!hIME)
+            return false
+        res := 0
+        ok := DllCall("SendMessageTimeout", "Ptr", hIME, "UInt", 0x0283, "Ptr", 0x0001, "Ptr", 0,
+                      "UInt", 0x0002, "UInt", 80, "Ptr*", &res)   ; WM_IME_CONTROL / IMC_GETCONVERSIONMODE
+        if (!ok)
+            return false
+        return (res & 0x1) != 0        ; IME_CMODE_NATIVE = 中文模式
     }
     return false
 }
