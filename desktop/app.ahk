@@ -19,6 +19,8 @@ global LASTWIN := 0
 global POPUP := ""
 global UI := ""           ; 控制項池
 global POPUP_ON := false
+global CELLSTATE := Map() ; 每個控制項目前的內容簽章，用來跳過沒變化的更新
+global LASTGEO := ""      ; 視窗目前的位置與大小
 ; 注意：所有全域初始化都必須寫在第一個熱鍵之前，
 ; 因為 AHK 的自動執行區在遇到熱鍵定義時就結束了。
 
@@ -168,7 +170,8 @@ SeekChar(from, d) {
 ; ---------- 建立候選窗（只做一次） ----------
 BuildPopup() {
     global POPUP, UI
-    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
+    ; E0x08000000 = 不奪取焦點；E0x02000000 = 子控制項雙緩衝（消除閃爍的關鍵）
+    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 +E0x02000000")
     POPUP.BackColor := C_BG
     POPUP.MarginX := 0, POPUP.MarginY := 0
     UI := {cands: [], keys: [], chars: [], homs: []}
@@ -231,10 +234,36 @@ SetRedraw(hwnd, on) {
 }
 
 ; ---------- 更新候選窗內容 ----------
+; 只有在內容真的改變時才動控制項 —— 沒變化就完全不碰，這是消除閃爍的關鍵
+SetCell(ctrl, val, bg, fg, x, y, w, h) {
+    global CELLSTATE
+    sig := val . "|" . bg . "|" . fg . "|" . x . "|" . y . "|" . w . "|" . h
+    key := ctrl.Hwnd
+    if (CELLSTATE.Has(key) && CELLSTATE[key] == sig)
+        return false
+    CELLSTATE[key] := sig
+    ctrl.Value := val
+    ctrl.Opt("Background" . bg . " c" . fg)
+    ctrl.Move(x, y, w, h)
+    ctrl.Visible := true
+    return true
+}
+
+HideCell(ctrl) {
+    global CELLSTATE
+    key := ctrl.Hwnd
+    if (CELLSTATE.Has(key) && CELLSTATE[key] == "hidden")
+        return false
+    CELLSTATE[key] := "hidden"
+    ctrl.Visible := false
+    return true
+}
+
 Render() {
-    global POPUP_ON
+    global POPUP_ON, LASTGEO
     if (ST == "")
         return
+    changed := false
     SetRedraw(POPUP.Hwnd, false)
 
     inSent := (ST.zone == "sent")
@@ -244,36 +273,31 @@ Render() {
     for i, ctrl in UI.cands {
         key := UI.keys[i]
         if (i > ST.cands.Length) {
-            ctrl.Visible := false, key.Visible := false
+            changed := HideCell(ctrl) || changed
+            changed := HideCell(key) || changed
             continue
         }
         bg := (i == ST.sel) ? (inSent ? C_SEL : C_SELDIM) : C_BG
-        ctrl.Value := "  " . ST.cands[i]
-        ctrl.Opt("Background" . bg)
-        ctrl.Move(PAD, y, CW, CANDH - 3)
-        ctrl.Visible := true
-        if (i == ST.sel && inSent) {
-            key.Opt("Background" . bg)
-            key.Move(PAD + CW - 44, y + 6, 40, 15)
-            key.Visible := true
-        } else {
-            key.Visible := false
-        }
+        changed := SetCell(ctrl, "  " . ST.cands[i], bg, C_TEXT, PAD, y, CW, CANDH - 3) || changed
+        if (i == ST.sel && inSent)
+            changed := SetCell(key, "Enter", bg, "3A76D8", PAD + CW - 44, y + 6, 40, 15) || changed
+        else
+            changed := HideCell(key) || changed
         y += CANDH
     }
 
     ; 分隔線與說明
     y += 5
-    UI.line1.Move(PAD, y, CW, 1), UI.line1.Visible := true
+    changed := SetCell(UI.line1, "", C_LINE, C_LINE, PAD, y, CW, 1) || changed
     y += 7
-    UI.label.Move(PAD, y, CW, 16), UI.label.Visible := true
+    changed := SetCell(UI.label, "逐字換同音字（點字，或按 ↓ 進入）", C_BG, C_MUTED, PAD, y, CW, 16) || changed
     y += 20
 
     ; 逐字格
     col := 0
     for k, ctrl in UI.chars {
         if (k > ST.draft.Length) {
-            ctrl.Visible := false
+            changed := HideCell(ctrl) || changed
             continue
         }
         editable := HomsAt(k).Length > 0
@@ -283,10 +307,7 @@ Render() {
         } else if (!inSent && k == ST.ci) {
             bg := C_SEL, fg := C_ACCENT
         }
-        ctrl.Value := ST.draft[k]
-        ctrl.Opt("Background" . bg . " c" . fg)
-        ctrl.Move(PAD + col * CELL, y, CELL - 4, CELL - 5)
-        ctrl.Visible := true
+        changed := SetCell(ctrl, ST.draft[k], bg, fg, PAD + col * CELL, y, CELL - 4, CELL - 5) || changed
         col++
         if (col >= CCOLS) {
             col := 0
@@ -300,15 +321,15 @@ Render() {
     ; 同音字格
     homs := (ST.zone == "tray") ? HomsAt(ST.ci) : []
     if (homs.Length) {
-        UI.line2.Move(PAD, y, CW, 1), UI.line2.Visible := true
+        changed := SetCell(UI.line2, "", C_LINE, C_LINE, PAD, y, CW, 1) || changed
         y += 6
     } else {
-        UI.line2.Visible := false
+        changed := HideCell(UI.line2) || changed
     }
     tcol := 0
     for i, ctrl in UI.homs {
         if (i > homs.Length) {
-            ctrl.Visible := false
+            changed := HideCell(ctrl) || changed
             continue
         }
         bg := C_CELL, fg := C_TEXT
@@ -317,10 +338,7 @@ Render() {
         } else if (homs[i] == ST.draft[ST.ci]) {
             bg := "F0F6FF"
         }
-        ctrl.Value := homs[i]
-        ctrl.Opt("Background" . bg . " c" . fg)
-        ctrl.Move(PAD + tcol * TCELL, y, TCELL - 4, TCELL - 4)
-        ctrl.Visible := true
+        changed := SetCell(ctrl, homs[i], bg, fg, PAD + tcol * TCELL, y, TCELL - 4, TCELL - 4) || changed
         tcol++
         if (tcol >= TCOLS) {
             tcol := 0
@@ -334,27 +352,31 @@ Render() {
 
     ; 插入鈕
     y += 4
-    UI.btn.Value := "插入「" . DraftText() . "」"
-    UI.btn.Move(PAD, y, CW, 27)
-    UI.btn.Visible := true
+    changed := SetCell(UI.btn, "插入「" . DraftText() . "」", C_SEL, C_ACCENT, PAD, y, CW, 27) || changed
     y += 31
 
     ; 操作提示
-    UI.hint.Value := inSent ? "↑↓ 選句 · ↓ 進逐字 · Enter 插入"
+    hint := inSent ? "↑↓ 選句 · ↓ 進逐字 · Enter 插入"
         : (ST.zone == "chars") ? "←→ 選字 · ↓ 展開同音 · Enter 插入"
         : "←→↑↓ 選同音字 · Enter 換上 · Esc 返回"
-    UI.hint.Move(PAD, y, CW, 16)
-    UI.hint.Visible := true
+    changed := SetCell(UI.hint, hint, C_BG, "999999", PAD, y, CW, 16) || changed
     y += 20
 
+    ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
     px := 0, py := 0
     if !CaretPos(&px, &py)
         MouseGetPos(&px, &py), py += 22
-    POPUP.Show("NoActivate x" . px . " y" . (py + 24) . " w" . (CW + PAD * 2) . " h" . y)
-    POPUP_ON := true
+    geo := px . "," . (py + 24) . "," . (CW + PAD * 2) . "," . y
+    if (!POPUP_ON || geo != LASTGEO) {
+        POPUP.Show("NoActivate x" . px . " y" . (py + 24) . " w" . (CW + PAD * 2) . " h" . y)
+        LASTGEO := geo
+        POPUP_ON := true
+        changed := true
+    }
 
     SetRedraw(POPUP.Hwnd, true)
-    DllCall("RedrawWindow", "Ptr", POPUP.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
+    if (changed)
+        DllCall("RedrawWindow", "Ptr", POPUP.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
 }
 
 ; 事件處理工廠（在迴圈裡直接寫箭頭函式會共用同一個變數，必須用工廠函式）
