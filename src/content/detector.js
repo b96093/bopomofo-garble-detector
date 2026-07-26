@@ -9,6 +9,7 @@ import {
   getSelectionContext, selectionRect, applySelectionReplacement,
 } from './replace.js';
 import { createPopup } from './popup.js';
+import { createHint } from './hint.js';
 
 function debounce(fn, ms) {
   let t;
@@ -17,9 +18,11 @@ function debounce(fn, ms) {
 
 export function initDetector(dict, detect, opts = {}) {
   const popup = createPopup();
+  const hint = createHint();
   let apply = null; // 目前浮窗選定後要執行的替換動作
 
   function openPopup(res, rect, onPick) {
+    hint.hide();
     apply = onPick;
     popup.show(rect, {
       candidates: res.candidates,
@@ -50,20 +53,38 @@ export function initDetector(dict, detect, opts = {}) {
   }
   const scanDebounced = debounce(scan, 160);
 
-  // 手動補救：把選取的那段轉換（使用者已表明意圖，門檻放寬）
-  function convertSelection() {
+  // 手動補救：把選取的那段拿去判定（使用者已表明意圖，門檻放寬）
+  // 回傳可開啟候選窗的動作，或 null（選取內容不是亂碼）
+  function prepareSelection() {
     const sc = getSelectionContext();
-    if (!sc || !sc.text.trim()) return false;
+    if (!sc || !sc.text.trim()) return null;
     const lead = sc.text.match(/^\s*/)[0];
     const trail = sc.text.match(/\s*$/)[0];
     const core = sc.text.slice(lead.length, sc.text.length - trail.length);
     const res = detect(core, dict, { ...opts, manual: true, minSyllables: 1, threshold: 0.5 });
-    if (!res) return false;
-    openPopup(res, selectionRect(sc), (str) => applySelectionReplacement(sc, lead + str + trail));
-    return true;
+    if (!res) return null;
+    return {
+      preview: res.candidates[0],
+      open: () => openPopup(res, selectionRect(sc),
+        (str) => applySelectionReplacement(sc, lead + str + trail)),
+    };
   }
 
-  document.addEventListener('input', () => scanDebounced(), true);
+  // 選取了亂碼 → 在選取旁浮出小按鈕（免記快捷鍵）
+  function offerSelection() {
+    if (popup.isVisible()) return;
+    const sel = prepareSelection();
+    if (!sel) { hint.hide(); return; }
+    const sc = getSelectionContext();
+    hint.show(selectionRect(sc), sel.preview, sel.open);
+  }
+  const offerDebounced = debounce(offerSelection, 180);
+
+  document.addEventListener('input', () => { hint.hide(); scanDebounced(); }, true);
+  // selectionchange 在部分情境不會觸發，補上滑鼠／鍵盤放開時再判斷一次
+  document.addEventListener('selectionchange', () => offerDebounced());
+  document.addEventListener('mouseup', () => offerDebounced(), true);
+  document.addEventListener('keyup', (e) => { if (e.shiftKey) offerDebounced(); }, true);
 
   document.addEventListener('keydown', (e) => {
     if (popup.isVisible()) {
@@ -75,12 +96,16 @@ export function initDetector(dict, detect, opts = {}) {
       }
       return;
     }
+    if (e.key === 'Escape' && hint.isVisible()) { hint.hide(); return; }
+    // 保留快捷鍵給習慣鍵盤的人（與浮出按鈕等效）
     if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
-      if (convertSelection()) { e.preventDefault(); e.stopPropagation(); }
+      const sel = prepareSelection();
+      if (sel) { e.preventDefault(); e.stopPropagation(); sel.open(); }
     }
   }, true);
 
   document.addEventListener('mousedown', (e) => {
     if (popup.isVisible() && !popup.contains(e.target)) close();
+    if (hint.isVisible() && !hint.contains(e.target)) hint.hide();
   }, true);
 }
