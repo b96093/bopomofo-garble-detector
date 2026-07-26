@@ -33,9 +33,11 @@ global POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
 POPUP.BackColor := "FFFFFF"
 POPUP.MarginX := 12, POPUP.MarginY := 9
 POPUP.SetFont("s12", "Microsoft JhengHei")
-global POPUP_TEXT := POPUP.Add("Text", "cBlack", "")
+; 注意：文字控制項的寬度在建立時就固定了，之後改內容不會自動變寬，
+; 所以要給初始寬度，並在每次顯示時依內容 Move 調整。
+global POPUP_TEXT := POPUP.Add("Text", "w240 cBlack", " ")
 POPUP.SetFont("s8")
-global POPUP_HINT := POPUP.Add("Text", "c888888", "Enter 插入 · Esc 忽略")
+global POPUP_HINT := POPUP.Add("Text", "w240 c888888", "Enter 插入 · Esc 忽略")
 
 ; ---------- 全域監看 ----------
 global IH := InputHook("V")
@@ -108,12 +110,15 @@ Scan() {
 
 ; ---------- 浮窗顯示 ----------
 ShowPopup(text) {
-    global POPUP, POPUP_TEXT, POPUP_ON
+    global POPUP, POPUP_TEXT, POPUP_HINT, POPUP_ON
     POPUP_TEXT.Value := "→ " . text
+    w := Max(170, StrLen(text) * 21 + 44)   ; 依字數估寬（中文字約 21px）
+    POPUP_TEXT.Move(, , w)
+    POPUP_HINT.Move(, , w)
     x := 0, y := 0
     if !CaretPos(&x, &y)
         MouseGetPos(&x, &y), y += 22
-    POPUP.Show("x" . x . " y" . (y + 24) . " NoActivate")
+    POPUP.Show("AutoSize NoActivate x" . x . " y" . (y + 24))
     POPUP_ON := true
 }
 
@@ -128,7 +133,8 @@ HidePopup() {
 ; 取得游標（插入點）螢幕座標；取不到回 false
 CaretPos(&x, &y) {
     try {
-        if CaretGetPos(&cx, &cy) {
+        ; 有些程式取不到會回傳 0,0 —— 視為失敗，改用滑鼠位置
+        if (CaretGetPos(&cx, &cy) && (cx != 0 || cy != 0)) {
             x := cx, y := cy
             return true
         }
