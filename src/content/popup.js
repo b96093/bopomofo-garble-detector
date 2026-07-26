@@ -102,7 +102,7 @@ export function createPopup() {
     h += `<div class="commit" data-commit="1">插入「${esc(draft.join(''))}」</div>`;
     const hint = inSent ? '↑↓ 選句 · ↓ 進逐字 · Enter 插入'
       : zone === 'chars' ? '←→ 選字 · ↓ 展開同音 · Enter 插入'
-      : '←→ 選同音字 · Enter 換上 · ↑ 返回';
+      : '←→↑↓ 選同音字 · Enter 換上 · Esc 返回';
     h += `<div class="ft"><span>${hint}</span><span>Esc</span></div>`;
     box.innerHTML = h;
 
@@ -123,6 +123,28 @@ export function createPopup() {
     // 讓鍵盤焦點所在的項目保持在可視範圍內
     const focused = box.querySelector('.focus');
     if (focused && focused.scrollIntoView) focused.scrollIntoView({ block: 'nearest' });
+  }
+
+  // 同音字是多列排版：依實際版面位置移到上／下一列中，水平位置最接近的字。
+  // 回傳 false 表示已在最上／最下一列（呼叫端據此決定要不要收起）。
+  function moveHomRow(dir) {
+    const els = [...box.querySelectorAll('.hom')];
+    const cur = els[state.homIdx];
+    if (!cur) return false;
+    const center = cur.offsetLeft + cur.offsetWidth / 2;
+    const rows = [...new Set(els.map((e) => e.offsetTop))].sort((a, b) => a - b);
+    const targetTop = rows[rows.indexOf(cur.offsetTop) + dir];
+    if (targetTop === undefined) return false;
+    let best = -1;
+    let bestDist = Infinity;
+    els.forEach((e, i) => {
+      if (e.offsetTop !== targetTop) return;
+      const d = Math.abs(e.offsetLeft + e.offsetWidth / 2 - center);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    if (best < 0) return false;
+    state.homIdx = best;
+    return true;
   }
 
   function pickHom(i) {
@@ -196,6 +218,8 @@ export function createPopup() {
       } else if (zone === 'chars' && homsAt(state.charIdx).length) {
         state.zone = 'tray';
         state.homIdx = currentHomIdx(state.charIdx);
+      } else if (zone === 'tray') {
+        moveHomRow(1); // 同音字：下一列
       }
       render();
       return true;
@@ -204,7 +228,7 @@ export function createPopup() {
     if (key === 'ArrowUp') {
       if (zone === 'sent') selectCandidate(-1);
       else if (zone === 'chars') state.zone = 'sent';
-      else state.zone = 'chars'; // 同音字區 → 收起
+      else if (!moveHomRow(-1)) state.zone = 'chars'; // 同音字：上一列；已在第一列則收起
       render();
       return true;
     }
