@@ -76,14 +76,17 @@ OnChar(hook, ch) {
 
 OnResetKey(hook, vk, sc) {
     global BUF
-    if (BUSY || POPUP_ON)         ; 候選窗開著時，方向鍵等交給熱鍵處理
+    if (BUSY)
         return
-    if (vk = 8) {                 ; 退格：跟著縮短緩衝
+    ; 退格：緩衝要跟著縮短 —— 候選窗開著時也一樣，否則會顯示刪除前的舊結果
+    if (vk = 8) {
         if (BUF != "")
             BUF := SubStr(BUF, 1, StrLen(BUF) - 1)
         SetTimer(Scan, -160)
         return
     }
+    if (POPUP_ON)                 ; 其他鍵在候選窗開著時交給熱鍵處理
+        return
     Reset()
 }
 
