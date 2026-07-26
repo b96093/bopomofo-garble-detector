@@ -32,7 +32,7 @@ global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 
 ; 版面尺寸
 global PAD := 13, CANDH := 27, CELL := 32, TCELL := 30, TCOLS := 10, CCOLS := 10
-global MAXCAND := 3, MAXCHAR := 24, MAXHOM := 50
+global MAXCAND := 3, MAXCHAR := 64, MAXHOM := 50
 global CW := TCOLS * TCELL + 4
 
 ; 配色
@@ -216,9 +216,26 @@ HomsAt(k) {
     return out
 }
 
+; 長句子需要比較寬的視窗，依內容決定（上限避免超出螢幕）
+CalcWidth() {
+    maxLen := 0
+    for c in ST.cands
+        maxLen := Max(maxLen, StrLen(c))
+    maxLen := Max(maxLen, ST.draft.Length)
+    w := maxLen * 21 + 34
+    return Max(304, Min(w, 900))
+}
+
+; 放不下時截斷顯示（實際插入的仍是完整內容）
+Fit(s, maxChars) {
+    if (maxChars < 4 || StrLen(s) <= maxChars)
+        return s
+    return SubStr(s, 1, maxChars - 1) . "…"
+}
+
 ; src："typing"（邊打邊偵測，用退格取代）或 "selection"（選取轉換，直接覆蓋選取）
 OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
-    global ST, ANCX, ANCY
+    global ST, ANCX, ANCY, CW, CCOLS, TCOLS
     ; 定位只在開啟時算一次：插入點會閃爍，重算會讓視窗在游標與滑鼠位置之間跳動
     if (ST == "") {
         if (ax >= 0) {
@@ -232,6 +249,9 @@ OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
     }
     ST := {cands: res.candidates, sel: 1, draft: StrChars(res.candidates[1]),
            syls: res.syllables, zone: "sent", ci: 1, hi: 1, src: src}
+    CW := CalcWidth()                       ; 視窗寬度依這次的內容決定
+    CCOLS := Max(6, CW // CELL)
+    TCOLS := Max(6, CW // TCELL)
     Render()
 }
 
@@ -399,7 +419,7 @@ Render() {
             continue
         }
         bg := (i == ST.sel) ? (inSent ? C_SEL : C_SELDIM) : C_BG
-        changed := SetCell(ctrl, "  " . ST.cands[i], bg, C_TEXT, PAD, y, CW, CANDH - 3) || changed
+        changed := SetCell(ctrl, "  " . Fit(ST.cands[i], (CW - 34) // 21), bg, C_TEXT, PAD, y, CW, CANDH - 3) || changed
         if (i == ST.sel && inSent)
             changed := SetCell(key, "Enter", bg, "3A76D8", PAD + CW - 44, y + 6, 40, 15) || changed
         else
@@ -473,7 +493,7 @@ Render() {
 
     ; 插入鈕
     y += 4
-    changed := SetCell(UI.btn, "插入「" . DraftText() . "」", C_SEL, C_ACCENT, PAD, y, CW, 27) || changed
+    changed := SetCell(UI.btn, "插入「" . Fit(DraftText(), (CW - 90) // 21) . "」", C_SEL, C_ACCENT, PAD, y, CW, 27) || changed
     y += 31
 
     ; 操作提示
@@ -658,7 +678,8 @@ Move(dir) {
                     ST.zone := "chars", ST.ci := k
             }
         } else if (zone == "chars") {
-            if (HomsAt(ST.ci).Length)
+            ; 逐字列可能有好幾行：先往下一行走，已在最後一行才展開同音字
+            if (!MoveCharRow(1) && HomsAt(ST.ci).Length)
                 ST.zone := "tray", ST.hi := CurrentHomIdx(ST.ci)
         } else {
             MoveHomRow(1)
@@ -666,8 +687,10 @@ Move(dir) {
     } else if (dir == "up") {
         if (zone == "sent")
             SelectCand(ST.sel > 1 ? ST.sel - 1 : ST.cands.Length)
-        else if (zone == "chars")
-            ST.zone := "sent"
+        else if (zone == "chars") {
+            if (!MoveCharRow(-1))       ; 已在第一行才回到句子區
+                ST.zone := "sent"
+        }
         else if (!MoveHomRow(-1))
             ST.zone := "chars"
     } else {
@@ -698,6 +721,30 @@ SelectCand(i) {
     ST.sel := i
     ST.draft := StrChars(ST.cands[i])   ; 換句就重置逐字修改
     ST.zone := "sent"
+}
+
+; 逐字列也是固定欄數的格子：上下移動一整行，落點取該行離原本位置最近的可換字
+MoveCharRow(d) {
+    global ST
+    target := ST.ci + d * CCOLS
+    if (target < 1 || target > ST.draft.Length)
+        return false
+    rowStart := target - Mod(target - 1, CCOLS)
+    rowEnd := Min(rowStart + CCOLS - 1, ST.draft.Length)
+    best := 0, bestDist := 9999
+    k := rowStart
+    while (k <= rowEnd) {
+        if (HomsAt(k).Length) {
+            dist := Abs(k - target)
+            if (dist < bestDist)
+                bestDist := dist, best := k
+        }
+        k++
+    }
+    if (!best)
+        return false
+    ST.ci := best
+    return true
 }
 
 ; 同音字盤是固定欄數的格子，上下就是 ±欄數
