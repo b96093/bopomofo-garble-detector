@@ -36,6 +36,24 @@ function tokenizeResolving(input, dict) {
   return keysToTokens(input, forced);
 }
 
+// 整段判不出來時，逐個丟掉開頭的字串再試，取「最長的可辨識尾段」。
+// 用途：前面夾雜了無法辨識的內容（例如隨手打的字），不該讓後面新打的句子跟著失效。
+// 回傳 { res, offset }（offset 為尾段在 input 中的起點）或 null。
+export function detectTail(input, dict, opts = {}, maxDrops = 8) {
+  let offset = 0;
+  for (let i = 0; i <= maxDrops; i++) {
+    const text = input.slice(offset);
+    if (!text.trim()) return null;
+    const res = detect(text, dict, opts);
+    if (res) return { res, offset };
+    const sp = text.indexOf(' ');
+    if (sp < 0) return null;
+    offset += sp + 1;
+    while (input[offset] === ' ') offset++;
+  }
+  return null;
+}
+
 // 把 token 串成「可轉換的音節段」與「原樣保留段」交替的片段清單
 function toPieces(tokens) {
   const pieces = [];

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadDict } from '../src/engine/dict.js';
-import { detect } from '../src/engine/detect.js';
+import { detect, detectTail } from '../src/engine/detect.js';
 
 const dict = loadDict();
 
@@ -101,4 +101,25 @@ test('手動模式不影響自動偵測的既有行為', () => {
   assert.equal(detect('the cat sat', dict), null);
   assert.equal(detect('hello', dict), null);
   assert.equal(detect('ji394t au04', dict).candidates[0], '我愛吃面');
+});
+
+test('detectTail：前面夾雜無法辨識的內容時，仍偵測得到後面的新句子', () => {
+  const input = 'IEIEI SU3W8 A8 EP JI3D9 J06VUL4A8'; // IEIEI = ㄛㄍㄛㄍㄛ，不合法
+  assert.equal(detect(input, dict), null, '整段判定應失敗');
+  const hit = detectTail(input, dict);
+  assert.ok(hit, '應退到可辨識的尾段');
+  assert.equal(hit.offset, 6, 'offset 應指向 SU3W8 的位置');
+  assert.equal(hit.res.candidates[0], '你他嗎跟我開玩笑嗎');
+  assert.equal(input.slice(hit.offset), 'SU3W8 A8 EP JI3D9 J06VUL4A8');
+});
+
+test('detectTail：整段本來就可辨識時，offset 為 0', () => {
+  const hit = detectTail('ji394t au04', dict);
+  assert.equal(hit.offset, 0);
+  assert.equal(hit.res.candidates[0], '我愛吃面');
+});
+
+test('detectTail：真英文仍然不觸發', () => {
+  assert.equal(detectTail('the cat sat on the mat', dict), null);
+  assert.equal(detectTail('please review this document', dict), null);
 });

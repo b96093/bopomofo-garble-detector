@@ -3,6 +3,7 @@
 // （用於已經打完別的字、游標離開那段之後才發現打錯的情況）。
 // 支援 input/textarea 與 contenteditable。被擴充內容腳本與測試頁共用（都呼叫 initDetector）。
 
+import { detectTail } from '../engine/detect.js';
 import { extractGarbleRun } from './extract.js';
 import {
   getEditableContext, caretRect, applyReplacement,
@@ -47,9 +48,11 @@ export function initDetector(dict, detect, opts = {}) {
     if (!ctx) return close();
     const seg = extractGarbleRun(ctx.text, ctx.caret);
     if (!seg) return close();
-    const res = detect(seg.run, dict, opts);
-    if (!res) return close();
-    openPopup(res, caretRect(ctx), (str) => applyReplacement(ctx, seg.start, seg.end, str));
+    // 整段判不出來時，退到最長的可辨識尾段（前面夾雜無法辨識的內容時仍能救）
+    const hit = detectTail(seg.run, dict, opts);
+    if (!hit) return close();
+    const start = seg.start + hit.offset;
+    openPopup(hit.res, caretRect(ctx), (str) => applyReplacement(ctx, start, seg.end, str));
   }
   const scanDebounced = debounce(scan, 160);
 
