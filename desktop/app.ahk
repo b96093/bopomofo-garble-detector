@@ -527,12 +527,20 @@ Render() {
     ClampToScreen(&px, &py, pw, ph)
 
     geo := px . "," . py . "," . pw . "," . ph
-    if (!POPUP_ON || geo != LASTGEO) {
+    if (!POPUP_ON) {
         POPUP.Show("NoActivate x" . px . " y" . py . " w" . pw . " h" . ph)
-        LASTGEO := geo
         POPUP_ON := true
+    } else if (geo != LASTGEO) {
+        ; 改變大小時先不讓系統重畫（SWP_NOREDRAW）——
+        ; 否則會先看到系統畫的中間狀態，再被我們的新圖蓋掉，那就是閃爍。
+        ; NOZORDER(0x4)|NOACTIVATE(0x10)|NOREDRAW(0x400) = 0x414
+        DllCall("SetWindowPos", "Ptr", POPUP.Hwnd, "Ptr", 0, "Int", px, "Int", py,
+            "Int", pw, "Int", ph, "UInt", 0x414)
     }
-    DllCall("InvalidateRect", "Ptr", POPUP.Hwnd, "Ptr", 0, "Int", 0)   ; 0 = 不擦背景
+    LASTGEO := geo
+    ; 0 = 不擦背景；接著立刻畫，避免出現空窗期
+    DllCall("InvalidateRect", "Ptr", POPUP.Hwnd, "Ptr", 0, "Int", 0)
+    DllCall("UpdateWindow", "Ptr", POPUP.Hwnd)
 }
 
 DraftText() {
