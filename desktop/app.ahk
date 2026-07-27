@@ -28,6 +28,7 @@ global ANCMODE := "point"
 ; 拖曳只在「這一次」有效：位置一律自動判斷，擋到了才臨時挪開，關掉就回到自動。
 global MANUALX := -1, MANUALY := -1
 global DRAGGING := false, DRAGDX := 0, DRAGDY := 0
+global FLIPPED := false   ; 是否已翻到插入點上方（決定一次就固定，避免展開/收起時來回跳）
 global ANCW := [0, 0, 0, 0]   ; 開窗當下作用中視窗的位置大小（視窗單位）
 ; 選取轉換用
 global ICON := "", ICONTEXT := "", ICONHINT := "", ICON_ON := false
@@ -194,9 +195,10 @@ ClickAway() {
 }
 
 Reset() {
-    global BUF, HIT, ST, MANUALX, MANUALY
+    global BUF, HIT, ST, MANUALX, MANUALY, FLIPPED
     BUF := "", HIT := "", ST := ""
     MANUALX := -1, MANUALY := -1     ; 拖曳只對當下那個候選窗有效
+    FLIPPED := false
     HidePopup()
     HideIcon()
 }
@@ -322,9 +324,8 @@ ActiveWinRect() {
     return [0, 0, ToGui(A_ScreenWidth), ToGui(A_ScreenHeight)]
 }
 
-; 把視窗夾在螢幕可用範圍內；下方放不下就翻到插入點上方
-; x/y/w/h 皆為「視窗單位」，螢幕邊界取得後要換算過來才能比較
-ClampToScreen(&x, &y, w, h, allowFlip := true) {
+; 取得某座標所在螢幕的可用範圍（視窗單位）
+ScreenBounds(x, y, &L, &T, &R, &B) {
     L := 0, T := 0, R := ToGui(A_ScreenWidth), B := ToGui(A_ScreenHeight)
     Loop MonitorGetCount() {
         MonitorGetWorkArea(A_Index, &ml, &mt, &mr, &mb)
@@ -334,15 +335,17 @@ ClampToScreen(&x, &y, w, h, allowFlip := true) {
             break
         }
     }
+}
+
+; 把視窗夾在螢幕可用範圍內（只做最小幅度的位移，不翻面）
+ClampToScreen(&x, &y, w, h) {
+    ScreenBounds(x, y, &L, &T, &R, &B)
     if (x + w > R - 8)
         x := R - 8 - w
     if (x < L + 8)
         x := L + 8
-    if (y + h > B - 8) {
-        ; 自動定位：翻到插入點上方，避免蓋住文字
-        ; 手動拖曳過的位置：只往上挪剛好塞得下的距離，不要整個翻面（會像瞬移）
-        y := allowFlip ? (y - h - 28) : (B - 8 - h)
-    }
+    if (y + h > B - 8)
+        y := B - 8 - h
     if (y < T + 8)
         y := T + 8
 }
@@ -543,7 +546,7 @@ HideCell(ctrl) {
 }
 
 Render() {
-    global POPUP_ON, LASTGEO
+    global POPUP_ON, LASTGEO, FLIPPED
     if (ST == "")
         return
     changed := false
@@ -646,16 +649,22 @@ Render() {
 
     ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
     winW := CW + PAD * 2, winH := y
-    manual := (MANUALX >= 0)
-    if (manual) {                           ; 使用者拖曳指定過位置 → 一律用它
+    if (MANUALX >= 0) {                     ; 使用者拖曳指定過位置 → 一律用它
         px := MANUALX, py := MANUALY
     } else if (ANCMODE == "window") {       ; 固定在作用中視窗底部置中
         px := ANCW[1] + (ANCW[3] - winW) // 2
         py := ANCW[2] + ANCW[4] - winH - 40
     } else {
         px := ANCX, py := ANCY
+        ; 下方放不下就翻到插入點上方 —— 但這個決定只做一次並固定住，
+        ; 否則展開/收起同音字時視窗高度一變，就會在上下兩個位置之間彈跳。
+        ScreenBounds(px, py, &sL, &sT, &sR, &sB)
+        if (!FLIPPED && py + winH > sB - 8)
+            FLIPPED := true
+        if (FLIPPED)
+            py := ANCY - winH - 30
     }
-    ClampToScreen(&px, &py, winW, winH, !manual)
+    ClampToScreen(&px, &py, winW, winH)
     geo := px . "," . py . "," . winW . "," . winH
     if (!POPUP_ON || geo != LASTGEO) {
         POPUP.Show("NoActivate x" . px . " y" . py . " w" . winW . " h" . winH)
