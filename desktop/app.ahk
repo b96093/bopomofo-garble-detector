@@ -21,9 +21,7 @@ global BUSY := false      ; 執行替換中，暫停監看避免吃到自己送�
 global PAUSED := false
 global LASTWIN := 0
 global POPUP := ""
-global PIC := ""          ; 承載自繪點陣圖的圖片控制項
-global PICW := 0, PICH := 0  ; 目前圖片控制項的大小（沒變就不重設，避免閃爍）
-global MINW := 0             ; 同一個候選窗期間寬度只增不減，減少改變大小的次數
+global BMW := 0, BMH := 0 ; 目前點陣圖尺寸（繪製視窗時用）
 global HITS := []         ; 目前畫面上的可點擊區域
 global TRAYCOLS := 10     ; 同音字盤實際欄數（繪圖時算出，鍵盤換行要用）
 global HBM := 0           ; 目前的點陣圖（換圖時要釋放）
@@ -208,10 +206,9 @@ ClickAway() {
 }
 
 Reset() {
-    global BUF, HIT, ST, MANUALX, MANUALY, FLIPPED, MINW
+    global BUF, HIT, ST, MANUALX, MANUALY, FLIPPED
     BUF := "", HIT := "", ST := ""
     MANUALX := -1, MANUALY := -1     ; 拖曳只對當下那個候選窗有效
-    MINW := 0
     FLIPPED := false
     HidePopup()
     HideIcon()
@@ -459,42 +456,56 @@ IconClicked() {
 
 ; ---------- 建立候選窗（只做一次） ----------
 BuildPopup() {
-    global POPUP, PIC
+    global POPUP
     ; -DPIScale：自繪一律用實體像素，避免 AHK 再縮放一次
-    ; E0x02000000 = 雙緩衝，換圖時不會先閃一下白底
-    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 +E0x02000000 -DPIScale")
-    POPUP.BackColor := "FFFFFF"
+    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 -DPIScale")
     POPUP.MarginX := 0, POPUP.MarginY := 0
-    ; 用圖片控制項承載自繪的點陣圖（實測這是最可靠的顯示方式）
-    PIC := POPUP.Add("Picture", "x0 y0 w10 h10 0xE")      ; SS_BITMAP
+    ; 不放任何控制項，自己接管繪製：整張圖一次貼上、且不讓系統擦背景，
+    ; 這樣換圖時不會出現白色閃光（透過圖片控制項顯示則會）。
+    OnMessage(0x000F, PaintPopup)      ; WM_PAINT
+    OnMessage(0x0014, EraseBkgnd)      ; WM_ERASEBKGND
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 34, "UInt*", 0x00DCDCDC, "UInt", 4)
 }
 
+; 視窗重繪：把畫好的整張圖貼上
+PaintPopup(wParam, lParam, msg, hwnd) {
+    if (POPUP == "" || hwnd != POPUP.Hwnd || !HBM)
+        return
+    ps := Buffer(72, 0)
+    hdc := DllCall("BeginPaint", "Ptr", hwnd, "Ptr", ps, "Ptr")
+    mem := DllCall("CreateCompatibleDC", "Ptr", hdc, "Ptr")
+    ob := DllCall("SelectObject", "Ptr", mem, "Ptr", HBM, "Ptr")
+    DllCall("BitBlt", "Ptr", hdc, "Int", 0, "Int", 0, "Int", BMW, "Int", BMH,
+        "Ptr", mem, "Int", 0, "Int", 0, "UInt", 0x00CC0020)      ; SRCCOPY
+    DllCall("SelectObject", "Ptr", mem, "Ptr", ob)
+    DllCall("DeleteDC", "Ptr", mem)
+    DllCall("EndPaint", "Ptr", hwnd, "Ptr", ps)
+    return 0
+}
+
+; 背景整張都由我們畫滿，不需要系統再擦一次（擦背景就是白色閃光的來源）
+EraseBkgnd(wParam, lParam, msg, hwnd) {
+    if (POPUP != "" && hwnd == POPUP.Hwnd)
+        return 1
+}
+
 ; ---------- 畫出候選窗 ----------
 Render() {
-    global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED, PICW, PICH, MINW
+    global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED, BMW, BMH
     if (ST == "")
         return
     ; 變數名不可用 st —— AHK 不分大小寫，會撞到全域的 ST
     view := {cands: ST.cands, sel: ST.sel, draft: ST.draft, zone: ST.zone,
              ci: ST.ci, hi: ST.hi, draftText: DraftText()}
     layout := BuildLayout(view, (k) => HomsAt(k))
-    if (layout.w < MINW)                 ; 寬度只增不減，避免打字時來回變動
-        layout.w := MINW
-    MINW := layout.w
     HITS := layout.hits
 
     ; 變數名不可用 hbm —— AHK 不分大小寫，會跟全域 HBM 變成同一個，
     ; 導致「刪除舊圖」時把剛設上去的新圖刪掉，畫面就會全白。
     newBm := RenderBitmap(layout, A_ScriptDir . "\icon.ico")
-    if (layout.w != PICW || layout.h != PICH) {
-        PIC.Move(0, 0, layout.w, layout.h)
-        PICW := layout.w, PICH := layout.h
-    }
-    SendMessage(0x172, 0, newBm, PIC)        ; STM_SETIMAGE
     oldBm := HBM
-    HBM := newBm
+    HBM := newBm, BMW := layout.w, BMH := layout.h
     if (oldBm)
         DllCall("DeleteObject", "Ptr", oldBm)
 
@@ -521,6 +532,7 @@ Render() {
         LASTGEO := geo
         POPUP_ON := true
     }
+    DllCall("InvalidateRect", "Ptr", POPUP.Hwnd, "Ptr", 0, "Int", 0)   ; 0 = 不擦背景
 }
 
 DraftText() {
@@ -768,7 +780,6 @@ DragMove() {
     if (!GetKeyState("LButton", "P")) {
         DRAGGING := false
         SetTimer(DragMove, 0)
-        try WinSetExStyle("+0x02000000", POPUP.Hwnd)
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
             MANUALX := wx, MANUALY := wy       ; 實體座標，只影響目前這個候選窗
