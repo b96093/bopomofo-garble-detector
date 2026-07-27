@@ -55,8 +55,8 @@ global DPIF := A_ScreenDPI / 96
 ; 所以預設「在 Chrome 也偵測」，遇到重複的人再從系統列關掉即可。
 global BROWSER_APPS := Map("chrome.exe", true)
 global CHROME_DETECT := true
-global MODE := "conservative"      ; conservative｜aggressive
-global THRESH := 0.8, MINSYL := 2  ; 由 MODE 換算而來
+global LEVEL := 2                  ; 靈敏度 1(很保守)～5(很積極)，2 是先前一路測試的設定
+global THRESH := 0.8, MINSYL := 2  ; 由 LEVEL 換算而來
 global SETGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 
@@ -951,28 +951,43 @@ DragMove() {
 
 ; ---------- 設定 ----------
 LoadSettings() {
-    global CHROME_DETECT, PAUSED, MODE
+    global CHROME_DETECT, PAUSED, LEVEL
     CHROME_DETECT := (IniRead(SETTINGS_FILE, "settings", "chromeDetect", "1") != "0")
     PAUSED := (IniRead(SETTINGS_FILE, "settings", "enabled", "1") == "0")
-    MODE := IniRead(SETTINGS_FILE, "settings", "mode", "conservative")
-    ApplyMode()
+    LEVEL := Integer(IniRead(SETTINGS_FILE, "settings", "level", "2"))
+    if (LEVEL < 1 || LEVEL > 5)
+        LEVEL := 2
+    ApplyLevel()
 }
 
 SaveSettings() {
     try {
         IniWrite(CHROME_DETECT ? 1 : 0, SETTINGS_FILE, "settings", "chromeDetect")
         IniWrite(PAUSED ? 0 : 1, SETTINGS_FILE, "settings", "enabled")
-        IniWrite(MODE, SETTINGS_FILE, "settings", "mode")
+        IniWrite(LEVEL, SETTINGS_FILE, "settings", "level")
     }
 }
 
-; 靈敏度：保守＝很有把握才跳；積極＝寧可多跳
-ApplyMode() {
+; 靈敏度換算：門檻＝轉出來要有多像中文；最少音節＝至少幾個字才理會
+ApplyLevel() {
     global THRESH, MINSYL
-    if (MODE == "aggressive")
-        THRESH := 0.6, MINSYL := 1
-    else
-        THRESH := 0.8, MINSYL := 2
+    switch LEVEL {
+        case 1: THRESH := 0.9,  MINSYL := 3
+        case 3: THRESH := 0.7,  MINSYL := 2
+        case 4: THRESH := 0.6,  MINSYL := 1
+        case 5: THRESH := 0.5,  MINSYL := 1
+        default: THRESH := 0.8, MINSYL := 2
+    }
+}
+
+LevelDesc(n) {
+    switch n {
+        case 1: return "很保守：非常確定才跳出通知浮窗，幾乎不會打擾你，但容易漏接。"
+        case 3: return "標準：一般情況都會跳出通知浮窗。"
+        case 4: return "積極：連單一個字也會跳出通知浮窗；打英文時偶爾會被打擾。"
+        case 5: return "很積極：盡量不漏接，寧可多跳出通知浮窗；打英文時較常被打擾。"
+        default: return "保守（建議）：很有把握才跳出通知浮窗；偶爾會漏接很短的亂碼。"
+    }
 }
 
 ; ---------- 開機自動啟動 ----------
@@ -1019,12 +1034,13 @@ ShowSettings() {
     g.Add("Text", "xm+22 y+2 c888888", "關閉後不會跳出任何候選窗。")
 
     g.SetFont("s10")
-    g.Add("Text", "xm y+16", "偵測靈敏度")
+    g.Add("Text", "xm y+18", "偵測靈敏度")
+    sld := g.Add("Slider", "xm y+8 w420 Range1-5 TickInterval1 Line1 Page1 vLevel", LEVEL)
     g.SetFont("s9")
-    g.Add("Radio", "xm y+8 vModeCon Checked" . (MODE == "aggressive" ? 0 : 1), "保守（建議）")
-    g.Add("Text", "xm+22 y+2 c888888", "很有把握才跳，幾乎不打擾；偶爾會漏接短亂碼。")
-    g.Add("Radio", "xm y+8 vModeAgg Checked" . (MODE == "aggressive" ? 1 : 0), "積極")
-    g.Add("Text", "xm+22 y+2 c888888", "寧可多跳、抓好抓滿；打英文時偶爾會被打擾。")
+    g.Add("Text", "xm y+2 w200 c888888", "← 保守（不容易被打擾）")
+    g.Add("Text", "x+20 yp w200 Right c888888", "積極（盡量抓到）→")
+    lbl := g.Add("Text", "xm y+8 w420 c555555", LevelDesc(LEVEL))
+    sld.OnEvent("Change", (*) => lbl.Value := LevelDesc(sld.Value))
 
     g.SetFont("s10")
     g.Add("Checkbox", "xm y+18 vChrome Checked" . (CHROME_DETECT ? 1 : 0), "在 Chrome 中也偵測")
@@ -1047,12 +1063,12 @@ ShowSettings() {
 }
 
 SaveFromGui(g) {
-    global CHROME_DETECT, PAUSED, MODE
+    global CHROME_DETECT, PAUSED, LEVEL
     v := g.Submit(false)
     PAUSED := !v.Enabled
-    MODE := v.ModeAgg ? "aggressive" : "conservative"
+    LEVEL := v.Level
     CHROME_DETECT := v.Chrome ? true : false
-    ApplyMode()
+    ApplyLevel()
     SaveSettings()
     if (!SetAutoStart(v.Auto))
         MsgBox("開機自動啟動設定失敗，可能是權限不足。", "注音亂碼偵測", "Icon!")
