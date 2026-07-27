@@ -22,9 +22,14 @@ global POPUP_ON := false
 global CELLSTATE := Map() ; 每個控制項目前的內容簽章，用來跳過沒變化的更新
 global LASTGEO := ""      ; 視窗目前的位置與大小
 global ANCX := 0, ANCY := 0  ; 候選窗定位點（開啟時算一次，導航期間不再變動）
+; 定位模式："point"＝已知座標（插入點或滑鼠）；"window"＝作用中視窗底部置中。
+; 取不到插入點時「跟著滑鼠跑」會讓使用者覺得浮窗隨機出現，改用固定位置才可預期。
+global ANCMODE := "point"
+global ANCW := [0, 0, 0, 0]   ; 開窗當下作用中視窗的位置大小（視窗單位）
 ; 選取轉換用
 global ICON := "", ICONTEXT := "", ICONHINT := "", ICON_ON := false
 global SELRES := ""       ; 選取內容的偵測結果
+global SELFROMMOUSE := true   ; 這次選取是滑鼠拖曳還是鍵盤（Ctrl+A）觸發
 global MDX := 0, MDY := 0 ; 滑鼠按下的位置（用來判斷是否為拖曳選取）
 global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 ; 注意：所有全域初始化都必須寫在第一個熱鍵之前，
@@ -96,7 +101,7 @@ OnResetKey(hook, vk, sc) {
         return
     ; 按住 Shift 移動＝用鍵盤選取文字，等停下來再檢查選取內容
     if (GetKeyState("Shift", "P") && (vk = 37 || vk = 38 || vk = 39 || vk = 40 || vk = 36 || vk = 35)) {
-        SetTimer(CheckSelection, -280)
+        SetTimer(() => CheckSelection(false), -280)
         return
     }
     HideIcon()                    ; 按了其他鍵就代表選取已失效
@@ -126,7 +131,7 @@ WatchWindow() {
 ~LButton Up::MouseUp()
 ~RButton::ClickAway()
 ; Ctrl+A 全選（Canva、PPT 這類文字方框常用）也視為選取完成
-~^a::SetTimer(CheckSelection, -180)
+~^a::SetTimer(() => CheckSelection(false), -180)
 
 MouseDown() {
     global MDX, MDY
@@ -215,10 +220,11 @@ GetSelectedText() {
     return text
 }
 
-CheckSelection() {
-    global SELRES
+CheckSelection(fromMouse := true) {
+    global SELRES, SELFROMMOUSE
     if (BUSY || PAUSED || POPUP_ON || IsExcludedApp())
         return
+    SELFROMMOUSE := fromMouse
     text := Trim(GetSelectedText(), " `t`r`n")
     if (text == "" || StrLen(text) > 120) {   ; 太長的選取不是我們的使用情境
         HideIcon()
@@ -272,6 +278,19 @@ ToGui(v) {
     return Round(v / DPIF)
 }
 
+; 取得作用中視窗的位置大小（視窗單位）；取不到就用整個螢幕
+ActiveWinRect() {
+    try {
+        hwnd := WinExist("A")
+        if (hwnd) {
+            WinGetPos(&wx, &wy, &ww, &wh, hwnd)
+            if (ww > 200 && wh > 150)
+                return [ToGui(wx), ToGui(wy), ToGui(ww), ToGui(wh)]
+        }
+    }
+    return [0, 0, ToGui(A_ScreenWidth), ToGui(A_ScreenHeight)]
+}
+
 ; 把視窗夾在螢幕可用範圍內；下方放不下就翻到插入點上方
 ; x/y/w/h 皆為「視窗單位」，螢幕邊界取得後要換算過來才能比較
 ClampToScreen(&x, &y, w, h) {
@@ -303,18 +322,16 @@ Fit(s, maxChars) {
 
 ; src："typing"（邊打邊偵測，用退格取代）或 "selection"（選取轉換，直接覆蓋選取）
 OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
-    global ST, ANCX, ANCY, CW, CCOLS, TCOLS
+    global ST, ANCX, ANCY, ANCMODE, ANCW, CW, CCOLS, TCOLS
     ; 定位只在開啟時算一次：插入點會閃爍，重算會讓視窗在游標與滑鼠位置之間跳動
     if (ST == "") {
-        if (ax >= 0) {
-            ANCX := ax, ANCY := ay
-        } else {
-            px := 0, py := 0
-            ; Canva 等以畫布繪製的程式取不到插入點，只能退用滑鼠位置；
-            ; 滑鼠通常就在剛打的字附近，所以偏移要拉大一點才不會蓋住原文
-            if !CaretPos(&px, &py)          ; CaretPos 回傳的已是插入點下緣
-                MouseGetPos(&px, &py), py += 44
-            ANCX := ToGui(px), ANCY := ToGui(py) + 4
+        ANCW := ActiveWinRect()
+        if (ax >= 0) {                       ; 呼叫端已指定（滑鼠選取）
+            ANCMODE := "point", ANCX := ax, ANCY := ay
+        } else if (CaretPos(&px, &py)) {     ; 有插入點 → 貼在文字行下方
+            ANCMODE := "point", ANCX := ToGui(px), ANCY := ToGui(py) + 4
+        } else {                             ; 畫布類程式 → 固定在視窗底部置中
+            ANCMODE := "window"
         }
     }
     ST := {cands: res.candidates, sel: 1, draft: StrChars(res.candidates[1]),
@@ -424,8 +441,14 @@ ShowIcon(preview) {
     ICONTEXT.Value := "→ " . shown
     ICONTEXT.Move(32, 9, w - 44, 22)
     ICONHINT.Move(32, 32, w - 44, 18)
-    MouseGetPos(&mx, &my)
-    ix := ToGui(mx) + 8, iy := ToGui(my) + 18
+    if (SELFROMMOUSE) {                     ; 滑鼠選取 → 出現在剛放開滑鼠的地方
+        MouseGetPos(&mx, &my)
+        ix := ToGui(mx) + 8, iy := ToGui(my) + 18
+    } else {                                ; 鍵盤選取（Ctrl+A）→ 固定在視窗底部置中
+        r := ActiveWinRect()
+        ix := r[1] + (r[3] - w) // 2
+        iy := r[2] + r[4] - 58 - 40
+    }
     ClampToScreen(&ix, &iy, w, 58)
     ICON.Show("NoActivate x" . ix . " y" . iy . " w" . w . " h58")
     ICON_ON := true
@@ -446,8 +469,12 @@ IconClicked() {
         return
     res := SELRES
     HideIcon()
-    MouseGetPos(&mx, &my)
-    OpenCandidates(res, "selection", ToGui(mx), ToGui(my) + 18)
+    if (SELFROMMOUSE) {
+        MouseGetPos(&mx, &my)
+        OpenCandidates(res, "selection", ToGui(mx), ToGui(my) + 18)
+    } else {
+        OpenCandidates(res, "selection")     ; 沿用固定位置規則
+    }
 }
 
 ; ---------- 更新候選窗內容 ----------
@@ -581,7 +608,12 @@ Render() {
 
     ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
     winW := CW + PAD * 2, winH := y
-    px := ANCX, py := ANCY
+    if (ANCMODE == "window") {              ; 固定在作用中視窗底部置中
+        px := ANCW[1] + (ANCW[3] - winW) // 2
+        py := ANCW[2] + ANCW[4] - winH - 40
+    } else {
+        px := ANCX, py := ANCY
+    }
     ClampToScreen(&px, &py, winW, winH)
     geo := px . "," . py . "," . winW . "," . winH
     if (!POPUP_ON || geo != LASTGEO) {
