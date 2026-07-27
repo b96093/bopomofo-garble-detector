@@ -38,6 +38,9 @@ global CW := TCOLS * TCELL + 4
 ; 兩者混用會算錯位置，所以外來的實體座標一律先換算成視窗單位。
 global DPIF := A_ScreenDPI / 96
 
+; 這些程式已由 Chrome 擴充負責，桌面版不重複偵測（否則同一段亂碼會跳兩個候選窗）
+global SKIP_APPS := Map("chrome.exe", true)
+
 ; 配色
 global C_BG := "FFFFFF", C_SEL := "E8F1FD", C_SELDIM := "F3F3F3", C_CELL := "F7F7F7"
 global C_TEXT := "1E1E1E", C_MUTED := "8A8A8A", C_ACCENT := "1A5FB4", C_LINE := "ECECEC"
@@ -147,9 +150,24 @@ Reset() {
 }
 
 ; ---------- 偵測 ----------
+; 目前視窗是否交由 Chrome 擴充處理
+IsExcludedApp() {
+    try {
+        hwnd := WinExist("A")
+        if (hwnd)
+            return SKIP_APPS.Has(StrLower(WinGetProcessName(hwnd)))
+    }
+    return false
+}
+
 Scan() {
     global HIT, BUF
     if (PAUSED || BUF == "") {
+        HidePopup()
+        return
+    }
+    if (IsExcludedApp()) {        ; Chrome 裡交給擴充，避免兩個候選窗同時出現
+        BUF := ""
         HidePopup()
         return
     }
@@ -181,7 +199,7 @@ GetSelectedText() {
 
 CheckSelection() {
     global SELRES
-    if (BUSY || PAUSED || POPUP_ON)
+    if (BUSY || PAUSED || POPUP_ON || IsExcludedApp())
         return
     text := Trim(GetSelectedText(), " `t`r`n")
     if (text == "" || StrLen(text) > 120) {   ; 太長的選取不是我們的使用情境

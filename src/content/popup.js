@@ -99,7 +99,7 @@ export function createPopup() {
         `</div>`;
     }
 
-    h += `<div class="commit" data-commit="1">插入「${esc(draft.join(''))}」</div>`;
+    h += `<div class="commit" data-commit="1">↵ 改為「${esc(draft.join(''))}」</div>`;
     const hint = inSent ? '↑↓ 選句 · ↓ 進逐字 · Enter 插入'
       : zone === 'chars' ? '←→ 選字 · ↓ 展開同音 · Enter 插入'
       : '←→↑↓ 選同音字 · Enter 換上 · Esc 返回';
