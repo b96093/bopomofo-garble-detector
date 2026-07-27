@@ -324,7 +324,7 @@ ActiveWinRect() {
 
 ; 把視窗夾在螢幕可用範圍內；下方放不下就翻到插入點上方
 ; x/y/w/h 皆為「視窗單位」，螢幕邊界取得後要換算過來才能比較
-ClampToScreen(&x, &y, w, h) {
+ClampToScreen(&x, &y, w, h, allowFlip := true) {
     L := 0, T := 0, R := ToGui(A_ScreenWidth), B := ToGui(A_ScreenHeight)
     Loop MonitorGetCount() {
         MonitorGetWorkArea(A_Index, &ml, &mt, &mr, &mb)
@@ -338,8 +338,11 @@ ClampToScreen(&x, &y, w, h) {
         x := R - 8 - w
     if (x < L + 8)
         x := L + 8
-    if (y + h > B - 8)
-        y := y - h - 28          ; 翻到插入點上方
+    if (y + h > B - 8) {
+        ; 自動定位：翻到插入點上方，避免蓋住文字
+        ; 手動拖曳過的位置：只往上挪剛好塞得下的距離，不要整個翻面（會像瞬移）
+        y := allowFlip ? (y - h - 28) : (B - 8 - h)
+    }
     if (y < T + 8)
         y := T + 8
 }
@@ -643,7 +646,8 @@ Render() {
 
     ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
     winW := CW + PAD * 2, winH := y
-    if (MANUALX >= 0) {                     ; 使用者拖曳指定過位置 → 一律用它
+    manual := (MANUALX >= 0)
+    if (manual) {                           ; 使用者拖曳指定過位置 → 一律用它
         px := MANUALX, py := MANUALY
     } else if (ANCMODE == "window") {       ; 固定在作用中視窗底部置中
         px := ANCW[1] + (ANCW[3] - winW) // 2
@@ -651,7 +655,7 @@ Render() {
     } else {
         px := ANCX, py := ANCY
     }
-    ClampToScreen(&px, &py, winW, winH)
+    ClampToScreen(&px, &py, winW, winH, !manual)
     geo := px . "," . py . "," . winW . "," . winH
     if (!POPUP_ON || geo != LASTGEO) {
         POPUP.Show("NoActivate x" . px . " y" . py . " w" . winW . " h" . winH)
