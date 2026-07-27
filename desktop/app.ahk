@@ -38,8 +38,12 @@ global CW := TCOLS * TCELL + 4
 ; 兩者混用會算錯位置，所以外來的實體座標一律先換算成視窗單位。
 global DPIF := A_ScreenDPI / 96
 
-; 這些程式已由 Chrome 擴充負責，桌面版不重複偵測（否則同一段亂碼會跳兩個候選窗）
-global SKIP_APPS := Map("chrome.exe", true)
+; 若使用者「同時」裝了 Chrome 擴充，在 Chrome 裡就會跳出兩個候選窗。
+; 但只裝桌面版的人若預設關閉，Chrome 裡會莫名其妙沒反應且看不出原因 ——
+; 所以預設「在 Chrome 也偵測」，遇到重複的人再從系統列關掉即可。
+global BROWSER_APPS := Map("chrome.exe", true)
+global CHROME_DETECT := true
+global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 
 ; 配色
 global C_BG := "FFFFFF", C_SEL := "E8F1FD", C_SELDIM := "F3F3F3", C_CELL := "F7F7F7"
@@ -48,8 +52,13 @@ global C_TEXT := "1E1E1E", C_MUTED := "8A8A8A", C_ACCENT := "1A5FB4", C_LINE := 
 ; ---------- 啟動 ----------
 TraySetIcon(A_ScriptDir "\icon.ico", 1, true)
 A_IconTip := "注音亂碼偵測（載入中…）"
+LoadSettings()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
+A_TrayMenu.Add("在 Chrome 中也偵測", (*) => ToggleChromeDetect())
+if (CHROME_DETECT)
+    A_TrayMenu.Check("在 Chrome 中也偵測")
+A_TrayMenu.Add()
 A_TrayMenu.Add("結束", (*) => ExitApp())
 
 DICT := LoadDict(A_ScriptDir "\dict.txt")
@@ -152,10 +161,12 @@ Reset() {
 ; ---------- 偵測 ----------
 ; 目前視窗是否交由 Chrome 擴充處理
 IsExcludedApp() {
+    if (CHROME_DETECT)
+        return false
     try {
         hwnd := WinExist("A")
         if (hwnd)
-            return SKIP_APPS.Has(StrLower(WinGetProcessName(hwnd)))
+            return BROWSER_APPS.Has(StrLower(WinGetProcessName(hwnd)))
     }
     return false
 }
@@ -820,6 +831,31 @@ Accept(text) {
     BUF := "", HIT := "", ST := ""
     IH.Start()
     BUSY := false
+}
+
+; ---------- 設定 ----------
+LoadSettings() {
+    global CHROME_DETECT
+    v := IniRead(SETTINGS_FILE, "settings", "chromeDetect", "1")
+    CHROME_DETECT := (v != "0")
+}
+
+SaveSettings() {
+    try IniWrite(CHROME_DETECT ? 1 : 0, SETTINGS_FILE, "settings", "chromeDetect")
+}
+
+ToggleChromeDetect() {
+    global CHROME_DETECT
+    CHROME_DETECT := !CHROME_DETECT
+    SaveSettings()
+    if (CHROME_DETECT)
+        A_TrayMenu.Check("在 Chrome 中也偵測")
+    else
+        A_TrayMenu.Uncheck("在 Chrome 中也偵測")
+    Reset()
+    Tip(CHROME_DETECT
+        ? "已開啟：Chrome 中也會偵測`n（若你另外裝了 Chrome 擴充，會跳出兩個候選窗）"
+        : "已關閉：Chrome 中交給擴充處理", 2600)
 }
 
 ; ---------- 其他 ----------
