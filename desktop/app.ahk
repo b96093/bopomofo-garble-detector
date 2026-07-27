@@ -157,7 +157,10 @@ MouseDown() {
             if (y - wy < 32 * DPIF) {
                 DRAGDX := x - wx, DRAGDY := y - wy
                 DRAGGING := true
-                SetTimer(DragMove, 10)
+                ; 雙緩衝（WS_EX_COMPOSITED）靜態時能消除閃爍，但移動視窗時
+                ; 每一格都要重畫整個緩衝區而變得很鈍 —— 拖曳期間先關掉。
+                try WinSetExStyle("-0x02000000", POPUP.Hwnd)
+                SetTimer(DragMove, 8)
             }
         }
     }
@@ -916,6 +919,7 @@ DragMove() {
     if (!GetKeyState("LButton", "P")) {
         DRAGGING := false
         SetTimer(DragMove, 0)
+        try WinSetExStyle("+0x02000000", POPUP.Hwnd)   ; 放開後恢復雙緩衝
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
             MANUALX := ToGui(wx), MANUALY := ToGui(wy)   ; 只影響目前這個候選窗
@@ -924,7 +928,9 @@ DragMove() {
         return
     }
     MouseGetPos(&mx, &my)
-    try WinMove(mx - DRAGDX, my - DRAGDY, , , POPUP.Hwnd)
+    ; SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE = 0x0015，只搬位置最省事
+    try DllCall("SetWindowPos", "Ptr", POPUP.Hwnd, "Ptr", 0,
+        "Int", mx - DRAGDX, "Int", my - DRAGDY, "Int", 0, "Int", 0, "UInt", 0x0015)
 }
 
 ; ---------- 設定 ----------
