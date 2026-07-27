@@ -228,9 +228,11 @@ RenderBitmap(layout, iconPath) {
     w := layout.w, h := layout.h
     hdcScreen := DllCall("GetDC", "Ptr", 0, "Ptr")
     hdc := DllCall("CreateCompatibleDC", "Ptr", hdcScreen, "Ptr")
+    ; 用 24 位元（不含透明度通道）：GDI 的矩形與文字不會填寫透明度，
+    ; 若用 32 位元，那些像素的透明度會是 0（全透明），畫面上就只剩下圖示看得見。
     bi := Buffer(40, 0)
     NumPut("UInt", 40, bi, 0), NumPut("Int", w, bi, 4), NumPut("Int", -h, bi, 8)
-    NumPut("UShort", 1, bi, 12), NumPut("UShort", 32, bi, 14)
+    NumPut("UShort", 1, bi, 12), NumPut("UShort", 24, bi, 14)
     hbm := DllCall("CreateDIBSection", "Ptr", hdc, "Ptr", bi, "UInt", 0, "Ptr*", 0,
         "Ptr", 0, "UInt", 0, "Ptr")
     obm := DllCall("SelectObject", "Ptr", hdc, "Ptr", hbm, "Ptr")
