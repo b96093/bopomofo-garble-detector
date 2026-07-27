@@ -8,6 +8,7 @@
 ;
 ; 效能：候選窗的控制項只建立一次，之後只更新內容與位置（避免重建造成閃爍）。
 #Include engine.ahk
+#Include draw.ahk
 
 global DICT := ""
 global BUF := ""          ; 目前累積的輸入（只在記憶體）
@@ -17,7 +18,10 @@ global BUSY := false      ; 執行替換中，暫停監看避免吃到自己送�
 global PAUSED := false
 global LASTWIN := 0
 global POPUP := ""
-global UI := ""           ; 控制項池
+global PIC := ""          ; 承載自繪點陣圖的圖片控制項
+global HITS := []         ; 目前畫面上的可點擊區域
+global TRAYCOLS := 10     ; 同音字盤實際欄數（繪圖時算出，鍵盤換行要用）
+global HBM := 0           ; 目前的點陣圖（換圖時要釋放）
 global POPUP_ON := false
 global CELLSTATE := Map() ; 每個控制項目前的內容簽章，用來跳過沒變化的更新
 global LASTGEO := ""      ; 視窗目前的位置與大小
@@ -42,10 +46,6 @@ global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 ; 注意：所有全域初始化都必須寫在第一個熱鍵之前，
 ; 因為 AHK 的自動執行區在遇到熱鍵定義時就結束了。
 
-; 版面尺寸
-global PAD := 14, CANDH := 30, CELL := 36, TCELL := 33, TCOLS := 10, CCOLS := 10
-global MAXCAND := 3, MAXCHAR := 64, MAXHOM := 50
-global CW := TCOLS * TCELL + 4
 ; 螢幕縮放：AHK 只把「視窗尺寸」乘上這個係數，「位置」則是實體像素。
 ; 所以位置一律用實體座標，只有要跟螢幕邊界比大小時，才把尺寸換算成實體像素。
 global DPIF := A_ScreenDPI / 96
@@ -60,9 +60,6 @@ global THRESH := 0.8, MINSYL := 2  ; 由 LEVEL 換算而來
 global SETGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 
-; 配色
-global C_BG := "FFFFFF", C_SEL := "E8F1FD", C_SELDIM := "F3F3F3", C_CELL := "F7F7F7"
-global C_TEXT := "1E1E1E", C_MUTED := "8A8A8A", C_ACCENT := "1A5FB4", C_LINE := "ECECEC"
 
 ; ---------- 啟動 ----------
 TraySetIcon(A_ScriptDir "\icon.ico", 1, true)
@@ -153,17 +150,25 @@ MouseDown() {
     if (!isOwn) {
         CLICKX := x, CLICKY := y, CLICKOK := true
     } else if (POPUP_ON && POPUP != "" && hwnd == POPUP.Hwnd) {
-        ; 點在候選窗上緣（標題列）→ 開始拖曳。
-        ; 浮窗是「不奪取焦點」的視窗，系統內建的拖曳機制不適用，所以自己追蹤滑鼠。
+        ; 自繪的候選窗沒有子控制項，要自己判斷點到哪一格
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
-            if (y - wy < 32 * DPIF) {
-                DRAGDX := x - wx, DRAGDY := y - wy
-                DRAGGING := true
-                ; 雙緩衝（WS_EX_COMPOSITED）靜態時能消除閃爍，但移動視窗時
-                ; 每一格都要重畫整個緩衝區而變得很鈍 —— 拖曳期間先關掉。
-                try WinSetExStyle("-0x02000000", POPUP.Hwnd)
-                SetTimer(DragMove, 8)
+            hit := HitTest(HITS, x - wx, y - wy)
+            if (hit != "") {
+                if (hit.k == "drag") {
+                    ; 標題列 → 開始拖曳（不奪焦視窗不吃系統內建拖曳，自己追蹤滑鼠）
+                    DRAGDX := x - wx, DRAGDY := y - wy
+                    DRAGGING := true
+                    SetTimer(DragMove, 8)
+                } else if (hit.k == "cand") {
+                    SetTimer(() => Accept(ST.cands[hit.i]), -1)
+                } else if (hit.k == "char") {
+                    SetTimer(() => ToggleChar(hit.i), -1)
+                } else if (hit.k == "hom") {
+                    SetTimer(() => PickHom(hit.i), -1)
+                } else if (hit.k == "commit") {
+                    SetTimer(() => Accept(DraftText()), -1)
+                }
             }
         }
     }
@@ -298,16 +303,6 @@ HomsAt(k) {
     return out
 }
 
-; 長句子需要比較寬的視窗，依內容決定（上限避免超出螢幕）
-CalcWidth() {
-    maxLen := 0
-    for c in ST.cands
-        maxLen := Max(maxLen, StrLen(c))
-    w := maxLen * 21 + 34
-    w := Max(w, ST.draft.Length * CELL + 10)   ; 讓逐字列盡量排成一行
-    return Max(304, Min(w, 720))
-}
-
 ; 視窗尺寸（AHK 單位）→ 實際佔用的實體像素
 ToPhys(v) {
     return Round(v * DPIF)
@@ -360,7 +355,7 @@ Fit(s, maxChars) {
 
 ; src："typing"（邊打邊偵測，用退格取代）或 "selection"（選取轉換，直接覆蓋選取）
 OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
-    global ST, ANCX, ANCY, ANCMODE, ANCW, CW, CCOLS, TCOLS
+    global ST, ANCX, ANCY, ANCMODE, ANCW
     ; 定位只在開啟時算一次：插入點會閃爍，重算會讓視窗在游標與滑鼠位置之間跳動
     if (ST == "") {
         ANCW := ActiveWinRect()
@@ -376,9 +371,6 @@ OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
     }
     ST := {cands: res.candidates, sel: 1, draft: StrChars(res.candidates[1]),
            syls: res.syllables, zone: "sent", ci: 1, hi: 1, src: src}
-    CW := CalcWidth()                       ; 視窗寬度依這次的內容決定
-    CCOLS := Max(6, CW // CELL)
-    TCOLS := Max(6, CW // TCELL)
     Render()
 }
 
@@ -393,96 +385,33 @@ SeekChar(from, d) {
     return 0
 }
 
-; ---------- 建立候選窗（只做一次） ----------
-BuildPopup() {
-    global POPUP, UI
-    ; E0x08000000 = 不奪取焦點；E0x02000000 = 子控制項雙緩衝（消除閃爍的關鍵）
-    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 +E0x02000000")
-    POPUP.BackColor := C_BG
-    POPUP.MarginX := 0, POPUP.MarginY := 0
-    UI := {cands: [], keys: [], chars: [], homs: []}
-
-    ; 標題列（logo + 說明）
-    try UI.logo := POPUP.Add("Picture", "x" . PAD . " y11 w16 h16", A_ScriptDir "\icon.ico")
-    POPUP.SetFont("s9", "Microsoft JhengHei")
-    UI.title := POPUP.Add("Text", "x" . (PAD + 22) . " y12 w220 h17 c" . C_MUTED, "偵測到注音亂碼　（按這裡拖曳）")
-
-    ; 整句候選
-    POPUP.SetFont("s12", "Microsoft JhengHei")
-    Loop MAXCAND {
-        i := A_Index
-        t := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h" . (CANDH - 3) . " Hidden Background" . C_BG . " c" . C_TEXT, "")
-        t.OnEvent("Click", CandHandler(i))
-        UI.cands.Push(t)
-    }
-    POPUP.SetFont("s8", "Microsoft JhengHei")
-    Loop MAXCAND
-        UI.keys.Push(POPUP.Add("Text", "x0 y0 w40 h15 Hidden Background" . C_SEL . " c3A76D8", "Enter"))
-
-    ; 分隔線與說明
-    UI.line1 := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h1 Hidden Background" . C_LINE, "")
-    UI.label := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h16 Hidden c" . C_MUTED, "逐字換同音字（點字，或按 ↓ 進入）")
-
-    ; 逐字格
-    POPUP.SetFont("s12", "Microsoft JhengHei")
-    Loop MAXCHAR {
-        k := A_Index
-        t := POPUP.Add("Text", "x0 y0 w" . (CELL - 4) . " h" . (CELL - 5) . " Center Hidden Background" . C_CELL . " c" . C_TEXT, "")
-        t.OnEvent("Click", CharHandler(k))
-        UI.chars.Push(t)
-    }
-
-    ; 同音字格
-    POPUP.SetFont("s11", "Microsoft JhengHei")
-    UI.line2 := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h1 Hidden Background" . C_LINE, "")
-    UI.tray := POPUP.Add("Text", "x0 y0 w10 h10 Hidden BackgroundF7F7F7", "")   ; 同音字區底板
-    Loop MAXHOM {
-        i := A_Index
-        t := POPUP.Add("Text", "x0 y0 w" . (TCELL - 4) . " h" . (TCELL - 4) . " Center Hidden Background" . C_CELL . " c" . C_TEXT, "")
-        t.OnEvent("Click", HomHandler(i))
-        UI.homs.Push(t)
-    }
-
-    ; 插入鈕與提示
-    POPUP.SetFont("s11", "Microsoft JhengHei")
-    UI.btn := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h27 Center Hidden Background" . C_SEL . " c" . C_ACCENT, "")
-    UI.btn.OnEvent("Click", (*) => SetTimer(() => Accept(DraftText()), -1))
-    POPUP.SetFont("s8", "Microsoft JhengHei")
-    UI.hint := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h16 Hidden c999999", "")
-    UI.esc := POPUP.Add("Text", "x0 y0 w40 h16 Right Hidden c999999", "Esc")
-
-    ; Windows 11 圓角與細邊框（舊版系統會靜默略過）
-    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
-    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 34, "UInt*", 0x00D8D8D8, "UInt", 4)
-}
-
 ; ---------- 選取後浮出的小 icon ----------
 BuildIcon() {
     global ICON, ICONTEXT, ICONHINT
-    ICON := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 +E0x02000000")
-    ICON.BackColor := C_BG
+    ICON := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
+    ICON.BackColor := "FFFFFF"
     ICON.MarginX := 0, ICON.MarginY := 0
     try {
-        pic := ICON.Add("Picture", "x9 y8 w18 h18", A_ScriptDir "\icon.ico")
+        pic := ICON.Add("Picture", "x11 y10 w18 h18", A_ScriptDir . "\icon.ico")
         pic.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
     }
     ICON.SetFont("s11", "Microsoft JhengHei")
-    ICONTEXT := ICON.Add("Text", "x32 y9 w240 h22 c" . C_TEXT, "")
+    ICONTEXT := ICON.Add("Text", "x35 y9 w240 h22 c1E1E1E", "")
     ICONTEXT.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
     ICON.SetFont("s9", "Microsoft JhengHei")
-    ICONHINT := ICON.Add("Text", "x32 y32 w240 h18 c" . C_ACCENT, "↵ 轉中文或編輯")
+    ICONHINT := ICON.Add("Text", "x35 y33 w240 h18 c1A5FB4", "↵ 轉中文或編輯")
     ICONHINT.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", ICON.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
-    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", ICON.Hwnd, "UInt", 34, "UInt*", 0x00D8D8D8, "UInt", 4)
+    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", ICON.Hwnd, "UInt", 34, "UInt*", 0x00DCDCDC, "UInt", 4)
 }
 
 ShowIcon(preview) {
     global ICON_ON
     shown := Fit(preview, 32)                  ; 先決定要顯示多少字
-    w := Max(230, 56 + StrLen(shown) * 20)     ; 再依實際顯示長度決定寬度
+    w := Max(230, 60 + StrLen(shown) * 20)     ; 再依實際顯示長度決定寬度
     ICONTEXT.Value := "→ " . shown
-    ICONTEXT.Move(32, 9, w - 44, 22)
-    ICONHINT.Move(32, 32, w - 44, 18)
+    ICONTEXT.Move(35, 9, w - 46, 22)
+    ICONHINT.Move(35, 33, w - 46, 18)
     if (SELFROMMOUSE) {                     ; 滑鼠選取 → 出現在剛放開滑鼠的地方
         MouseGetPos(&mx, &my)
         ix := mx + 8, iy := my + 18
@@ -521,157 +450,44 @@ IconClicked() {
     }
 }
 
-; ---------- 更新候選窗內容 ----------
-; 只有在內容真的改變時才動控制項 —— 沒變化就完全不碰，這是消除閃爍的關鍵
-SetCell(ctrl, val, bg, fg, x, y, w, h) {
-    global CELLSTATE
-    sig := val . "|" . bg . "|" . fg . "|" . x . "|" . y . "|" . w . "|" . h
-    key := ctrl.Hwnd
-    if (CELLSTATE.Has(key) && CELLSTATE[key] == sig)
-        return false
-    CELLSTATE[key] := sig
-    ctrl.Value := val
-    ctrl.Opt("Background" . bg . " c" . fg)
-    ctrl.Move(x, y, w, h)
-    ctrl.Visible := true
-    ctrl.Redraw()          ; 只重繪這一格，不動其他控制項
-    return true
+; ---------- 建立候選窗（只做一次） ----------
+BuildPopup() {
+    global POPUP, PIC
+    ; -DPIScale：自繪一律用實體像素，避免 AHK 再縮放一次
+    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 -DPIScale")
+    POPUP.BackColor := "FFFFFF"
+    POPUP.MarginX := 0, POPUP.MarginY := 0
+    PIC := POPUP.Add("Picture", "x0 y0 w10 h10 0xE")      ; SS_BITMAP
+    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
+    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 34, "UInt*", 0x00DCDCDC, "UInt", 4)
 }
 
-HideCell(ctrl) {
-    global CELLSTATE
-    key := ctrl.Hwnd
-    if (CELLSTATE.Has(key) && CELLSTATE[key] == "hidden")
-        return false
-    CELLSTATE[key] := "hidden"
-    ctrl.Visible := false
-    return true
-}
-
+; ---------- 畫出候選窗 ----------
 Render() {
-    global POPUP_ON, LASTGEO, FLIPPED
+    global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED
     if (ST == "")
         return
-    changed := false
+    st := {cands: ST.cands, sel: ST.sel, draft: ST.draft, zone: ST.zone,
+           ci: ST.ci, hi: ST.hi, draftText: DraftText()}
+    layout := BuildLayout(st, (k) => HomsAt(k))
+    HITS := layout.hits
 
-    inSent := (ST.zone == "sent")
-    y := 34
+    hbm := RenderBitmap(layout, A_ScriptDir . "\icon.ico")
+    PIC.Move(0, 0, layout.w, layout.h)
+    SendMessage(0x172, 0, hbm, PIC)          ; STM_SETIMAGE
+    if (HBM)
+        DllCall("DeleteObject", "Ptr", HBM)
+    HBM := hbm
 
-    ; 整句候選
-    for i, ctrl in UI.cands {
-        key := UI.keys[i]
-        if (i > ST.cands.Length) {
-            changed := HideCell(ctrl) || changed
-            changed := HideCell(key) || changed
-            continue
-        }
-        bg := (i == ST.sel) ? (inSent ? C_SEL : C_SELDIM) : C_BG
-        changed := SetCell(ctrl, "  " . Fit(ST.cands[i], (CW - 34) // 21), bg, C_TEXT, PAD, y, CW, CANDH - 3) || changed
-        if (i == ST.sel && inSent)
-            changed := SetCell(key, "Enter", bg, "3A76D8", PAD + CW - 44, y + 6, 40, 15) || changed
-        else
-            changed := HideCell(key) || changed
-        y += CANDH
-    }
-
-    ; 分隔線與說明
-    y += 5
-    changed := SetCell(UI.line1, "", C_LINE, C_LINE, PAD, y, CW, 1) || changed
-    y += 7
-    changed := SetCell(UI.label, "逐字換同音字（點字，或按 ↓ 進入）", C_BG, C_MUTED, PAD, y, CW, 16) || changed
-    y += 20
-
-    ; 逐字格
-    col := 0
-    for k, ctrl in UI.chars {
-        if (k > ST.draft.Length) {
-            changed := HideCell(ctrl) || changed
-            continue
-        }
-        editable := HomsAt(k).Length > 0
-        bg := C_CELL, fg := C_TEXT
-        if (!editable) {
-            bg := C_BG, fg := C_MUTED
-        } else if (!inSent && k == ST.ci) {
-            bg := C_SEL, fg := C_ACCENT
-        }
-        changed := SetCell(ctrl, ST.draft[k], bg, fg, PAD + col * CELL, y, CELL - 4, CELL - 5) || changed
-        col++
-        if (col >= CCOLS) {
-            col := 0
-            y += CELL
-        }
-    }
-    if (col > 0)
-        y += CELL
-    y += 3
-
-    ; 同音字格
-    homs := (ST.zone == "tray") ? HomsAt(ST.ci) : []
-    if (homs.Length) {
-        changed := SetCell(UI.line2, "", C_LINE, C_LINE, PAD, y, CW, 1) || changed
-        y += 7
-        rows := (homs.Length + TCOLS - 1) // TCOLS
-        changed := SetCell(UI.tray, "", "F7F7F7", "F7F7F7", PAD, y, CW, rows * TCELL + 8) || changed
-        ; 底板必須壓在最底層，否則會蓋住上面的同音字格
-        ; HWND_BOTTOM=1；SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE=0x0013
-        try DllCall("SetWindowPos", "Ptr", UI.tray.Hwnd, "Ptr", 1,
-            "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0013)
-        y += 4
-    } else {
-        changed := HideCell(UI.line2) || changed
-        changed := HideCell(UI.tray) || changed
-    }
-    tcol := 0
-    for i, ctrl in UI.homs {
-        if (i > homs.Length) {
-            changed := HideCell(ctrl) || changed
-            continue
-        }
-        bg := "FFFFFF", fg := C_TEXT
-        if (i == ST.hi) {
-            bg := C_SEL, fg := C_ACCENT
-        } else if (homs[i] == ST.draft[ST.ci]) {
-            bg := "F0F6FF"
-        }
-        changed := SetCell(ctrl, homs[i], bg, fg, PAD + tcol * TCELL, y, TCELL - 4, TCELL - 4) || changed
-        tcol++
-        if (tcol >= TCOLS) {
-            tcol := 0
-            y += TCELL
-        }
-    }
-    if (tcol > 0)
-        y += TCELL
-    if (homs.Length)
-        y += 7
-
-    ; 插入鈕
-    y += 4
-    changed := SetCell(UI.btn, "↵ 改為「" . Fit(DraftText(), (CW - 96) // 21) . "」", C_SEL, C_ACCENT, PAD, y, CW, 27) || changed
-    y += 31
-
-    ; 操作提示
-    hint := inSent ? "↑↓ 選句 · ↓ 進逐字 · Enter 插入"
-        : (ST.zone == "chars") ? "←→ 選字 · ↓ 展開同音 · Enter 插入"
-        : "←→↑↓ 選同音字 · Enter 換上 · Esc 返回"
-    changed := SetCell(UI.hint, hint, C_BG, "999999", PAD, y, CW - 44, 16) || changed
-    changed := SetCell(UI.esc, "Esc", C_BG, "999999", PAD + CW - 40, y, 40, 16) || changed
-    y += 22
-
-    ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
-    winW := CW + PAD * 2, winH := y
-    pw := ToPhys(winW), ph := ToPhys(winH)  ; 視窗實際佔用的實體像素
-    if (MANUALX >= 0) {                     ; 使用者拖曳指定過位置 → 一律用它
+    pw := layout.w, ph := layout.h
+    if (MANUALX >= 0) {
         px := MANUALX, py := MANUALY
-    } else if (ANCMODE == "window") {       ; 固定在作用中視窗底部置中
+    } else if (ANCMODE == "window") {
         px := ANCW[1] + (ANCW[3] - pw) // 2
         py := ANCW[2] + ANCW[4] - ph - 50
     } else {
         px := ANCX, py := ANCY
-        ; 下方放不下就翻到插入點上方 —— 但這個決定只做一次並固定住，
-        ; 否則展開/收起同音字時視窗高度一變，就會在上下兩個位置之間彈跳。
-        ; 變數名不能用 sT/sB 之類 —— AHK 不分大小寫，會撞到全域的 ST
+        ; 翻面只決定一次，否則展開/收起同音字時會上下彈跳
         ScreenBounds(px, py, &scrL, &scrT, &scrR, &scrB)
         if (!FLIPPED && py + ph > scrB - 10)
             FLIPPED := true
@@ -679,26 +495,13 @@ Render() {
             py := ANCY - ph - 36
     }
     ClampToScreen(&px, &py, pw, ph)
-    geo := px . "," . py . "," . winW . "," . winH
+
+    geo := px . "," . py . "," . pw . "," . ph
     if (!POPUP_ON || geo != LASTGEO) {
-        POPUP.Show("NoActivate x" . px . " y" . py . " w" . winW . " h" . winH)
+        POPUP.Show("NoActivate x" . px . " y" . py . " w" . pw . " h" . ph)
         LASTGEO := geo
         POPUP_ON := true
-        changed := true
     }
-
-}
-
-; 事件處理工廠（在迴圈裡直接寫箭頭函式會共用同一個變數，必須用工廠函式）
-; 動作延後到事件處理結束後執行
-CandHandler(i) {
-    return (*) => SetTimer(() => (ST != "" && i <= ST.cands.Length) ? Accept(ST.cands[i]) : 0, -1)
-}
-CharHandler(k) {
-    return (*) => SetTimer(() => ToggleChar(k), -1)
-}
-HomHandler(i) {
-    return (*) => SetTimer(() => PickHom(i), -1)
 }
 
 DraftText() {
@@ -907,7 +710,7 @@ MoveHomRow(d) {
     n := HomsAt(ST.ci).Length
     if (!n)
         return false
-    target := ST.hi + d * TCOLS
+    target := ST.hi + d * TRAYCOLS
     if (target < 1 || target > n)
         return false
     ST.hi := target
@@ -946,7 +749,6 @@ DragMove() {
     if (!GetKeyState("LButton", "P")) {
         DRAGGING := false
         SetTimer(DragMove, 0)
-        try WinSetExStyle("+0x02000000", POPUP.Hwnd)   ; 放開後恢復雙緩衝
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
             MANUALX := wx, MANUALY := wy       ; 實體座標，只影響目前這個候選窗
