@@ -94,7 +94,12 @@ OnResetKey(hook, vk, sc) {
     global BUF
     if (BUSY)
         return
-    HideIcon()                    ; 同上：按了鍵就代表選取已失效
+    ; 按住 Shift 移動＝用鍵盤選取文字，等停下來再檢查選取內容
+    if (GetKeyState("Shift", "P") && (vk = 37 || vk = 38 || vk = 39 || vk = 40 || vk = 36 || vk = 35)) {
+        SetTimer(CheckSelection, -280)
+        return
+    }
+    HideIcon()                    ; 按了其他鍵就代表選取已失效
     ; 退格：緩衝要跟著縮短 —— 候選窗開著時也一樣，否則會顯示刪除前的舊結果
     if (vk = 8) {
         if (BUF != "")
@@ -120,6 +125,8 @@ WatchWindow() {
 ~LButton::MouseDown()
 ~LButton Up::MouseUp()
 ~RButton::ClickAway()
+; Ctrl+A 全選（Canva、PPT 這類文字方框常用）也視為選取完成
+~^a::SetTimer(CheckSelection, -180)
 
 MouseDown() {
     global MDX, MDY
@@ -303,8 +310,10 @@ OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
             ANCX := ax, ANCY := ay
         } else {
             px := 0, py := 0
+            ; Canva 等以畫布繪製的程式取不到插入點，只能退用滑鼠位置；
+            ; 滑鼠通常就在剛打的字附近，所以偏移要拉大一點才不會蓋住原文
             if !CaretPos(&px, &py)          ; CaretPos 回傳的已是插入點下緣
-                MouseGetPos(&px, &py), py += 22
+                MouseGetPos(&px, &py), py += 44
             ANCX := ToGui(px), ANCY := ToGui(py) + 4
         }
     }
