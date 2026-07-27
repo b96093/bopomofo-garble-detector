@@ -1,4 +1,4 @@
-# 桌面版打包：把 app.ahk 編譯成單一 exe，並備妥散布資料夾
+﻿# 桌面版打包：把 app.ahk 編譯成單一 exe，並備妥散布資料夾
 #   用法：powershell -ExecutionPolicy Bypass -File desktop\build.ps1
 # 需先安裝 Ahk2Exe（AutoHotkey Dash → 安裝編譯器，或執行
 # C:\Program Files\AutoHotkey\UX\install-ahk2exe.ahk）
@@ -26,6 +26,12 @@ New-Item -ItemType Directory -Path $out -Force | Out-Null
 
 Write-Host "編譯中…（#Include 的 engine/draw/english 會一起打包進 exe）"
 & $ahk2exe /in (Join-Path $here 'app.ahk') /out $exe /base $base /icon (Join-Path $here 'icon.ico')
+# Ahk2Exe 有時會在回報成功之前就先返回，等檔案真的出現再繼續
+$waited = 0
+while (-not (Test-Path $exe) -and $waited -lt 30) {
+  Start-Sleep -Milliseconds 500
+  $waited++
+}
 if (-not (Test-Path $exe)) { Write-Error "編譯失敗，未產生 exe" }
 
 # 執行時需要的外部檔案
