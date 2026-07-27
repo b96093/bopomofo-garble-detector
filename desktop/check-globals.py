@@ -46,9 +46,14 @@ for fname in FILES:
         lower_declared = {d.lower() for d in declared}
         for assigned in re.findall(r"^\s*([A-Za-z_]\w*)\s*(?::=|\.=|\+=|-=)", body_text, re.M):
             g = lower_globals.get(assigned.lower())
-            if g and assigned.lower() not in lower_declared:
-                extra = "" if assigned == g else "（大小寫不同但視為同一個變數）"
-                problems.append("%s: %s() 指派了全域 %s 但未宣告 global%s" % (fname, name, assigned, extra))
+            if not g:
+                continue
+            if assigned != g:
+                # 大小寫不同卻是同一個變數 —— 幾乎都是誤以為兩者無關而寫錯
+                problems.append("%s: %s() 寫了 %s，但那其實就是全域 %s（AHK 不分大小寫）"
+                                % (fname, name, assigned, g))
+            elif assigned.lower() not in lower_declared:
+                problems.append("%s: %s() 指派了全域 %s 但未宣告 global" % (fname, name, assigned))
         # 函式參數同樣會建立區域變數，撞名一樣會遮蔽全域
         params = re.match(r"^[A-Za-z_]\w*\(([^)]*)\)", body_text)
         if params:

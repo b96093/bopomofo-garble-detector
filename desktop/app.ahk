@@ -478,11 +478,13 @@ Render() {
     layout := BuildLayout(view, (k) => HomsAt(k))
     HITS := layout.hits
 
-    hbm := RenderBitmap(layout, A_ScriptDir . "\icon.ico")
+    ; 變數名不可用 hbm —— AHK 不分大小寫，會跟全域 HBM 變成同一個，
+    ; 導致「刪除舊圖」時把剛設上去的新圖刪掉，畫面就會全白。
+    newBm := RenderBitmap(layout, A_ScriptDir . "\icon.ico")
     PIC.Move(0, 0, layout.w, layout.h)
-    SendMessage(0x172, 0, hbm, PIC)          ; STM_SETIMAGE
+    SendMessage(0x172, 0, newBm, PIC)        ; STM_SETIMAGE
     oldBm := HBM
-    HBM := hbm
+    HBM := newBm
     if (oldBm)
         DllCall("DeleteObject", "Ptr", oldBm)
 
