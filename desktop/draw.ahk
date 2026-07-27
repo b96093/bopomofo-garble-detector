@@ -11,9 +11,9 @@ global LY := {
     candH: 30, candR: 7,
     gap: 8,
     labelH: 18,
-    cell: 36, cellGap: 5, cellR: 8,
+    cell: 38, cellGap: 5, cellR: 9,
     trayPad: 7, trayR: 10,
-    tcell: 32, tcellGap: 4, tcellR: 7,
+    tcell: 34, tcellGap: 4, tcellR: 8,
     btnH: 34, btnR: 9,
     footH: 18
 }
@@ -22,8 +22,8 @@ global LY := {
 global CO := {
     bg: 0xFFFFFF,
     text: 0x1E1E1E,
-    muted: 0x8A8A8A,
-    faint: 0xAAAAAA,
+    muted: 0x707070,
+    faint: 0x909090,
     accent: 0x1A5FB4,
     accentSoft: 0x3A76D8,
     selBg: 0xE8F1FD,
@@ -48,13 +48,14 @@ BGR(c) {
 
 ; ---------- 字型快取 ----------
 global FONTS := Map()
-GetFont(pt, bold := false) {
-    key := pt . "|" . (bold ? 1 : 0)
+GetFont(pt, weight := 400) {
+    key := pt . "|" . weight
     if FONTS.Has(key)
         return FONTS[key]
+    ; CLEARTYPE_QUALITY(5) 讓中文邊緣更實，不會顯得太細
     h := DllCall("CreateFont", "Int", -Round(pt * A_ScreenDPI / 72), "Int", 0, "Int", 0, "Int", 0,
-        "Int", bold ? 700 : 400, "UInt", 0, "UInt", 0, "UInt", 0, "UInt", 1, "UInt", 0, "UInt", 0,
-        "UInt", 4, "UInt", 0, "Str", "Microsoft JhengHei", "Ptr")
+        "Int", weight, "UInt", 0, "UInt", 0, "UInt", 0, "UInt", 1, "UInt", 0, "UInt", 0,
+        "UInt", 5, "UInt", 0, "Str", "Microsoft JhengHei", "Ptr")
     FONTS[key] := h
     return h
 }
@@ -81,12 +82,12 @@ RoundBox(hdc, x, y, w, h, r, fill, borderColor := -1) {
 }
 
 ; align：0=靠左 1=置中 2=靠右（皆垂直置中）
-DrawStr(hdc, x, y, w, h, text, color, pt, align := 0, bold := false) {
+DrawStr(hdc, x, y, w, h, text, color, pt, align := 0, weight := 400) {
     if (text == "")
         return
     DllCall("SetBkMode", "Ptr", hdc, "Int", 1)                  ; TRANSPARENT
     DllCall("SetTextColor", "Ptr", hdc, "UInt", BGR(color))
-    of := DllCall("SelectObject", "Ptr", hdc, "Ptr", GetFont(pt, bold), "Ptr")
+    of := DllCall("SelectObject", "Ptr", hdc, "Ptr", GetFont(pt, weight), "Ptr")
     rc := Buffer(16, 0)
     NumPut("Int", x, rc, 0), NumPut("Int", y, rc, 4)
     NumPut("Int", x + w, rc, 8), NumPut("Int", y + h, rc, 12)
@@ -129,7 +130,7 @@ BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
         h := DPX(LY.candH)
         if (sel)
             ops.Push({t: "box", x: pad, y: y, w: cw, h: h, r: DPX(LY.candR), fill: bg})
-        DrawS(ops, pad + DPX(10), y, cw - DPX(60), h, c, CO.text, 12)
+        DrawS(ops, pad + DPX(10), y, cw - DPX(60), h, c, CO.text, 13, 0, 500)
         if (sel && inSent)
             DrawS(ops, pad + cw - DPX(48), y, DPX(40), h, "Enter", CO.accentSoft, 8, 2)
         hits.Push({k: "cand", i: i, x: pad, y: y, w: cw, h: h})
@@ -154,10 +155,10 @@ BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
             ops.Push({t: "box", x: cx, y: y, w: cell, h: cell, r: DPX(LY.cellR),
                 fill: focus ? CO.selBg : CO.cellBg,
                 border: focus ? CO.cellBorderOn : CO.cellBorder})
-            DrawS(ops, cx, y, cell, cell, ch, focus ? CO.accent : CO.text, 12, 1)
+            DrawS(ops, cx, y, cell, cell, ch, focus ? CO.accent : CO.text, 13, 1, 600)
             hits.Push({k: "char", i: k, x: cx, y: y, w: cell, h: cell})
         } else {
-            DrawS(ops, cx, y, cell, cell, ch, CO.faint, 12, 1)
+            DrawS(ops, cx, y, cell, cell, ch, CO.faint, 13, 1, 500)
         }
         col++
         if (col >= cols) {
@@ -187,7 +188,7 @@ BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
                 ops.Push({t: "box", x: bx, y: ty, w: tc, h: tc, r: DPX(LY.tcellR),
                     fill: foc ? CO.selBg : CO.cellBg,
                     border: foc ? CO.cellBorderOn : (cur ? CO.accentSoft : CO.cellBorder)})
-                DrawS(ops, bx, ty, tc, tc, w, foc ? CO.accent : CO.text, 11, 1)
+                DrawS(ops, bx, ty, tc, tc, w, foc ? CO.accent : CO.text, 12, 1, 500)
                 hits.Push({k: "hom", i: i, x: bx, y: ty, w: tc, h: tc})
                 tcol++
                 if (tcol >= tcols) {
@@ -203,7 +204,7 @@ BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
     y += DPX(4)
     bh := DPX(LY.btnH)
     ops.Push({t: "box", x: pad, y: y, w: cw, h: bh, r: DPX(LY.btnR), fill: CO.btnBg})
-    DrawS(ops, pad, y, cw, bh, "↵ 改為「" . view.draftText . "」", CO.accent, 11, 1)
+    DrawS(ops, pad, y, cw, bh, "↵ 改為「" . view.draftText . "」", CO.accent, 12, 1, 600)
     hits.Push({k: "commit", x: pad, y: y, w: cw, h: bh})
     y += bh + DPX(8)
 
@@ -218,8 +219,8 @@ BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
     return {w: cw + pad * 2, h: y, ops: ops, hits: hits}
 }
 
-DrawS(ops, x, y, w, h, s, color, pt, align := 0) {
-    ops.Push({t: "text", x: x, y: y, w: w, h: h, s: s, c: color, pt: pt, a: align})
+DrawS(ops, x, y, w, h, s, color, pt, align := 0, weight := 400) {
+    ops.Push({t: "text", x: x, y: y, w: w, h: h, s: s, c: color, pt: pt, a: align, wt: weight})
 }
 
 ; ---------- 實際畫成點陣圖 ----------
@@ -244,7 +245,8 @@ RenderBitmap(layout, iconPath) {
             RoundBox(hdc, op.x, op.y, op.w, op.h, op.r, op.fill,
                 op.HasOwnProp("border") ? op.border : -1)
         else if (op.t == "text")
-            DrawStr(hdc, op.x, op.y, op.w, op.h, op.s, op.c, op.pt, op.a)
+            DrawStr(hdc, op.x, op.y, op.w, op.h, op.s, op.c, op.pt, op.a,
+                op.HasOwnProp("wt") ? op.wt : 400)
         else if (op.t == "logo")
             DrawIcon(hdc, op.x, op.y, op.s, iconPath)
     }

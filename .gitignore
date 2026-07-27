@@ -12,3 +12,5 @@ desktop/test-result.txt
 desktop/_*
 
 desktop/settings.ini
+
+desktop/_preview.*

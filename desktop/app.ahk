@@ -22,6 +22,7 @@ global PAUSED := false
 global LASTWIN := 0
 global POPUP := ""
 global PIC := ""          ; 承載自繪點陣圖的圖片控制項
+global PICW := 0, PICH := 0  ; 目前圖片控制項的大小（沒變就不重設，避免閃爍）
 global HITS := []         ; 目前畫面上的可點擊區域
 global TRAYCOLS := 10     ; 同音字盤實際欄數（繪圖時算出，鍵盤換行要用）
 global HBM := 0           ; 目前的點陣圖（換圖時要釋放）
@@ -458,7 +459,8 @@ IconClicked() {
 BuildPopup() {
     global POPUP, PIC
     ; -DPIScale：自繪一律用實體像素，避免 AHK 再縮放一次
-    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 -DPIScale")
+    ; E0x02000000 = 雙緩衝，換圖時不會先閃一下白底
+    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 +E0x02000000 -DPIScale")
     POPUP.BackColor := "FFFFFF"
     POPUP.MarginX := 0, POPUP.MarginY := 0
     ; 用圖片控制項承載自繪的點陣圖（實測這是最可靠的顯示方式）
@@ -469,7 +471,7 @@ BuildPopup() {
 
 ; ---------- 畫出候選窗 ----------
 Render() {
-    global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED
+    global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED, PICW, PICH
     if (ST == "")
         return
     ; 變數名不可用 st —— AHK 不分大小寫，會撞到全域的 ST
@@ -481,7 +483,10 @@ Render() {
     ; 變數名不可用 hbm —— AHK 不分大小寫，會跟全域 HBM 變成同一個，
     ; 導致「刪除舊圖」時把剛設上去的新圖刪掉，畫面就會全白。
     newBm := RenderBitmap(layout, A_ScriptDir . "\icon.ico")
-    PIC.Move(0, 0, layout.w, layout.h)
+    if (layout.w != PICW || layout.h != PICH) {
+        PIC.Move(0, 0, layout.w, layout.h)
+        PICW := layout.w, PICH := layout.h
+    }
     SendMessage(0x172, 0, newBm, PIC)        ; STM_SETIMAGE
     oldBm := HBM
     HBM := newBm
@@ -758,6 +763,7 @@ DragMove() {
     if (!GetKeyState("LButton", "P")) {
         DRAGGING := false
         SetTimer(DragMove, 0)
+        try WinSetExStyle("+0x02000000", POPUP.Hwnd)
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
             MANUALX := wx, MANUALY := wy       ; 實體座標，只影響目前這個候選窗
