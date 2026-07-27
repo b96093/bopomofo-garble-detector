@@ -21,10 +21,8 @@ global BUSY := false      ; 執行替換中，暫停監看避免吃到自己送�
 global PAUSED := false
 global LASTWIN := 0
 global POPUP := ""
-global BMW := 0, BMH := 0 ; 目前點陣圖尺寸（繪製視窗時用）
 global HITS := []         ; 目前畫面上的可點擊區域
 global TRAYCOLS := 10     ; 同音字盤實際欄數（繪圖時算出，鍵盤換行要用）
-global HBM := 0           ; 目前的點陣圖（換圖時要釋放）
 global POPUP_ON := false
 global CELLSTATE := Map() ; 每個控制項目前的內容簽章，用來跳過沒變化的更新
 global LASTGEO := ""      ; 視窗目前的位置與大小
@@ -458,41 +456,16 @@ IconClicked() {
 BuildPopup() {
     global POPUP
     ; -DPIScale：自繪一律用實體像素，避免 AHK 再縮放一次
-    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 -DPIScale")
+    ; 分層視窗（0x80000）：位置、大小、畫面內容可以一次原子性送出，
+    ; 系統不會出現「新尺寸、舊內容」的中間畫面 —— 這就是不閃爍的關鍵。
+    ; 圓角與邊框由我們自己畫（角落透明），所以不需要 DWM 的圓角設定。
+    POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08080000 -DPIScale")
     POPUP.MarginX := 0, POPUP.MarginY := 0
-    ; 不放任何控制項，自己接管繪製：整張圖一次貼上、且不讓系統擦背景，
-    ; 這樣換圖時不會出現白色閃光（透過圖片控制項顯示則會）。
-    OnMessage(0x000F, PaintPopup)      ; WM_PAINT
-    OnMessage(0x0014, EraseBkgnd)      ; WM_ERASEBKGND
-    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
-    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 34, "UInt*", 0x00DCDCDC, "UInt", 4)
-}
-
-; 視窗重繪：把畫好的整張圖貼上
-PaintPopup(wParam, lParam, msg, hwnd) {
-    if (POPUP == "" || hwnd != POPUP.Hwnd || !HBM)
-        return
-    ps := Buffer(72, 0)
-    hdc := DllCall("BeginPaint", "Ptr", hwnd, "Ptr", ps, "Ptr")
-    mem := DllCall("CreateCompatibleDC", "Ptr", hdc, "Ptr")
-    ob := DllCall("SelectObject", "Ptr", mem, "Ptr", HBM, "Ptr")
-    DllCall("BitBlt", "Ptr", hdc, "Int", 0, "Int", 0, "Int", BMW, "Int", BMH,
-        "Ptr", mem, "Int", 0, "Int", 0, "UInt", 0x00CC0020)      ; SRCCOPY
-    DllCall("SelectObject", "Ptr", mem, "Ptr", ob)
-    DllCall("DeleteDC", "Ptr", mem)
-    DllCall("EndPaint", "Ptr", hwnd, "Ptr", ps)
-    return 0
-}
-
-; 背景整張都由我們畫滿，不需要系統再擦一次（擦背景就是白色閃光的來源）
-EraseBkgnd(wParam, lParam, msg, hwnd) {
-    if (POPUP != "" && hwnd == POPUP.Hwnd)
-        return 1
 }
 
 ; ---------- 畫出候選窗 ----------
 Render() {
-    global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED, BMW, BMH
+    global POPUP_ON, LASTGEO, HITS, FLIPPED
     if (ST == "")
         return
     ; 變數名不可用 st —— AHK 不分大小寫，會撞到全域的 ST
@@ -501,13 +474,6 @@ Render() {
     layout := BuildLayout(view, (k) => HomsAt(k))
     HITS := layout.hits
 
-    ; 變數名不可用 hbm —— AHK 不分大小寫，會跟全域 HBM 變成同一個，
-    ; 導致「刪除舊圖」時把剛設上去的新圖刪掉，畫面就會全白。
-    newBm := RenderBitmap(layout, A_ScriptDir . "\icon.ico")
-    oldBm := HBM
-    HBM := newBm, BMW := layout.w, BMH := layout.h
-    if (oldBm)
-        DllCall("DeleteObject", "Ptr", oldBm)
 
     pw := layout.w, ph := layout.h
     if (MANUALX >= 0) {
@@ -526,21 +492,24 @@ Render() {
     }
     ClampToScreen(&px, &py, pw, ph)
 
-    geo := px . "," . py . "," . pw . "," . ph
+    ; 位置、大小、內容一次送出（分層視窗），系統不會有中間畫面
+    r := RenderLayered(layout, A_ScriptDir . "\icon.ico")
+    pt := Buffer(8, 0)
+    NumPut("Int", px, pt, 0), NumPut("Int", py, pt, 4)
+    sz := Buffer(8, 0)
+    NumPut("Int", pw, sz, 0), NumPut("Int", ph, sz, 4)
+    srcPt := Buffer(8, 0)
+    blend := Buffer(4, 0)
+    NumPut("UChar", 0, blend, 0), NumPut("UChar", 0, blend, 1)
+    NumPut("UChar", 255, blend, 2), NumPut("UChar", 1, blend, 3)   ; AC_SRC_ALPHA
+    DllCall("UpdateLayeredWindow", "Ptr", POPUP.Hwnd, "Ptr", 0, "Ptr", pt, "Ptr", sz,
+        "Ptr", r.dc, "Ptr", srcPt, "UInt", 0, "Ptr", blend, "UInt", 2)   ; ULW_ALPHA
+    ReleaseRender(r)
     if (!POPUP_ON) {
-        POPUP.Show("NoActivate x" . px . " y" . py . " w" . pw . " h" . ph)
+        DllCall("ShowWindow", "Ptr", POPUP.Hwnd, "Int", 8)      ; SW_SHOWNA（顯示但不奪焦）
         POPUP_ON := true
-    } else if (geo != LASTGEO) {
-        ; 改變大小時先不讓系統重畫（SWP_NOREDRAW）——
-        ; 否則會先看到系統畫的中間狀態，再被我們的新圖蓋掉，那就是閃爍。
-        ; NOZORDER(0x4)|NOACTIVATE(0x10)|NOREDRAW(0x400) = 0x414
-        DllCall("SetWindowPos", "Ptr", POPUP.Hwnd, "Ptr", 0, "Int", px, "Int", py,
-            "Int", pw, "Int", ph, "UInt", 0x414)
     }
-    LASTGEO := geo
-    ; 0 = 不擦背景；接著立刻畫，避免出現空窗期
-    DllCall("InvalidateRect", "Ptr", POPUP.Hwnd, "Ptr", 0, "Int", 0)
-    DllCall("UpdateWindow", "Ptr", POPUP.Hwnd)
+    LASTGEO := px . "," . py . "," . pw . "," . ph
 }
 
 DraftText() {
@@ -588,10 +557,11 @@ PickHom(i) {
 }
 
 HidePopup() {
-    global POPUP_ON
+    global POPUP_ON, LASTGEO
     if (POPUP_ON && POPUP != "") {
-        try POPUP.Hide()
+        try DllCall("ShowWindow", "Ptr", POPUP.Hwnd, "Int", 0)   ; SW_HIDE
         POPUP_ON := false
+        LASTGEO := ""
     }
 }
 

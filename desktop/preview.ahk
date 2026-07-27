@@ -18,40 +18,29 @@ view := {
 homs := ["你", "妳", "擬", "昵", "旎", "薿", "禰", "抳", "儗", "坭", "柅", "袮", "苨", "秜"]
 layout := BuildLayout(view, (k) => (k = 4 ? homs : ["甲", "乙", "丙"]))
 
-w := layout.w, h := layout.h
-hdcScreen := DllCall("GetDC", "Ptr", 0, "Ptr")
-hdc := DllCall("CreateCompatibleDC", "Ptr", hdcScreen, "Ptr")
-bi := Buffer(40, 0)
-NumPut("UInt", 40, bi, 0), NumPut("Int", w, bi, 4), NumPut("Int", -h, bi, 8)
-NumPut("UShort", 1, bi, 12), NumPut("UShort", 24, bi, 14)
+r := RenderLayered(layout, A_ScriptDir . "\icon.ico")
+w := r.w, h := r.h
+; 把 PARGB 內容倒出來（預覽用；正式程式是直接交給分層視窗）
+bi2 := Buffer(40, 0)
+NumPut("UInt", 40, bi2, 0), NumPut("Int", w, bi2, 4), NumPut("Int", -h, bi2, 8)
+NumPut("UShort", 1, bi2, 12), NumPut("UShort", 32, bi2, 14)
+tmpDC := DllCall("CreateCompatibleDC", "Ptr", 0, "Ptr")
 pBits := 0
-bm := DllCall("CreateDIBSection", "Ptr", hdc, "Ptr", bi, "UInt", 0, "Ptr*", &pBits,
+tmp := DllCall("CreateDIBSection", "Ptr", tmpDC, "Ptr", bi2, "UInt", 0, "Ptr*", &pBits,
     "Ptr", 0, "UInt", 0, "Ptr")
-ob := DllCall("SelectObject", "Ptr", hdc, "Ptr", bm, "Ptr")
-
-RoundBox(hdc, 0, 0, w, h, 0, CO.bg)
-for op in layout.ops {
-    if (op.t == "box")
-        RoundBox(hdc, op.x, op.y, op.w, op.h, op.r, op.fill,
-            op.HasOwnProp("border") ? op.border : -1)
-    else if (op.t == "text")
-        DrawStr(hdc, op.x, op.y, op.w, op.h, op.s, op.c, op.pt, op.a, op.HasOwnProp("wt") ? op.wt : 400)
-    else if (op.t == "logo")
-        DrawIcon(hdc, op.x, op.y, op.s, A_ScriptDir . "\icon.ico")
-}
+ot := DllCall("SelectObject", "Ptr", tmpDC, "Ptr", tmp, "Ptr")
+DllCall("BitBlt", "Ptr", tmpDC, "Int", 0, "Int", 0, "Int", w, "Int", h,
+    "Ptr", r.dc, "Int", 0, "Int", 0, "UInt", 0x00CC0020)
 DllCall("GdiFlush")
-
-stride := ((w * 3 + 3) // 4) * 4
-buf := Buffer(stride * h, 0)
-DllCall("RtlMoveMemory", "Ptr", buf, "Ptr", pBits, "UPtr", stride * h)
+buf := Buffer(w * h * 4, 0)
+DllCall("RtlMoveMemory", "Ptr", buf, "Ptr", pBits, "UPtr", w * h * 4)
 f := FileOpen(A_ScriptDir . "\_preview.bin", "w")
-f.RawWrite(buf, stride * h)
+f.RawWrite(buf, w * h * 4)
 f.Close()
 try FileDelete(A_ScriptDir . "\_preview.txt")
-FileAppend(w . " " . h . " " . stride, A_ScriptDir . "\_preview.txt", "UTF-8")
-
-DllCall("SelectObject", "Ptr", hdc, "Ptr", ob)
-DllCall("DeleteObject", "Ptr", bm)
-DllCall("DeleteDC", "Ptr", hdc)
-DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdcScreen)
+FileAppend(w . " " . h . " " . (w * 4), A_ScriptDir . "\_preview.txt", "UTF-8")
+DllCall("SelectObject", "Ptr", tmpDC, "Ptr", ot)
+DllCall("DeleteObject", "Ptr", tmp)
+DllCall("DeleteDC", "Ptr", tmpDC)
+ReleaseRender(r)
 ExitApp()

@@ -6,8 +6,11 @@ import pathlib
 base = pathlib.Path(__file__).parent
 w, h, stride = map(int, (base / "_preview.txt").read_text(encoding="utf-8-sig").split())
 data = (base / "_preview.bin").read_bytes()
-rows = [data[y * stride: y * stride + w * 3] for y in range(h)]
-img = Image.frombytes("RGB", (w, h), b"".join(rows))
-b, g, r = img.split()                       # DIB 是 BGR 順序
-Image.merge("RGB", (r, g, b)).save(base / "_preview.png")
+rows = [data[y * stride: y * stride + w * 4] for y in range(h)]
+img = Image.frombytes("RGBA", (w, h), b"".join(rows))
+b, g, r, a = img.split()                    # DIB 是 BGRA 順序
+img = Image.merge("RGBA", (r, g, b, a))
+bg = Image.new("RGB", (w, h), (235, 235, 235))   # 疊在灰底上，看得出透明圓角
+bg.paste(img, (0, 0), img)
+bg.save(base / "_preview.png")
 print(f"已輸出 _preview.png  {w}x{h}")
