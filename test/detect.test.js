@@ -140,3 +140,20 @@ test('歸位只在合理時發生，不會硬湊', () => {
   assert.equal(detect('abc123', dict), null);
   assert.equal(detect('IEIEI', dict), null);
 });
+
+test('純數字不觸發（電話、日期、金額都是數字，但數字鍵在注音也有意義）', () => {
+  assert.equal(detect('0966335806', dict), null);      // 手機號碼
+  assert.equal(detect('0912345678', dict), null);
+  assert.equal(detect('2024/07/26', dict), null);      // 日期
+  assert.equal(detect('1 8 2 8 4', dict), null);       // 純數字加空白
+});
+
+test('手動選取時仍可轉換純數字（使用者已表明意圖）', () => {
+  const r = detect('284', dict, { manual: true, minSyllables: 1, threshold: 0.5 });
+  assert.ok(r, '手動模式應照常轉換');
+});
+
+test('含字母的亂碼不受影響', () => {
+  assert.equal(detect('ji394t au04', dict).candidates[0], '我愛吃面');
+  assert.equal(detect('a930ek7', dict).candidates[0], '買0個');
+});

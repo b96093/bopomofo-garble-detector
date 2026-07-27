@@ -294,6 +294,22 @@ Detect(input, dict, threshold := 0.8, minSyllables := 2, manual := false) {
     if (!manual && IsCommonEnglish(Trim(StrLower(input))))
         return ""
 
+    ; 電話、日期、金額、證號都是純數字，但數字鍵在注音鍵盤上也有意義
+    ;（0=ㄢ、9=ㄞ、5=ㄓ、8=ㄚ…），所以會拼出合法音節而誤判。
+    ; 正常打注音幾乎一定會用到字母鍵（聲母都在字母上），故自動偵測要求至少一個字母。
+    if (!manual) {
+        hasLetter := false
+        Loop Parse input {
+            c := Ord(A_LoopField)
+            if ((c >= 0x61 && c <= 0x7A) || (c >= 0x41 && c <= 0x5A)) {
+                hasLetter := true
+                break
+            }
+        }
+        if (!hasLetter)
+            return ""
+    }
+
     tokens := TokenizeResolving(input, dict)
     ; 串成「音節段 / 原樣段」交替
     pieces := []

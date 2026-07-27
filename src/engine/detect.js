@@ -106,6 +106,11 @@ export function detect(input, dict, opts = {}) {
   // （手動選取觸發時使用者已表明意圖，跳過這關）
   if (!opts.manual && COMMON_ENGLISH.has(input.trim().toLowerCase())) return null;
 
+  // 電話、日期、金額、證號都是純數字，但數字鍵在注音鍵盤上也有意義
+  //（0=ㄢ、9=ㄞ、5=ㄓ、8=ㄚ…），所以會拼出合法音節而誤判。
+  // 正常打注音幾乎一定會用到字母鍵（聲母都在字母上），故自動偵測要求至少一個字母。
+  if (!opts.manual && !/[a-z]/i.test(input)) return null;
+
   const pieces = toPieces(tokenizeResolving(input, dict));
   const sylPieces = pieces.filter((p) => p.syls);
   if (!sylPieces.length) return null;
