@@ -27,6 +27,7 @@ global ANCX := 0, ANCY := 0  ; 候選窗定位點（開啟時算一次，導航�
 global ANCMODE := "point"
 ; 使用者可以把浮窗拖到喜歡的位置，之後就固定在那（避免一直遮住文字）
 global MANUALX := -1, MANUALY := -1
+global DRAGGING := false, DRAGDX := 0, DRAGDY := 0
 global ANCW := [0, 0, 0, 0]   ; 開窗當下作用中視窗的位置大小（視窗單位）
 ; 選取轉換用
 global ICON := "", ICONTEXT := "", ICONHINT := "", ICON_ON := false
@@ -141,7 +142,7 @@ WatchWindow() {
 ~^a::SetTimer(() => CheckSelection(false), -180)
 
 MouseDown() {
-    global MDX, MDY, CLICKX, CLICKY, CLICKOK
+    global MDX, MDY, CLICKX, CLICKY, CLICKOK, DRAGGING, DRAGDX, DRAGDY
     MouseGetPos(&x, &y, &hwnd)
     MDX := x, MDY := y
     ; 點在自己的浮窗上不算「點進文字框」
@@ -150,11 +151,15 @@ MouseDown() {
     if (!isOwn) {
         CLICKX := x, CLICKY := y, CLICKOK := true
     } else if (POPUP_ON && POPUP != "" && hwnd == POPUP.Hwnd) {
-        ; 點在候選窗上緣（標題列）→ 開始拖曳，讓使用者自己決定位置
+        ; 點在候選窗上緣（標題列）→ 開始拖曳。
+        ; 浮窗是「不奪取焦點」的視窗，系統內建的拖曳機制不適用，所以自己追蹤滑鼠。
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
-            if (y - wy < 30 * DPIF)
-                PostMessage(0xA1, 2, 0, , "ahk_id " . POPUP.Hwnd)   ; WM_NCLBUTTONDOWN / HTCAPTION
+            if (y - wy < 32 * DPIF) {
+                DRAGDX := x - wx, DRAGDY := y - wy
+                DRAGGING := true
+                SetTimer(DragMove, 10)
+            }
         }
     }
     ClickAway()
@@ -390,7 +395,7 @@ BuildPopup() {
     ; 標題列（logo + 說明）
     try UI.logo := POPUP.Add("Picture", "x" . PAD . " y11 w16 h16", A_ScriptDir "\icon.ico")
     POPUP.SetFont("s9", "Microsoft JhengHei")
-    UI.title := POPUP.Add("Text", "x" . (PAD + 22) . " y12 w220 h17 c" . C_MUTED, "偵測到注音亂碼")
+    UI.title := POPUP.Add("Text", "x" . (PAD + 22) . " y12 w220 h17 c" . C_MUTED, "偵測到注音亂碼　（此列可拖曳）")
 
     ; 整句候選
     POPUP.SetFont("s12", "Microsoft JhengHei")
@@ -903,18 +908,25 @@ Accept(text) {
     BUSY := false
 }
 
-; 拖曳結束 → 記住這個位置，之後候選窗就固定出現在這裡
-OnMessage(0x0232, WinDragEnd)     ; WM_EXITSIZEMOVE
-WinDragEnd(wParam, lParam, msg, hwnd) {
-    global MANUALX, MANUALY
-    try {
-        if (POPUP == "" || hwnd != POPUP.Hwnd)
-            return
-        WinGetPos(&wx, &wy, , , POPUP.Hwnd)
-        MANUALX := ToGui(wx), MANUALY := ToGui(wy)
-        SaveSettings()
-        Tip("已記住候選窗位置`n（要改回自動：系統列圖示右鍵）", 2200)
+; 拖曳中：跟著滑鼠移動；放開左鍵就記住這個位置
+DragMove() {
+    global DRAGGING, MANUALX, MANUALY, LASTGEO
+    if (!DRAGGING || POPUP == "")
+        return
+    if (!GetKeyState("LButton", "P")) {
+        DRAGGING := false
+        SetTimer(DragMove, 0)
+        try {
+            WinGetPos(&wx, &wy, , , POPUP.Hwnd)
+            MANUALX := ToGui(wx), MANUALY := ToGui(wy)
+            LASTGEO := ""            ; 位置變了，下次要重新定位
+            SaveSettings()
+            Tip("已記住候選窗位置`n要改回自動：系統列圖示右鍵", 2400)
+        }
+        return
     }
+    MouseGetPos(&mx, &my)
+    try WinMove(mx - DRAGDX, my - DRAGDY, , , POPUP.Hwnd)
 }
 
 ; ---------- 設定 ----------
