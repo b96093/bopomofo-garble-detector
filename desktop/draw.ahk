@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 ; 候選窗自繪模組（GDI+）
 ;
 ; 為什麼用 GDI+ 而不是傳統 GDI：
@@ -118,6 +118,22 @@ DrawStr(g, x, y, w, h, text, argb, pt, align := 0, bold := false) {
     DllCall("gdiplus\GdipDeleteFontFamily", "Ptr", family)
 }
 
+; 拖曳握把：2 欄 3 列的小圓點，是通用的「可拖曳」記號
+DrawGrip(g, x, y, argb) {
+    d := DPX(3)          ; 點的直徑
+    gap := DPX(4)        ; 點的間距
+    DllCall("gdiplus\GdipCreateSolidFill", "UInt", argb, "Ptr*", &br := 0)
+    Loop 2 {
+        cx := x + (A_Index - 1) * gap
+        Loop 3 {
+            cy := y + (A_Index - 1) * gap
+            DllCall("gdiplus\GdipFillEllipse", "Ptr", g, "Ptr", br,
+                "Float", cx, "Float", cy, "Float", d, "Float", d)
+        }
+    }
+    DllCall("gdiplus\GdipDeleteBrush", "Ptr", br)
+}
+
 DrawIconImg(g, x, y, size, path) {
     hIcon := DllCall("LoadImage", "Ptr", 0, "Str", path, "UInt", 1,
         "Int", size, "Int", size, "UInt", 0x10, "Ptr")
@@ -153,8 +169,10 @@ BuildLayout(view, homsFor) {
     y := pad
 
     ops.Push({t: "logo", x: pad, y: y + DPX(2), s: DPX(17)})
-    DrawS(ops, pad + DPX(24), y, cw - DPX(24), DPX(LY.headH),
-        "偵測到注音亂碼　（按這裡拖曳）", CO.muted, 9)
+    DrawS(ops, pad + DPX(24), y, cw - DPX(120), DPX(LY.headH), "偵測到注音亂碼", CO.muted, 9)
+    ; 右側：握把符號 + 說明（整條標題列都可拖曳，符號只是提示）
+    ops.Push({t: "grip", x: pad + cw - DPX(72), y: y + DPX(7), c: CO.faint})
+    DrawS(ops, pad + cw - DPX(60), y, DPX(60), DPX(LY.headH), "按住可拖曳", CO.faint, 8, 2)
     hits.Push({k: "drag", x: 0, y: 0, w: cw + pad * 2, h: y + DPX(LY.headH)})
     y += DPX(LY.headH) + DPX(6)
 
@@ -288,6 +306,8 @@ RenderLayered(layout, iconPath) {
             DrawStr(g, op.x, op.y, op.w, op.h, op.s, op.c, op.pt, op.a, op.b)
         else if (op.t == "logo")
             DrawIconImg(g, op.x, op.y, op.s, iconPath)
+        else if (op.t == "grip")
+            DrawGrip(g, op.x, op.y, op.c)
     }
 
     DllCall("gdiplus\GdipDeleteGraphics", "Ptr", g)
