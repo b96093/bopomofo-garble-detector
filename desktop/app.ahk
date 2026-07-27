@@ -25,7 +25,7 @@ global ANCX := 0, ANCY := 0  ; 候選窗定位點（開啟時算一次，導航�
 ; 定位模式："point"＝已知座標（插入點或滑鼠）；"window"＝作用中視窗底部置中。
 ; 取不到插入點時「跟著滑鼠跑」會讓使用者覺得浮窗隨機出現，改用固定位置才可預期。
 global ANCMODE := "point"
-; 使用者可以把浮窗拖到喜歡的位置，之後就固定在那（避免一直遮住文字）
+; 拖曳只在「這一次」有效：位置一律自動判斷，擋到了才臨時挪開，關掉就回到自動。
 global MANUALX := -1, MANUALY := -1
 global DRAGGING := false, DRAGDX := 0, DRAGDY := 0
 global ANCW := [0, 0, 0, 0]   ; 開窗當下作用中視窗的位置大小（視窗單位）
@@ -67,7 +67,6 @@ LoadSettings()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
 A_TrayMenu.Add("在 Chrome 中也偵測", (*) => ToggleChromeDetect())
-A_TrayMenu.Add("候選窗位置改回自動", (*) => ResetPopupPos())
 if (CHROME_DETECT)
     A_TrayMenu.Check("在 Chrome 中也偵測")
 A_TrayMenu.Add()
@@ -192,8 +191,9 @@ ClickAway() {
 }
 
 Reset() {
-    global BUF, HIT, ST
+    global BUF, HIT, ST, MANUALX, MANUALY
     BUF := "", HIT := "", ST := ""
+    MANUALX := -1, MANUALY := -1     ; 拖曳只對當下那個候選窗有效
     HidePopup()
     HideIcon()
 }
@@ -395,7 +395,7 @@ BuildPopup() {
     ; 標題列（logo + 說明）
     try UI.logo := POPUP.Add("Picture", "x" . PAD . " y11 w16 h16", A_ScriptDir "\icon.ico")
     POPUP.SetFont("s9", "Microsoft JhengHei")
-    UI.title := POPUP.Add("Text", "x" . (PAD + 22) . " y12 w220 h17 c" . C_MUTED, "偵測到注音亂碼　（此列可拖曳）")
+    UI.title := POPUP.Add("Text", "x" . (PAD + 22) . " y12 w220 h17 c" . C_MUTED, "偵測到注音亂碼　（按這裡拖曳）")
 
     ; 整句候選
     POPUP.SetFont("s12", "Microsoft JhengHei")
@@ -886,7 +886,7 @@ MoveHomRow(d) {
 
 ; ---------- 替換 ----------
 Accept(text) {
-    global BUF, HIT, BUSY, ST
+    global BUF, HIT, BUSY, ST, MANUALX, MANUALY
     if (ST == "")
         return
     fromTyping := (ST.src == "typing")
@@ -903,7 +903,7 @@ Accept(text) {
         Send("{BackSpace " . n . "}")
     SendText(text)
     Sleep(30)
-    BUF := "", HIT := "", ST := ""
+    BUF := "", HIT := "", ST := "", MANUALX := -1, MANUALY := -1
     IH.Start()
     BUSY := false
 }
@@ -918,10 +918,8 @@ DragMove() {
         SetTimer(DragMove, 0)
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
-            MANUALX := ToGui(wx), MANUALY := ToGui(wy)
-            LASTGEO := ""            ; 位置變了，下次要重新定位
-            SaveSettings()
-            Tip("已記住候選窗位置`n要改回自動：系統列圖示右鍵", 2400)
+            MANUALX := ToGui(wx), MANUALY := ToGui(wy)   ; 只影響目前這個候選窗
+            LASTGEO := ""            ; 位置變了，下次 Render 要重新定位
         }
         return
     }
@@ -931,27 +929,15 @@ DragMove() {
 
 ; ---------- 設定 ----------
 LoadSettings() {
-    global CHROME_DETECT, MANUALX, MANUALY
+    global CHROME_DETECT
     v := IniRead(SETTINGS_FILE, "settings", "chromeDetect", "1")
     CHROME_DETECT := (v != "0")
-    MANUALX := Integer(IniRead(SETTINGS_FILE, "settings", "popupX", "-1"))
-    MANUALY := Integer(IniRead(SETTINGS_FILE, "settings", "popupY", "-1"))
 }
 
 SaveSettings() {
     try {
         IniWrite(CHROME_DETECT ? 1 : 0, SETTINGS_FILE, "settings", "chromeDetect")
-        IniWrite(MANUALX, SETTINGS_FILE, "settings", "popupX")
-        IniWrite(MANUALY, SETTINGS_FILE, "settings", "popupY")
     }
-}
-
-ResetPopupPos() {
-    global MANUALX, MANUALY
-    MANUALX := -1, MANUALY := -1
-    SaveSettings()
-    Reset()
-    Tip("候選窗位置已改回自動", 1600)
 }
 
 ToggleChromeDetect() {
