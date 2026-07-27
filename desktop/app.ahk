@@ -658,8 +658,9 @@ Render() {
         px := ANCX, py := ANCY
         ; 下方放不下就翻到插入點上方 —— 但這個決定只做一次並固定住，
         ; 否則展開/收起同音字時視窗高度一變，就會在上下兩個位置之間彈跳。
-        ScreenBounds(px, py, &sL, &sT, &sR, &sB)
-        if (!FLIPPED && py + winH > sB - 8)
+        ; 變數名不能用 sT/sB 之類 —— AHK 不分大小寫，會撞到全域的 ST
+        ScreenBounds(px, py, &scrL, &scrT, &scrR, &scrB)
+        if (!FLIPPED && py + winH > scrB - 8)
             FLIPPED := true
         if (FLIPPED)
             py := ANCY - winH - 30

@@ -44,6 +44,14 @@ for fname in FILES:
         for assigned in re.findall(r"^\s*([A-Za-z_]\w*)\s*(?::=|\.=|\+=|-=)", body_text, re.M):
             if assigned in top_globals and assigned not in declared:
                 problems.append("%s: %s() 指派了全域 %s 但未宣告 global" % (fname, name, assigned))
+        # ByRef 輸出變數（&name）同樣會建立區域變數；AHK 變數名不分大小寫，
+        # 所以 &sT 這種寫法會撞到全域的 ST，且語法檢查抓不到。
+        # (?<!&)&(?!&) 排除 && 邏輯運算子，只抓真正的 ByRef 輸出變數
+        for out in re.findall(r"(?<![&\w])&(?!&)\s*([A-Za-z_]\w*)", body_text):
+            for g in top_globals:
+                if out.lower() == g.lower() and g not in declared:
+                    problems.append("%s: %s() 用 &%s 當輸出變數，會撞到全域 %s（AHK 不分大小寫）"
+                                    % (fname, name, out, g))
         i = j
 
 if problems:
