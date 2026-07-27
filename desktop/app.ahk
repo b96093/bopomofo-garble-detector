@@ -31,6 +31,9 @@ global ICON := "", ICONTEXT := "", ICONHINT := "", ICON_ON := false
 global SELRES := ""       ; 選取內容的偵測結果
 global SELFROMMOUSE := true   ; 這次選取是滑鼠拖曳還是鍵盤（Ctrl+A）觸發
 global MDX := 0, MDY := 0 ; 滑鼠按下的位置（用來判斷是否為拖曳選取）
+; 最後一次點擊的位置：在 Canva 這類程式要打字一定得先點進文字框，
+; 所以這個位置最接近文字所在，比「目前滑鼠位置」或「固定底部」都準。
+global CLICKX := 0, CLICKY := 0, CLICKOK := false
 global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 ; 注意：所有全域初始化都必須寫在第一個熱鍵之前，
 ; 因為 AHK 的自動執行區在遇到熱鍵定義時就結束了。
@@ -119,10 +122,11 @@ OnResetKey(hook, vk, sc) {
 
 ; 切換視窗就清空（避免把上一個視窗的輸入帶過來）
 WatchWindow() {
-    global LASTWIN
+    global LASTWIN, CLICKOK
     w := WinExist("A")
     if (w != LASTWIN) {
         LASTWIN := w
+        CLICKOK := false        ; 換了視窗，舊的點擊位置不再有參考價值
         Reset()
     }
 }
@@ -134,9 +138,14 @@ WatchWindow() {
 ~^a::SetTimer(() => CheckSelection(false), -180)
 
 MouseDown() {
-    global MDX, MDY
-    MouseGetPos(&x, &y)
+    global MDX, MDY, CLICKX, CLICKY, CLICKOK
+    MouseGetPos(&x, &y, &hwnd)
     MDX := x, MDY := y
+    ; 點在自己的浮窗上不算「點進文字框」
+    isOwn := false
+    try isOwn := (POPUP != "" && hwnd == POPUP.Hwnd) || (ICON != "" && hwnd == ICON.Hwnd)
+    if (!isOwn)
+        CLICKX := x, CLICKY := y, CLICKOK := true
     ClickAway()
 }
 
@@ -330,7 +339,9 @@ OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
             ANCMODE := "point", ANCX := ax, ANCY := ay
         } else if (CaretPos(&px, &py)) {     ; 有插入點 → 貼在文字行下方
             ANCMODE := "point", ANCX := ToGui(px), ANCY := ToGui(py) + 4
-        } else {                             ; 畫布類程式 → 固定在視窗底部置中
+        } else if (CLICKOK) {                ; 畫布類程式 → 用「你點進文字框的位置」
+            ANCMODE := "point", ANCX := ToGui(CLICKX), ANCY := ToGui(CLICKY) + 26
+        } else {                             ; 真的沒線索 → 視窗底部置中
             ANCMODE := "window"
         }
     }
@@ -444,7 +455,9 @@ ShowIcon(preview) {
     if (SELFROMMOUSE) {                     ; 滑鼠選取 → 出現在剛放開滑鼠的地方
         MouseGetPos(&mx, &my)
         ix := ToGui(mx) + 8, iy := ToGui(my) + 18
-    } else {                                ; 鍵盤選取（Ctrl+A）→ 固定在視窗底部置中
+    } else if (CLICKOK) {                   ; 鍵盤選取 → 用「你點進文字框的位置」
+        ix := ToGui(CLICKX), iy := ToGui(CLICKY) + 26
+    } else {                                ; 真的沒線索 → 視窗底部置中
         r := ActiveWinRect()
         ix := r[1] + (r[3] - w) // 2
         iy := r[2] + r[4] - 58 - 40
