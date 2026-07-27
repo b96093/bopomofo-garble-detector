@@ -43,7 +43,7 @@ global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 ; 因為 AHK 的自動執行區在遇到熱鍵定義時就結束了。
 
 ; 版面尺寸
-global PAD := 13, CANDH := 27, CELL := 32, TCELL := 30, TCOLS := 10, CCOLS := 10
+global PAD := 14, CANDH := 30, CELL := 36, TCELL := 33, TCOLS := 10, CCOLS := 10
 global MAXCAND := 3, MAXCHAR := 64, MAXHOM := 50
 global CW := TCOLS * TCELL + 4
 ; 螢幕縮放：AHK 只把「視窗尺寸」乘上這個係數，「位置」則是實體像素。
@@ -435,6 +435,7 @@ BuildPopup() {
     ; 同音字格
     POPUP.SetFont("s11", "Microsoft JhengHei")
     UI.line2 := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h1 Hidden Background" . C_LINE, "")
+    UI.tray := POPUP.Add("Text", "x0 y0 w10 h10 Hidden BackgroundF7F7F7", "")   ; 同音字區底板
     Loop MAXHOM {
         i := A_Index
         t := POPUP.Add("Text", "x0 y0 w" . (TCELL - 4) . " h" . (TCELL - 4) . " Center Hidden Background" . C_CELL . " c" . C_TEXT, "")
@@ -448,6 +449,7 @@ BuildPopup() {
     UI.btn.OnEvent("Click", (*) => SetTimer(() => Accept(DraftText()), -1))
     POPUP.SetFont("s8", "Microsoft JhengHei")
     UI.hint := POPUP.Add("Text", "x" . PAD . " y0 w" . CW . " h16 Hidden c999999", "")
+    UI.esc := POPUP.Add("Text", "x0 y0 w40 h16 Right Hidden c999999", "Esc")
 
     ; Windows 11 圓角與細邊框（舊版系統會靜默略過）
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
@@ -608,9 +610,13 @@ Render() {
     homs := (ST.zone == "tray") ? HomsAt(ST.ci) : []
     if (homs.Length) {
         changed := SetCell(UI.line2, "", C_LINE, C_LINE, PAD, y, CW, 1) || changed
-        y += 6
+        y += 7
+        rows := (homs.Length + TCOLS - 1) // TCOLS
+        changed := SetCell(UI.tray, "", "F7F7F7", "F7F7F7", PAD, y, CW, rows * TCELL + 8) || changed
+        y += 4
     } else {
         changed := HideCell(UI.line2) || changed
+        changed := HideCell(UI.tray) || changed
     }
     tcol := 0
     for i, ctrl in UI.homs {
@@ -618,7 +624,7 @@ Render() {
             changed := HideCell(ctrl) || changed
             continue
         }
-        bg := C_CELL, fg := C_TEXT
+        bg := "FFFFFF", fg := C_TEXT
         if (i == ST.hi) {
             bg := C_SEL, fg := C_ACCENT
         } else if (homs[i] == ST.draft[ST.ci]) {
@@ -634,7 +640,7 @@ Render() {
     if (tcol > 0)
         y += TCELL
     if (homs.Length)
-        y += 3
+        y += 7
 
     ; 插入鈕
     y += 4
@@ -645,8 +651,9 @@ Render() {
     hint := inSent ? "↑↓ 選句 · ↓ 進逐字 · Enter 插入"
         : (ST.zone == "chars") ? "←→ 選字 · ↓ 展開同音 · Enter 插入"
         : "←→↑↓ 選同音字 · Enter 換上 · Esc 返回"
-    changed := SetCell(UI.hint, hint, C_BG, "999999", PAD, y, CW, 16) || changed
-    y += 20
+    changed := SetCell(UI.hint, hint, C_BG, "999999", PAD, y, CW - 44, 16) || changed
+    changed := SetCell(UI.esc, "Esc", C_BG, "999999", PAD + CW - 40, y, 40, 16) || changed
+    y += 22
 
     ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
     winW := CW + PAD * 2, winH := y
