@@ -18,7 +18,7 @@ global BUSY := false      ; 執行替換中，暫停監看避免吃到自己送�
 global PAUSED := false
 global LASTWIN := 0
 global POPUP := ""
-global BMW := 0, BMH := 0 ; 目前點陣圖的尺寸（繪製視窗時用）
+global PIC := ""          ; 承載自繪點陣圖的圖片控制項
 global HITS := []         ; 目前畫面上的可點擊區域
 global TRAYCOLS := 10     ; 同音字盤實際欄數（繪圖時算出，鍵盤換行要用）
 global HBM := 0           ; 目前的點陣圖（換圖時要釋放）
@@ -452,38 +452,15 @@ IconClicked() {
 
 ; ---------- 建立候選窗（只做一次） ----------
 BuildPopup() {
-    global POPUP
+    global POPUP, PIC
     ; -DPIScale：自繪一律用實體像素，避免 AHK 再縮放一次
     POPUP := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000 -DPIScale")
     POPUP.BackColor := "FFFFFF"
     POPUP.MarginX := 0, POPUP.MarginY := 0
-    ; 不放任何控制項，直接接管視窗的繪製 —— 圖片控制項在無邊框視窗上不可靠
-    OnMessage(0x000F, PaintPopup)      ; WM_PAINT
-    OnMessage(0x0014, EraseBkgnd)      ; WM_ERASEBKGND
+    ; 用圖片控制項承載自繪的點陣圖（實測這是最可靠的顯示方式）
+    PIC := POPUP.Add("Picture", "x0 y0 w10 h10 0xE")      ; SS_BITMAP
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 33, "Int*", 2, "UInt", 4)
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", POPUP.Hwnd, "UInt", 34, "UInt*", 0x00DCDCDC, "UInt", 4)
-}
-
-; 視窗重繪：把畫好的點陣圖整張貼上
-PaintPopup(wParam, lParam, msg, hwnd) {
-    if (POPUP == "" || hwnd != POPUP.Hwnd || !HBM)
-        return
-    ps := Buffer(72, 0)
-    hdc := DllCall("BeginPaint", "Ptr", hwnd, "Ptr", ps, "Ptr")
-    mem := DllCall("CreateCompatibleDC", "Ptr", hdc, "Ptr")
-    old := DllCall("SelectObject", "Ptr", mem, "Ptr", HBM, "Ptr")
-    DllCall("BitBlt", "Ptr", hdc, "Int", 0, "Int", 0, "Int", BMW, "Int", BMH,
-        "Ptr", mem, "Int", 0, "Int", 0, "UInt", 0x00CC0020)      ; SRCCOPY
-    DllCall("SelectObject", "Ptr", mem, "Ptr", old)
-    DllCall("DeleteDC", "Ptr", mem)
-    DllCall("EndPaint", "Ptr", hwnd, "Ptr", ps)
-    return 0
-}
-
-; 背景由我們自己畫滿，不需要系統再擦一次（可避免閃爍）
-EraseBkgnd(wParam, lParam, msg, hwnd) {
-    if (POPUP != "" && hwnd == POPUP.Hwnd)
-        return 1
 }
 
 ; ---------- 畫出候選窗 ----------
@@ -498,8 +475,10 @@ Render() {
     HITS := layout.hits
 
     hbm := RenderBitmap(layout, A_ScriptDir . "\icon.ico")
+    PIC.Move(0, 0, layout.w, layout.h)
+    SendMessage(0x172, 0, hbm, PIC)          ; STM_SETIMAGE
     oldBm := HBM
-    HBM := hbm, BMW := layout.w, BMH := layout.h
+    HBM := hbm
     if (oldBm)
         DllCall("DeleteObject", "Ptr", oldBm)
 
@@ -526,7 +505,6 @@ Render() {
         LASTGEO := geo
         POPUP_ON := true
     }
-    DllCall("InvalidateRect", "Ptr", POPUP.Hwnd, "Ptr", 0, "Int", 0)
 }
 
 DraftText() {
