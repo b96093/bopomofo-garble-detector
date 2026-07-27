@@ -613,6 +613,10 @@ Render() {
         y += 7
         rows := (homs.Length + TCOLS - 1) // TCOLS
         changed := SetCell(UI.tray, "", "F7F7F7", "F7F7F7", PAD, y, CW, rows * TCELL + 8) || changed
+        ; 底板必須壓在最底層，否則會蓋住上面的同音字格
+        ; HWND_BOTTOM=1；SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE=0x0013
+        try DllCall("SetWindowPos", "Ptr", UI.tray.Hwnd, "Ptr", 1,
+            "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0013)
         y += 4
     } else {
         changed := HideCell(UI.line2) || changed
