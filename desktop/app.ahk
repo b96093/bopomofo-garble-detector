@@ -46,8 +46,8 @@ global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 global PAD := 13, CANDH := 27, CELL := 32, TCELL := 30, TCOLS := 10, CCOLS := 10
 global MAXCAND := 3, MAXCHAR := 64, MAXHOM := 50
 global CW := TCOLS * TCELL + 4
-; 螢幕縮放：AHK 的視窗尺寸會自動乘上這個係數，但滑鼠/游標/螢幕邊界都是實體像素，
-; 兩者混用會算錯位置，所以外來的實體座標一律先換算成視窗單位。
+; 螢幕縮放：AHK 只把「視窗尺寸」乘上這個係數，「位置」則是實體像素。
+; 所以位置一律用實體座標，只有要跟螢幕邊界比大小時，才把尺寸換算成實體像素。
 global DPIF := A_ScreenDPI / 96
 
 ; 若使用者「同時」裝了 Chrome 擴充，在 Chrome 裡就會跳出兩個候選窗。
@@ -306,9 +306,9 @@ CalcWidth() {
     return Max(304, Min(w, 720))
 }
 
-; 實體像素 → 視窗單位
-ToGui(v) {
-    return Round(v / DPIF)
+; 視窗尺寸（AHK 單位）→ 實際佔用的實體像素
+ToPhys(v) {
+    return Round(v * DPIF)
 }
 
 ; 取得作用中視窗的位置大小（視窗單位）；取不到就用整個螢幕
@@ -318,19 +318,18 @@ ActiveWinRect() {
         if (hwnd) {
             WinGetPos(&wx, &wy, &ww, &wh, hwnd)
             if (ww > 200 && wh > 150)
-                return [ToGui(wx), ToGui(wy), ToGui(ww), ToGui(wh)]
+                return [wx, wy, ww, wh]
         }
     }
-    return [0, 0, ToGui(A_ScreenWidth), ToGui(A_ScreenHeight)]
+    return [0, 0, A_ScreenWidth, A_ScreenHeight]
 }
 
 ; 取得某座標所在螢幕的可用範圍（視窗單位）
 ScreenBounds(x, y, &L, &T, &R, &B) {
-    L := 0, T := 0, R := ToGui(A_ScreenWidth), B := ToGui(A_ScreenHeight)
+    L := 0, T := 0, R := A_ScreenWidth, B := A_ScreenHeight
     Loop MonitorGetCount() {
         MonitorGetWorkArea(A_Index, &ml, &mt, &mr, &mb)
-        ml := ToGui(ml), mt := ToGui(mt), mr := ToGui(mr), mb := ToGui(mb)
-        if (x >= ml && x < mr && y >= mt - 60 && y < mb + 60) {
+        if (x >= ml && x < mr && y >= mt - 80 && y < mb + 80) {
             L := ml, T := mt, R := mr, B := mb
             break
         }
@@ -366,9 +365,9 @@ OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
         if (ax >= 0) {                       ; 呼叫端已指定（滑鼠選取）
             ANCMODE := "point", ANCX := ax, ANCY := ay
         } else if (CaretPos(&px, &py)) {     ; 有插入點 → 貼在文字行下方
-            ANCMODE := "point", ANCX := ToGui(px), ANCY := ToGui(py) + 4
+            ANCMODE := "point", ANCX := px, ANCY := py + 6
         } else if (CLICKOK) {                ; 畫布類程式 → 用「你點進文字框的位置」
-            ANCMODE := "point", ANCX := ToGui(CLICKX), ANCY := ToGui(CLICKY) + 26
+            ANCMODE := "point", ANCX := CLICKX, ANCY := CLICKY + 30
         } else {                             ; 真的沒線索 → 視窗底部置中
             ANCMODE := "window"
         }
@@ -482,15 +481,15 @@ ShowIcon(preview) {
     ICONHINT.Move(32, 32, w - 44, 18)
     if (SELFROMMOUSE) {                     ; 滑鼠選取 → 出現在剛放開滑鼠的地方
         MouseGetPos(&mx, &my)
-        ix := ToGui(mx) + 8, iy := ToGui(my) + 18
+        ix := mx + 8, iy := my + 18
     } else if (CLICKOK) {                   ; 鍵盤選取 → 用「你點進文字框的位置」
-        ix := ToGui(CLICKX), iy := ToGui(CLICKY) + 26
+        ix := CLICKX, iy := CLICKY + 30
     } else {                                ; 真的沒線索 → 視窗底部置中
         r := ActiveWinRect()
-        ix := r[1] + (r[3] - w) // 2
-        iy := r[2] + r[4] - 58 - 40
+        ix := r[1] + (r[3] - ToPhys(w)) // 2
+        iy := r[2] + r[4] - ToPhys(58) - 50
     }
-    ClampToScreen(&ix, &iy, w, 58)
+    ClampToScreen(&ix, &iy, ToPhys(w), ToPhys(58))
     ICON.Show("NoActivate x" . ix . " y" . iy . " w" . w . " h58")
     ICON_ON := true
 }
@@ -512,7 +511,7 @@ IconClicked() {
     HideIcon()
     if (SELFROMMOUSE) {
         MouseGetPos(&mx, &my)
-        OpenCandidates(res, "selection", ToGui(mx), ToGui(my) + 18)
+        OpenCandidates(res, "selection", mx, my + 18)
     } else {
         OpenCandidates(res, "selection")     ; 沿用固定位置規則
     }
@@ -649,23 +648,24 @@ Render() {
 
     ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
     winW := CW + PAD * 2, winH := y
+    pw := ToPhys(winW), ph := ToPhys(winH)  ; 視窗實際佔用的實體像素
     if (MANUALX >= 0) {                     ; 使用者拖曳指定過位置 → 一律用它
         px := MANUALX, py := MANUALY
     } else if (ANCMODE == "window") {       ; 固定在作用中視窗底部置中
-        px := ANCW[1] + (ANCW[3] - winW) // 2
-        py := ANCW[2] + ANCW[4] - winH - 40
+        px := ANCW[1] + (ANCW[3] - pw) // 2
+        py := ANCW[2] + ANCW[4] - ph - 50
     } else {
         px := ANCX, py := ANCY
         ; 下方放不下就翻到插入點上方 —— 但這個決定只做一次並固定住，
         ; 否則展開/收起同音字時視窗高度一變，就會在上下兩個位置之間彈跳。
         ; 變數名不能用 sT/sB 之類 —— AHK 不分大小寫，會撞到全域的 ST
         ScreenBounds(px, py, &scrL, &scrT, &scrR, &scrB)
-        if (!FLIPPED && py + winH > scrB - 8)
+        if (!FLIPPED && py + ph > scrB - 10)
             FLIPPED := true
         if (FLIPPED)
-            py := ANCY - winH - 30
+            py := ANCY - ph - 36
     }
-    ClampToScreen(&px, &py, winW, winH)
+    ClampToScreen(&px, &py, pw, ph)
     geo := px . "," . py . "," . winW . "," . winH
     if (!POPUP_ON || geo != LASTGEO) {
         POPUP.Show("NoActivate x" . px . " y" . py . " w" . winW . " h" . winH)
@@ -936,7 +936,7 @@ DragMove() {
         try WinSetExStyle("+0x02000000", POPUP.Hwnd)   ; 放開後恢復雙緩衝
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
-            MANUALX := ToGui(wx), MANUALY := ToGui(wy)   ; 只影響目前這個候選窗
+            MANUALX := wx, MANUALY := wy       ; 實體座標，只影響目前這個候選窗
             LASTGEO := ""            ; 位置變了，下次 Render 要重新定位
         }
         return
