@@ -11,6 +11,9 @@
 #Include draw.ahk
 
 global DICT := ""
+; 詞庫要載入好幾秒，但熱鍵一開始就生效了 ——
+; 沒有這個旗標，使用者在載入期間點滑鼠就會拿空詞庫去偵測而崩潰。
+global READY := false
 global BUF := ""          ; 目前累積的輸入（只在記憶體）
 global HIT := ""          ; 目前偵測結果 {res, offset}
 global ST := ""           ; 候選窗狀態
@@ -63,7 +66,7 @@ global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 
 ; ---------- 啟動 ----------
 TraySetIcon(A_ScriptDir "\icon.ico", 1, true)
-A_IconTip := "注音亂碼偵測（載入中…）"
+A_IconTip := "注音亂碼偵測（詞庫載入中，請稍候…）"
 LoadSettings()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
@@ -73,6 +76,7 @@ A_TrayMenu.Add("結束", (*) => ExitApp())
 A_TrayMenu.Default := "設定…"
 
 DICT := LoadDict(A_ScriptDir "\dict.txt")
+READY := true
 BuildPopup()
 BuildIcon()
 A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
@@ -90,7 +94,7 @@ SetTimer(WatchWindow, 400)
 
 OnChar(hook, ch) {
     global BUF          ; 函式內有指派的變數一定要宣告，否則會被當成區域變數
-    if (BUSY || PAUSED)
+    if (!READY || BUSY || PAUSED)
         return
     HideIcon()          ; 一開始打字，原本的選取就沒了，icon 不能再留著
     if !IsRunChar(ch) {           ; 中文字等非按鍵字元 → 視為新段落
@@ -225,7 +229,7 @@ IsExcludedApp() {
 
 Scan() {
     global HIT, BUF
-    if (PAUSED || BUF == "") {
+    if (!READY || PAUSED || BUF == "") {
         HidePopup()
         return
     }
@@ -262,7 +266,7 @@ GetSelectedText() {
 
 CheckSelection(fromMouse := true) {
     global SELRES, SELFROMMOUSE
-    if (BUSY || PAUSED || POPUP_ON || IsExcludedApp())
+    if (!READY || BUSY || PAUSED || POPUP_ON || IsExcludedApp())
         return
     SELFROMMOUSE := fromMouse
     text := Trim(GetSelectedText(), " `t`r`n")
