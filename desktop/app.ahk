@@ -25,6 +25,8 @@ global ANCX := 0, ANCY := 0  ; 候選窗定位點（開啟時算一次，導航�
 ; 定位模式："point"＝已知座標（插入點或滑鼠）；"window"＝作用中視窗底部置中。
 ; 取不到插入點時「跟著滑鼠跑」會讓使用者覺得浮窗隨機出現，改用固定位置才可預期。
 global ANCMODE := "point"
+; 使用者可以把浮窗拖到喜歡的位置，之後就固定在那（避免一直遮住文字）
+global MANUALX := -1, MANUALY := -1
 global ANCW := [0, 0, 0, 0]   ; 開窗當下作用中視窗的位置大小（視窗單位）
 ; 選取轉換用
 global ICON := "", ICONTEXT := "", ICONHINT := "", ICON_ON := false
@@ -64,6 +66,7 @@ LoadSettings()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
 A_TrayMenu.Add("在 Chrome 中也偵測", (*) => ToggleChromeDetect())
+A_TrayMenu.Add("候選窗位置改回自動", (*) => ResetPopupPos())
 if (CHROME_DETECT)
     A_TrayMenu.Check("在 Chrome 中也偵測")
 A_TrayMenu.Add()
@@ -144,8 +147,16 @@ MouseDown() {
     ; 點在自己的浮窗上不算「點進文字框」
     isOwn := false
     try isOwn := (POPUP != "" && hwnd == POPUP.Hwnd) || (ICON != "" && hwnd == ICON.Hwnd)
-    if (!isOwn)
+    if (!isOwn) {
         CLICKX := x, CLICKY := y, CLICKOK := true
+    } else if (POPUP_ON && POPUP != "" && hwnd == POPUP.Hwnd) {
+        ; 點在候選窗上緣（標題列）→ 開始拖曳，讓使用者自己決定位置
+        try {
+            WinGetPos(&wx, &wy, , , POPUP.Hwnd)
+            if (y - wy < 30 * DPIF)
+                PostMessage(0xA1, 2, 0, , "ahk_id " . POPUP.Hwnd)   ; WM_NCLBUTTONDOWN / HTCAPTION
+        }
+    }
     ClickAway()
 }
 
@@ -153,7 +164,10 @@ MouseDown() {
 MouseUp() {
     global LASTUPT, LASTUPX, LASTUPY
     MouseGetPos(&x, &y)
-    dragged := (Abs(x - MDX) > 4 || Abs(y - MDY) > 4)
+    dx := Abs(x - MDX), dy := Abs(y - MDY)
+    ; 選取文字幾乎都是水平方向；在 Canva 這類程式裡「搬移物件」也是拖曳，
+    ; 但多半帶有明顯的上下位移，用這點把它濾掉，避免誤觸。
+    dragged := (dx > 4 && dx > dy * 1.4)
     dbl := (A_TickCount - LASTUPT < 450 && Abs(x - LASTUPX) < 5 && Abs(y - LASTUPY) < 5)
     LASTUPT := A_TickCount, LASTUPX := x, LASTUPY := y
     if (dragged || dbl)
@@ -621,7 +635,9 @@ Render() {
 
     ; 位置或大小沒變就不要再 Show 一次（Show 本身也會造成閃爍）
     winW := CW + PAD * 2, winH := y
-    if (ANCMODE == "window") {              ; 固定在作用中視窗底部置中
+    if (MANUALX >= 0) {                     ; 使用者拖曳指定過位置 → 一律用它
+        px := MANUALX, py := MANUALY
+    } else if (ANCMODE == "window") {       ; 固定在作用中視窗底部置中
         px := ANCW[1] + (ANCW[3] - winW) // 2
         py := ANCW[2] + ANCW[4] - winH - 40
     } else {
@@ -887,15 +903,43 @@ Accept(text) {
     BUSY := false
 }
 
+; 拖曳結束 → 記住這個位置，之後候選窗就固定出現在這裡
+OnMessage(0x0232, WinDragEnd)     ; WM_EXITSIZEMOVE
+WinDragEnd(wParam, lParam, msg, hwnd) {
+    global MANUALX, MANUALY
+    try {
+        if (POPUP == "" || hwnd != POPUP.Hwnd)
+            return
+        WinGetPos(&wx, &wy, , , POPUP.Hwnd)
+        MANUALX := ToGui(wx), MANUALY := ToGui(wy)
+        SaveSettings()
+        Tip("已記住候選窗位置`n（要改回自動：系統列圖示右鍵）", 2200)
+    }
+}
+
 ; ---------- 設定 ----------
 LoadSettings() {
-    global CHROME_DETECT
+    global CHROME_DETECT, MANUALX, MANUALY
     v := IniRead(SETTINGS_FILE, "settings", "chromeDetect", "1")
     CHROME_DETECT := (v != "0")
+    MANUALX := Integer(IniRead(SETTINGS_FILE, "settings", "popupX", "-1"))
+    MANUALY := Integer(IniRead(SETTINGS_FILE, "settings", "popupY", "-1"))
 }
 
 SaveSettings() {
-    try IniWrite(CHROME_DETECT ? 1 : 0, SETTINGS_FILE, "settings", "chromeDetect")
+    try {
+        IniWrite(CHROME_DETECT ? 1 : 0, SETTINGS_FILE, "settings", "chromeDetect")
+        IniWrite(MANUALX, SETTINGS_FILE, "settings", "popupX")
+        IniWrite(MANUALY, SETTINGS_FILE, "settings", "popupY")
+    }
+}
+
+ResetPopupPos() {
+    global MANUALX, MANUALY
+    MANUALX := -1, MANUALY := -1
+    SaveSettings()
+    Reset()
+    Tip("候選窗位置已改回自動", 1600)
 }
 
 ToggleChromeDetect() {
