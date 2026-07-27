@@ -98,18 +98,18 @@ DrawStr(hdc, x, y, w, h, text, color, pt, align := 0, bold := false) {
 
 ; ---------- 版面計算 ----------
 ; 回傳 {w, h, ops, hits}；ops 是繪圖指令，hits 是可點擊區域（實體像素）
-BuildLayout(st, homsFor) {
+BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
     global TRAYCOLS
-    inSent := (st.zone == "sent")
+    inSent := (view.zone == "sent")
     pad := DPX(LY.pad)
     ops := [], hits := []
 
     ; 內容寬度：候選字長度與逐字列長度取大者
     maxLen := 0
-    for c in st.cands
+    for c in view.cands
         maxLen := Max(maxLen, StrLen(c))
     cw := Max(DPX(300), DPX(24) + maxLen * DPX(22))
-    perRow := Max(6, Min(st.draft.Length, 14))
+    perRow := Max(6, Min(view.draft.Length, 14))
     cw := Max(cw, perRow * DPX(LY.cell + LY.cellGap))
     cw := Min(cw, DPX(700))
     cols := Max(6, cw // DPX(LY.cell + LY.cellGap))
@@ -123,8 +123,8 @@ BuildLayout(st, homsFor) {
     y += DPX(LY.headH) + DPX(6)
 
     ; 整句候選
-    for i, c in st.cands {
-        sel := (i == st.sel)
+    for i, c in view.cands {
+        sel := (i == view.sel)
         bg := sel ? (inSent ? CO.selBg : CO.selBgDim) : CO.bg
         h := DPX(LY.candH)
         if (sel)
@@ -146,11 +146,11 @@ BuildLayout(st, homsFor) {
     ; 逐字列
     col := 0
     cell := DPX(LY.cell), cgap := DPX(LY.cellGap)
-    for k, ch in st.draft {
+    for k, ch in view.draft {
         editable := homsFor(k).Length > 0
         cx := pad + col * (cell + cgap)
         if (editable) {
-            focus := (!inSent && k == st.ci)
+            focus := (!inSent && k == view.ci)
             ops.Push({t: "box", x: cx, y: y, w: cell, h: cell, r: DPX(LY.cellR),
                 fill: focus ? CO.selBg : CO.cellBg,
                 border: focus ? CO.cellBorderOn : CO.cellBorder})
@@ -169,8 +169,8 @@ BuildLayout(st, homsFor) {
         y += cell + cgap
 
     ; 同音字盤
-    if (st.zone == "tray") {
-        homs := homsFor(st.ci)
+    if (view.zone == "tray") {
+        homs := homsFor(view.ci)
         if (homs.Length) {
             tc := DPX(LY.tcell), tg := DPX(LY.tcellGap), tp := DPX(LY.trayPad)
             tcols := Max(6, (cw - tp * 2) // (tc + tg))
@@ -182,8 +182,8 @@ BuildLayout(st, homsFor) {
             tcol := 0
             for i, w in homs {
                 bx := tx0 + tcol * (tc + tg)
-                cur := (w == st.draft[st.ci])
-                foc := (i == st.hi)
+                cur := (w == view.draft[view.ci])
+                foc := (i == view.hi)
                 ops.Push({t: "box", x: bx, y: ty, w: tc, h: tc, r: DPX(LY.tcellR),
                     fill: foc ? CO.selBg : CO.cellBg,
                     border: foc ? CO.cellBorderOn : (cur ? CO.accentSoft : CO.cellBorder)})
@@ -203,13 +203,13 @@ BuildLayout(st, homsFor) {
     y += DPX(4)
     bh := DPX(LY.btnH)
     ops.Push({t: "box", x: pad, y: y, w: cw, h: bh, r: DPX(LY.btnR), fill: CO.btnBg})
-    DrawS(ops, pad, y, cw, bh, "↵ 改為「" . st.draftText . "」", CO.accent, 11, 1)
+    DrawS(ops, pad, y, cw, bh, "↵ 改為「" . view.draftText . "」", CO.accent, 11, 1)
     hits.Push({k: "commit", x: pad, y: y, w: cw, h: bh})
     y += bh + DPX(8)
 
     ; 底部提示
     hint := inSent ? "↑↓ 選句 · ↓ 進逐字 · Enter 插入"
-        : (st.zone == "chars") ? "←→ 選字 · ↓ 展開同音 · Enter 插入"
+        : (view.zone == "chars") ? "←→ 選字 · ↓ 展開同音 · Enter 插入"
         : "←→↑↓ 選同音字 · Enter 換上 · Esc 返回"
     DrawS(ops, pad, y, cw - DPX(40), DPX(LY.footH), hint, CO.faint, 8)
     DrawS(ops, pad + cw - DPX(40), y, DPX(40), DPX(LY.footH), "Esc", CO.faint, 8, 2)

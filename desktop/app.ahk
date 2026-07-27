@@ -153,20 +153,20 @@ MouseDown() {
         ; 自繪的候選窗沒有子控制項，要自己判斷點到哪一格
         try {
             WinGetPos(&wx, &wy, , , POPUP.Hwnd)
-            hit := HitTest(HITS, x - wx, y - wy)
-            if (hit != "") {
-                if (hit.k == "drag") {
+            hitCell := HitTest(HITS, x - wx, y - wy)
+            if (hitCell != "") {
+                if (hitCell.k == "drag") {
                     ; 標題列 → 開始拖曳（不奪焦視窗不吃系統內建拖曳，自己追蹤滑鼠）
                     DRAGDX := x - wx, DRAGDY := y - wy
                     DRAGGING := true
                     SetTimer(DragMove, 8)
-                } else if (hit.k == "cand") {
-                    SetTimer(() => Accept(ST.cands[hit.i]), -1)
-                } else if (hit.k == "char") {
-                    SetTimer(() => ToggleChar(hit.i), -1)
-                } else if (hit.k == "hom") {
-                    SetTimer(() => PickHom(hit.i), -1)
-                } else if (hit.k == "commit") {
+                } else if (hitCell.k == "cand") {
+                    SetTimer(() => Accept(ST.cands[hitCell.i]), -1)
+                } else if (hitCell.k == "char") {
+                    SetTimer(() => ToggleChar(hitCell.i), -1)
+                } else if (hitCell.k == "hom") {
+                    SetTimer(() => PickHom(hitCell.i), -1)
+                } else if (hitCell.k == "commit") {
                     SetTimer(() => Accept(DraftText()), -1)
                 }
             }
@@ -392,8 +392,8 @@ BuildIcon() {
     ICON.BackColor := "FFFFFF"
     ICON.MarginX := 0, ICON.MarginY := 0
     try {
-        pic := ICON.Add("Picture", "x11 y10 w18 h18", A_ScriptDir . "\icon.ico")
-        pic.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
+        iconPic := ICON.Add("Picture", "x11 y10 w18 h18", A_ScriptDir . "\icon.ico")
+        iconPic.OnEvent("Click", (*) => SetTimer(IconClicked, -1))
     }
     ICON.SetFont("s11", "Microsoft JhengHei")
     ICONTEXT := ICON.Add("Text", "x35 y9 w240 h22 c1E1E1E", "")
@@ -467,9 +467,10 @@ Render() {
     global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED
     if (ST == "")
         return
-    st := {cands: ST.cands, sel: ST.sel, draft: ST.draft, zone: ST.zone,
-           ci: ST.ci, hi: ST.hi, draftText: DraftText()}
-    layout := BuildLayout(st, (k) => HomsAt(k))
+    ; 變數名不可用 st —— AHK 不分大小寫，會撞到全域的 ST
+    view := {cands: ST.cands, sel: ST.sel, draft: ST.draft, zone: ST.zone,
+             ci: ST.ci, hi: ST.hi, draftText: DraftText()}
+    layout := BuildLayout(view, (k) => HomsAt(k))
     HITS := layout.hits
 
     hbm := RenderBitmap(layout, A_ScriptDir . "\icon.ico")

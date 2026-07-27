@@ -41,9 +41,22 @@ for fname in FILES:
         declared = set()
         for d in re.findall(r"^\s*global\s+([^\n;]+)", body_text, re.M):
             declared.update(v.split(":=")[0].strip() for v in d.split(","))
+        # AHK 變數名不分大小寫：st 就是 ST，比對時必須忽略大小寫
+        lower_globals = {g.lower(): g for g in top_globals}
+        lower_declared = {d.lower() for d in declared}
         for assigned in re.findall(r"^\s*([A-Za-z_]\w*)\s*(?::=|\.=|\+=|-=)", body_text, re.M):
-            if assigned in top_globals and assigned not in declared:
-                problems.append("%s: %s() 指派了全域 %s 但未宣告 global" % (fname, name, assigned))
+            g = lower_globals.get(assigned.lower())
+            if g and assigned.lower() not in lower_declared:
+                extra = "" if assigned == g else "（大小寫不同但視為同一個變數）"
+                problems.append("%s: %s() 指派了全域 %s 但未宣告 global%s" % (fname, name, assigned, extra))
+        # 函式參數同樣會建立區域變數，撞名一樣會遮蔽全域
+        params = re.match(r"^[A-Za-z_]\w*\(([^)]*)\)", body_text)
+        if params:
+            for prm in params.group(1).split(","):
+                pname = prm.split(":=")[0].replace("&", "").strip()
+                g = lower_globals.get(pname.lower())
+                if g:
+                    problems.append("%s: %s() 的參數 %s 會遮蔽全域 %s" % (fname, name, pname, g))
         # ByRef 輸出變數（&name）同樣會建立區域變數；AHK 變數名不分大小寫，
         # 所以 &sT 這種寫法會撞到全域的 ST，且語法檢查抓不到。
         # (?<!&)&(?!&) 排除 && 邏輯運算子，只抓真正的 ByRef 輸出變數
