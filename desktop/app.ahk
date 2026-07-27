@@ -23,6 +23,7 @@ global LASTWIN := 0
 global POPUP := ""
 global PIC := ""          ; 承載自繪點陣圖的圖片控制項
 global PICW := 0, PICH := 0  ; 目前圖片控制項的大小（沒變就不重設，避免閃爍）
+global MINW := 0             ; 同一個候選窗期間寬度只增不減，減少改變大小的次數
 global HITS := []         ; 目前畫面上的可點擊區域
 global TRAYCOLS := 10     ; 同音字盤實際欄數（繪圖時算出，鍵盤換行要用）
 global HBM := 0           ; 目前的點陣圖（換圖時要釋放）
@@ -207,9 +208,10 @@ ClickAway() {
 }
 
 Reset() {
-    global BUF, HIT, ST, MANUALX, MANUALY, FLIPPED
+    global BUF, HIT, ST, MANUALX, MANUALY, FLIPPED, MINW
     BUF := "", HIT := "", ST := ""
     MANUALX := -1, MANUALY := -1     ; 拖曳只對當下那個候選窗有效
+    MINW := 0
     FLIPPED := false
     HidePopup()
     HideIcon()
@@ -471,13 +473,16 @@ BuildPopup() {
 
 ; ---------- 畫出候選窗 ----------
 Render() {
-    global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED, PICW, PICH
+    global POPUP_ON, LASTGEO, HITS, HBM, FLIPPED, PICW, PICH, MINW
     if (ST == "")
         return
     ; 變數名不可用 st —— AHK 不分大小寫，會撞到全域的 ST
     view := {cands: ST.cands, sel: ST.sel, draft: ST.draft, zone: ST.zone,
              ci: ST.ci, hi: ST.hi, draftText: DraftText()}
     layout := BuildLayout(view, (k) => HomsAt(k))
+    if (layout.w < MINW)                 ; 寬度只增不減，避免打字時來回變動
+        layout.w := MINW
+    MINW := layout.w
     HITS := layout.hits
 
     ; 變數名不可用 hbm —— AHK 不分大小寫，會跟全域 HBM 變成同一個，

@@ -113,6 +113,10 @@ BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
     perRow := Max(6, Min(view.draft.Length, 14))
     cw := Max(cw, perRow * DPX(LY.cell + LY.cellGap))
     cw := Min(cw, DPX(700))
+    ; 寬度取整到 60 的倍數：打字時每多一個字寬度就變一次的話，
+    ; 視窗會不停改變大小而閃爍；以區間跳動可讓多數按鍵都不必調整視窗。
+    step := DPX(60)
+    cw := Min(((cw + step - 1) // step) * step, DPX(700))
     cols := Max(6, cw // DPX(LY.cell + LY.cellGap))
 
     y := pad
@@ -155,7 +159,7 @@ BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
             ops.Push({t: "box", x: cx, y: y, w: cell, h: cell, r: DPX(LY.cellR),
                 fill: focus ? CO.selBg : CO.cellBg,
                 border: focus ? CO.cellBorderOn : CO.cellBorder})
-            DrawS(ops, cx, y, cell, cell, ch, focus ? CO.accent : CO.text, 13, 1, 600)
+            DrawS(ops, cx, y, cell, cell, ch, focus ? CO.accent : CO.text, 13, 1, 500)
             hits.Push({k: "char", i: k, x: cx, y: y, w: cell, h: cell})
         } else {
             DrawS(ops, cx, y, cell, cell, ch, CO.faint, 13, 1, 500)
@@ -204,7 +208,7 @@ BuildLayout(view, homsFor) {   ; 參數不可命名 st，會撞到全域 ST
     y += DPX(4)
     bh := DPX(LY.btnH)
     ops.Push({t: "box", x: pad, y: y, w: cw, h: bh, r: DPX(LY.btnR), fill: CO.btnBg})
-    DrawS(ops, pad, y, cw, bh, "↵ 改為「" . view.draftText . "」", CO.accent, 12, 1, 600)
+    DrawS(ops, pad, y, cw, bh, "↵ 改為「" . view.draftText . "」", CO.accent, 12, 1, 500)
     hits.Push({k: "commit", x: pad, y: y, w: cw, h: bh})
     y += bh + DPX(8)
 
