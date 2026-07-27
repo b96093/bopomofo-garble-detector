@@ -55,6 +55,9 @@ global DPIF := A_ScreenDPI / 96
 ; 所以預設「在 Chrome 也偵測」，遇到重複的人再從系統列關掉即可。
 global BROWSER_APPS := Map("chrome.exe", true)
 global CHROME_DETECT := true
+global MODE := "conservative"      ; conservative｜aggressive
+global THRESH := 0.8, MINSYL := 2  ; 由 MODE 換算而來
+global SETGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 
 ; 配色
@@ -67,16 +70,15 @@ A_IconTip := "注音亂碼偵測（載入中…）"
 LoadSettings()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
-A_TrayMenu.Add("在 Chrome 中也偵測", (*) => ToggleChromeDetect())
-if (CHROME_DETECT)
-    A_TrayMenu.Check("在 Chrome 中也偵測")
+A_TrayMenu.Add("設定…", (*) => ShowSettings())
 A_TrayMenu.Add()
 A_TrayMenu.Add("結束", (*) => ExitApp())
+A_TrayMenu.Default := "設定…"
 
 DICT := LoadDict(A_ScriptDir "\dict.txt")
 BuildPopup()
 BuildIcon()
-A_IconTip := "注音亂碼偵測（監看中）"
+A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
 Tip("注音亂碼偵測已啟動`n詞庫 " . DICT.Count . " 讀音", 2000)
 
 ; ---------- 全域監看 ----------
@@ -233,7 +235,7 @@ Scan() {
         HidePopup()
         return
     }
-    HIT := DetectTail(BUF, DICT)
+    HIT := DetectTail(BUF, DICT, THRESH, MINSYL)
     if (HIT == "") {
         HidePopup()
         return
@@ -949,35 +951,122 @@ DragMove() {
 
 ; ---------- 設定 ----------
 LoadSettings() {
-    global CHROME_DETECT
-    v := IniRead(SETTINGS_FILE, "settings", "chromeDetect", "1")
-    CHROME_DETECT := (v != "0")
+    global CHROME_DETECT, PAUSED, MODE
+    CHROME_DETECT := (IniRead(SETTINGS_FILE, "settings", "chromeDetect", "1") != "0")
+    PAUSED := (IniRead(SETTINGS_FILE, "settings", "enabled", "1") == "0")
+    MODE := IniRead(SETTINGS_FILE, "settings", "mode", "conservative")
+    ApplyMode()
 }
 
 SaveSettings() {
     try {
         IniWrite(CHROME_DETECT ? 1 : 0, SETTINGS_FILE, "settings", "chromeDetect")
+        IniWrite(PAUSED ? 0 : 1, SETTINGS_FILE, "settings", "enabled")
+        IniWrite(MODE, SETTINGS_FILE, "settings", "mode")
     }
 }
 
-ToggleChromeDetect() {
-    global CHROME_DETECT
-    CHROME_DETECT := !CHROME_DETECT
-    SaveSettings()
-    if (CHROME_DETECT)
-        A_TrayMenu.Check("在 Chrome 中也偵測")
+; 靈敏度：保守＝很有把握才跳；積極＝寧可多跳
+ApplyMode() {
+    global THRESH, MINSYL
+    if (MODE == "aggressive")
+        THRESH := 0.6, MINSYL := 1
     else
-        A_TrayMenu.Uncheck("在 Chrome 中也偵測")
+        THRESH := 0.8, MINSYL := 2
+}
+
+; ---------- 開機自動啟動 ----------
+StartupLink() {
+    return A_Startup . "\注音亂碼偵測.lnk"
+}
+
+IsAutoStart() {
+    return FileExist(StartupLink()) ? true : false
+}
+
+SetAutoStart(on) {
+    try {
+        if (on) {
+            ; 未編譯時要透過 AutoHotkey 執行檔帶入腳本路徑
+            target := A_IsCompiled ? A_ScriptFullPath : A_AhkPath
+            args := A_IsCompiled ? "" : Chr(34) . A_ScriptFullPath . Chr(34)
+            FileCreateShortcut(target, StartupLink(), A_ScriptDir, args,
+                "注音亂碼偵測", A_ScriptDir . "\icon.ico")
+        } else if (IsAutoStart()) {
+            FileDelete(StartupLink())
+        }
+        return true
+    }
+    return false
+}
+
+; ---------- 設定視窗 ----------
+ShowSettings() {
+    global SETGUI
+    if (SETGUI != "") {
+        try {
+            SETGUI.Show()
+            return
+        }
+    }
+    g := Gui("+AlwaysOnTop", "注音亂碼偵測 — 設定")
+    g.BackColor := "FFFFFF"
+    g.MarginX := 18, g.MarginY := 16
+
+    g.SetFont("s10", "Microsoft JhengHei")
+    g.Add("Checkbox", "vEnabled Checked" . (PAUSED ? 0 : 1), "啟用偵測")
+    g.SetFont("s9")
+    g.Add("Text", "xm+22 y+2 c888888", "關閉後不會跳出任何候選窗。")
+
+    g.SetFont("s10")
+    g.Add("Text", "xm y+16", "偵測靈敏度")
+    g.SetFont("s9")
+    g.Add("Radio", "xm y+8 vModeCon Checked" . (MODE == "aggressive" ? 0 : 1), "保守（建議）")
+    g.Add("Text", "xm+22 y+2 c888888", "很有把握才跳，幾乎不打擾；偶爾會漏接短亂碼。")
+    g.Add("Radio", "xm y+8 vModeAgg Checked" . (MODE == "aggressive" ? 1 : 0), "積極")
+    g.Add("Text", "xm+22 y+2 c888888", "寧可多跳、抓好抓滿；打英文時偶爾會被打擾。")
+
+    g.SetFont("s10")
+    g.Add("Checkbox", "xm y+18 vChrome Checked" . (CHROME_DETECT ? 1 : 0), "在 Chrome 中也偵測")
+    g.SetFont("s9")
+    g.Add("Text", "xm+22 y+2 w400 c888888", "若你另外裝了 Chrome 擴充，請關閉這項，否則會跳出兩個候選窗。")
+
+    g.SetFont("s10")
+    g.Add("Checkbox", "xm y+18 vAuto Checked" . (IsAutoStart() ? 1 : 0), "開機時自動啟動")
+
+    g.SetFont("s9")
+    g.Add("Text", "xm y+20 w420 c888888",
+        "偵測內容只存在記憶體，不寫入檔案、不連上網路。")
+
+    g.SetFont("s10")
+    g.Add("Button", "xm y+16 w96 h30 Default", "儲存").OnEvent("Click", (*) => SaveFromGui(g))
+    g.Add("Button", "x+8 yp w96 h30", "關閉").OnEvent("Click", (*) => g.Hide())
+    g.OnEvent("Close", (*) => g.Hide())
+    SETGUI := g
+    g.Show("AutoSize")
+}
+
+SaveFromGui(g) {
+    global CHROME_DETECT, PAUSED, MODE
+    v := g.Submit(false)
+    PAUSED := !v.Enabled
+    MODE := v.ModeAgg ? "aggressive" : "conservative"
+    CHROME_DETECT := v.Chrome ? true : false
+    ApplyMode()
+    SaveSettings()
+    if (!SetAutoStart(v.Auto))
+        MsgBox("開機自動啟動設定失敗，可能是權限不足。", "注音亂碼偵測", "Icon!")
+    A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
     Reset()
-    Tip(CHROME_DETECT
-        ? "已開啟：Chrome 中也會偵測`n（若你另外裝了 Chrome 擴充，會跳出兩個候選窗）"
-        : "已關閉：Chrome 中交給擴充處理", 2600)
+    g.Hide()
+    Tip("設定已儲存", 1500)
 }
 
 ; ---------- 其他 ----------
 TogglePause() {
     global PAUSED
     PAUSED := !PAUSED
+    SaveSettings()
     Reset()
     A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
     Tip(PAUSED ? "已暫停偵測" : "已繼續偵測", 1200)
