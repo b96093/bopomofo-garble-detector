@@ -163,6 +163,34 @@ gh release create v1.0.0 `
 - [ ] 在 GitHub Release 頁上傳二進制檔案
 - [ ] Release Notes 描述清楚
 
+## 防毒誤判：每次發布都要處理
+
+AHK 編譯的 exe 幾乎一定會被 Windows Defender 以
+`Program:Win32/Contebrew.A!ml` 之類的名稱誤判（`!ml`＝機器學習啟發式猜測）。
+**發布前務必先回報**，否則使用者下載後會被擋、甚至檔案直接消失。
+
+### 回報步驟（免費，通常 1～3 天回覆）
+
+1. 前往 <https://www.microsoft.com/en-us/wdsi/filesubmission>
+2. 選 **Software developer**（軟體開發者），需用 Microsoft 帳號登入
+3. 上傳 `dist/注音亂碼偵測-桌面版/注音亂碼偵測.exe`
+4. **Detection name** 填 Defender 顯示的名稱（例：`Program:Win32/Contebrew.A!ml`）
+5. 提交理由選 **I believe this file is incorrectly detected**（誤判）
+6. 說明欄可寫：開源的注音輸入法輔助工具，MIT 授權，需全域鍵盤 hook 才能在
+   各程式中運作，原始碼位於 GitHub（附上你的 repo 網址）
+
+> ⚠️ **每次重新編譯 exe 的 SHA256 都會變**，白名單是綁 hash 的。
+> 所以流程要固定成：**先編譯 → 立刻回報 → 等通過 → 才發布**。
+> 不要編譯完馬上上傳 Release。
+
+### 記錄本次發布的雜湊
+
+```powershell
+Get-FileHash "dist\注音亂碼偵測-桌面版\注音亂碼偵測.exe" -Algorithm SHA256
+```
+
+把結果寫進 Release Notes，讓使用者能自行核對下載到的檔案。
+
 ## 檔案大小參考
 
 - `注音亂碼偵測-Chrome擴充.zip`：約 1,545 KB

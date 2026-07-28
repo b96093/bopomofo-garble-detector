@@ -1,5 +1,17 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
+
+; 編譯後 exe 的版本資訊。空白的 metadata 會提高防毒的啟發式可疑度 ——
+; AHK 編譯檔本來就容易被誤判（直譯器+腳本像加殼、全域鍵盤 hook 像側錄器），
+; 填齊這些欄位是免費且該做的一步。CompanyName 可改成你的名字或 GitHub 帳號。
+;@Ahk2Exe-SetProductName 注音亂碼偵測
+;@Ahk2Exe-SetCompanyName 注音亂碼偵測
+;@Ahk2Exe-SetDescription 注音亂碼偵測 — 把打錯的英文亂碼還原成中文
+;@Ahk2Exe-SetVersion 1.0.0.0
+;@Ahk2Exe-SetProductVersion 1.0.0
+;@Ahk2Exe-SetCopyright Copyright (c) 2026 — MIT License
+;@Ahk2Exe-SetOrigFilename 注音亂碼偵測.exe
+;@Ahk2Exe-SetLanguage 0x0404
 ; 注音亂碼偵測 — 桌面版（適用 Word / PPT 等所有 Windows 程式）
 ; 監看輸入 → 偵測 → 候選窗（3 整句候選 + 逐字換同音字）→ 退格 + 送出中文
 ;
