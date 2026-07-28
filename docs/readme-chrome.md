@@ -57,7 +57,7 @@ ji3u/ e9 3wu0 ... 2wu0      →  我應該3天不洗頭?還是2天
 2. 點「**載入未封裝項目**」，選擇本專案資料夾（含 `manifest.json` 的那層）。
 3. 完成。到任一網頁輸入框打字即可測試。
 
-> 打包版 zip 可用 `node build/package.js` 產生（輸出於 `dist/`），或直接以上面的資料夾載入。
+> 打包版 zip 可用 `powershell -File build\build-chrome.ps1` 產生（輸出於 `dist/`），或直接以上面的資料夾載入。
 
 ## 設定
 
@@ -78,5 +78,8 @@ McBopomofo 小麥注音（MIT）、多字詞源自 libtabe `tsi.src`（BSD）。
 ```bash
 npm test          # 純邏輯單元測試（引擎、偵測、抓亂碼段）
 node build/build-dict.js   # 由 build/data/ 原始資料重建詞庫
-node build/package.js      # 打包成 dist/ 可散布的 zip
+```
+
+```powershell
+powershell -File build\build-chrome.ps1   # 打包成 dist/ 可散布的 zip
 ```

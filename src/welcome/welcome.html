@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>注音亂碼偵測 — 使用說明</title>
+  <style>
+    :root { --line: #e6e6e6; --muted: #6b6b6b; --accent: #1a5fb4; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+      max-width: 640px; margin: 0 auto; padding: 3rem 1.5rem 4rem;
+      color: #1c1c1c; line-height: 1.75;
+    }
+    header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+    header img { width: 48px; height: 48px; }
+    h1 { font-size: 22px; margin: 0; font-weight: 600; }
+    .lede { color: var(--muted); margin: 0 0 2.5rem; }
+    h2 { font-size: 16px; font-weight: 600; margin: 2.5rem 0 .75rem; }
+    p { margin: .5rem 0; }
+    .demo-line {
+      font-size: 19px; margin: 1.5rem 0; padding: 1rem 1.2rem;
+      background: #f6f8fb; border-radius: 10px; text-align: center;
+    }
+    .demo-line code { font-family: ui-monospace, Consolas, monospace; color: #888; }
+    .demo-line .arrow { margin: 0 .8em; color: #bbb; }
+    .demo-line .zh { font-weight: 600; color: #1c1c1c; }
+
+    .try { border: 1px solid var(--line); border-radius: 10px; padding: 1.2rem; }
+    .try textarea {
+      width: 100%; font-size: 17px; padding: .7rem .8rem; border: 1px solid #ccc;
+      border-radius: 7px; font-family: ui-monospace, Consolas, monospace; resize: vertical;
+    }
+    .try textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+    #result { margin-top: .9rem; min-height: 2.6rem; }
+    #result .none { color: #aaa; font-size: 14px; }
+    .cand { display: flex; align-items: center; gap: .6rem; padding: .3rem 0; }
+    .cand .n { color: #aaa; font-size: 13px; width: 1.2em; }
+    .cand .v { font-size: 18px; }
+    .cand.top .v { font-weight: 600; }
+
+    table { border-collapse: collapse; width: 100%; }
+    td { padding: .45rem .2rem; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    td:first-child { width: 130px; white-space: nowrap; }
+    kbd {
+      font-family: inherit; font-size: 13px; background: #f2f2f2; border: 1px solid #d8d8d8;
+      border-bottom-width: 2px; border-radius: 5px; padding: 1px 7px; margin-right: 2px;
+    }
+    .note { color: var(--muted); font-size: 14px; }
+    .callout {
+      border-left: 3px solid var(--accent); background: #f6f9fd;
+      padding: .8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0;
+    }
+    footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+    a { color: var(--accent); }
+    #support { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="../icons/icon128.png" alt="">
+    <h1>注音亂碼偵測</h1>
+  </header>
+  <p class="lede">打字忘了切換輸入法時，幫你把整串英文亂碼救回中文。</p>
+
+  <div class="demo-line">
+    <code>ji394t au04</code><span class="arrow">→</span><span class="zh">我愛吃麵</span>
+  </div>
+
+  <p><strong>你不用做任何事，照常打字就好。</strong>偵測到亂碼時，游標旁會自動跳出候選中文。</p>
+
+  <h2>先試試看</h2>
+  <div class="try">
+    <textarea id="demo" rows="2" spellcheck="false" placeholder="在這裡打打看，或直接貼上：ji394t au04"></textarea>
+    <div id="result"><span class="none">打字後，這裡會顯示偵測到的中文。</span></div>
+  </div>
+  <p class="note">
+    這個框只是示範。實際使用時，候選會直接跳在你打字的游標旁邊 ——
+    在下方任何網站的輸入框都能用。
+  </p>
+
+  <h2>候選窗跳出來之後</h2>
+  <table>
+    <tr><td><kbd>↑</kbd><kbd>↓</kbd></td><td>換一個候選句</td></tr>
+    <tr><td><kbd>Enter</kbd></td><td>換成中文</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>不要，繼續打英文</td></tr>
+    <tr><td><kbd>→</kbd></td><td>展開單個字的同音字（例如把「面」換成「麵」）</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>永遠不會自動替換。</strong>一定要你按 <kbd>Enter</kbd> 或用滑鼠點，才會動到你的文字。
+    不理它繼續打字也可以，候選窗會自己消失。
+  </div>
+
+  <h2>打完才發現打錯了？</h2>
+  <p>
+    把那段亂碼<strong>用滑鼠選取起來</strong>，旁邊會出現一個小按鈕，點它就能轉換。
+    不限剛打的字，網頁上任何可編輯的亂碼都行。
+  </p>
+
+  <h2>覺得太常跳，或都不跳？</h2>
+  <p>
+    到<a href="../options/options.html" id="opt-link">擴充功能選項</a>調整靈敏度，也可以整個關掉偵測。
+  </p>
+
+  <h2>隱私</h2>
+  <p class="note">
+    完全離線運作：不連上網路、不寫任何檔案、不蒐集任何內容。
+    偵測只在你的瀏覽器裡即時進行。
+  </p>
+
+  <footer>
+    <p class="note">
+      本工具永久免費，也不會有廣告。
+      <span id="support">覺得好用的話，可以<a id="support-link" href="#" target="_blank" rel="noopener">請我喝杯咖啡 ☕</a>。</span>
+    </p>
+  </footer>
+
+  <script type="module" src="welcome.js"></script>
+</body>
+</html>

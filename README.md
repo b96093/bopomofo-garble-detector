@@ -58,7 +58,7 @@ powershell -File desktop\build.ps1        # 編譯桌面版 exe（需 Ahk2Exe）
 申請好收款帳號（建議 [Ko-fi](https://ko-fi.com) —— 免費開通、支援台灣）後，把同一個網址填進這兩處，再各自重新打包即可：
 
 - `desktop/app.ahk` —— `SUPPORT_URL`（會出現在系統列選單與設定頁）
-- `src/options/options.js` —— `SUPPORT_URL`（會出現在擴充設定頁底部）
+- `src/support.js` —— `SUPPORT_URL`（會出現在擴充的設定頁與使用說明頁）
 
 ## 授權與資料來源
 

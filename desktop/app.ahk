@@ -59,6 +59,7 @@ global CHROME_DETECT := true
 global LEVEL := 2                  ; 靈敏度 1(很保守)～5(很積極)，2 是先前一路測試的設定
 global THRESH := 0.8, MINSYL := 2  ; 由 LEVEL 換算而來
 global SETGUI := ""
+global WELGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 ; 贊助連結：填入後，系統列選單與設定頁才會出現「支持開發」入口。
 ; 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
@@ -71,6 +72,7 @@ A_IconTip := "注音亂碼偵測（詞庫載入中，請稍候…）"
 LoadSettings()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
+A_TrayMenu.Add("使用說明…", (*) => ShowWelcome())
 A_TrayMenu.Add("設定…", (*) => ShowSettings())
 if (SUPPORT_URL != "") {
     A_TrayMenu.Add()
@@ -86,6 +88,12 @@ BuildPopup()
 BuildIcon()
 A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
 Tip("注音亂碼偵測已啟動`n詞庫 " . DICT.Count . " 讀音", 2000)
+
+; 第一次執行先把使用說明打開。這是背景常駐工具 —— 若什麼都不說就開始監看，
+; 使用者打字時突然冒出一個浮窗，第一反應會是中毒而不是「功能生效了」。
+; 要等詞庫載入完（READY）才開，說明視窗裡的試打框才真的能用。
+if (IniRead(SETTINGS_FILE, "settings", "welcomed", "0") != "1")
+    ShowWelcome()
 
 ; ---------- 全域監看 ----------
 global IH := InputHook("V")
@@ -842,6 +850,86 @@ SetAutoStart(on) {
         return true
     }
     return false
+}
+
+; ---------- 使用說明 ----------
+ShowWelcome() {
+    global WELGUI
+    if (WELGUI != "") {
+        try {
+            WELGUI.Show()
+            return
+        }
+    }
+    ; 刻意不加 AlwaysOnTop：候選窗本身是置頂的，說明視窗若也置頂又拿到焦點，
+    ; 就會蓋住它正要示範的那個候選窗。
+    g := Gui("", "注音亂碼偵測 — 使用說明")
+    g.BackColor := "FFFFFF"
+    g.MarginX := 22, g.MarginY := 18
+    W := 460
+
+    g.SetFont("s13 w600", "Microsoft JhengHei")
+    g.Add("Text", "w" . W, "打字忘了切換輸入法時，幫你救回來")
+    g.SetFont("s11 w400")
+    g.Add("Text", "xm y+10 w" . W . " c666666", "ji394t au04    →    我愛吃麵")
+    g.SetFont("s10")
+    g.Add("Text", "xm y+10 w" . W,
+        "你不用做任何事，照常打字就好。偵測到亂碼時，游標旁會自動跳出候選中文。")
+
+    g.SetFont("s10 w600")
+    g.Add("Text", "xm y+18 w" . W, "先試試看")
+    g.SetFont("s11 w400")
+    g.Add("Edit", "xm y+8 w" . W . " h50")
+    g.SetFont("s9")
+    g.Add("Text", "xm y+6 w" . W . " c888888",
+        "在上面打 ji394t au04 —— 候選窗會真的跳出來（這是完整功能，不是模擬畫面）。")
+
+    g.SetFont("s10 w600")
+    g.Add("Text", "xm y+18 w" . W, "候選窗跳出來之後")
+    g.SetFont("s10 w400")
+    for pair in [["↑ ↓", "換一個候選句"]
+               , ["Enter", "換成中文"]
+               , ["Esc", "不要，繼續打英文"]
+               , ["→", "展開單個字的同音字（例如把「面」換成「麵」）"]] {
+        g.Add("Text", "xm y+6 w76 c1A5FB4", pair[1])
+        g.Add("Text", "x+0 yp w" . (W - 76), pair[2])
+    }
+    g.SetFont("s9")
+    g.Add("Text", "xm y+10 w" . W . " c666666",
+        "永遠不會自動替換 —— 一定要你按 Enter 或用滑鼠點，才會動到你的文字。"
+        . "`n不理它繼續打字也可以，候選窗會自己消失。")
+
+    g.SetFont("s10 w600")
+    g.Add("Text", "xm y+18 w" . W, "打完才發現打錯了？")
+    g.SetFont("s10 w400")
+    g.Add("Text", "xm y+6 w" . W,
+        "把那段亂碼用滑鼠選取起來，旁邊會出現一個小按鈕，點它就能轉換。"
+        . "`nWord、PowerPoint、LINE、記事本等程式都適用。")
+
+    g.SetFont("s10 w600")
+    g.Add("Text", "xm y+18 w" . W, "之後在哪裡找到它")
+    g.SetFont("s10 w400")
+    g.Add("Text", "xm y+6 w" . W,
+        "程式會常駐在右下角系統列（圖示可能被摺疊起來，點「^」可以展開）。"
+        . "`n在圖示上按右鍵，可以暫停偵測、開啟設定、重看這份說明，或結束程式。")
+
+    g.SetFont("s9")
+    g.Add("Text", "xm y+18 w" . W . " c888888",
+        "完全離線運作：不連上網路、不寫入任何檔案、不蒐集你打的內容。")
+
+    g.SetFont("s10")
+    g.Add("Button", "xm y+16 w110 h32 Default", "開始使用").OnEvent("Click", (*) => g.Hide())
+    g.Add("Button", "x+8 yp w110 h32", "開啟設定…").OnEvent("Click", (*) => ShowSettings())
+    g.OnEvent("Close", (*) => g.Hide())
+    WELGUI := g
+    g.Show("AutoSize")
+    MarkWelcomed()
+}
+
+; 記下「已經看過說明」。獨立於 SaveSettings：使用者可能從沒改過任何設定，
+; 那樣 settings.ini 永遠不會產生，說明就會每次開機都跳一次。
+MarkWelcomed() {
+    try IniWrite(1, SETTINGS_FILE, "settings", "welcomed")
 }
 
 ; ---------- 設定視窗 ----------

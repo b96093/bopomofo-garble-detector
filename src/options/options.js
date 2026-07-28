@@ -1,9 +1,7 @@
 // 設定頁邏輯：讀寫 chrome.storage.sync。
-const DEFAULTS = { enabled: true, mode: 'conservative' };
+import { SUPPORT_URL } from '../support.js';
 
-// 贊助連結：填入後，設定頁底部才會出現「支持開發」。
-// 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
-const SUPPORT_URL = '';
+const DEFAULTS = { enabled: true, mode: 'conservative' };
 
 function $(id) { return document.getElementById(id); }
 

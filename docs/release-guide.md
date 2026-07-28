@@ -154,6 +154,8 @@ gh release create v1.0.0 `
 - [ ] 兩個 zip 都已打包（存在於 `dist/`）
 - [ ] 測試了 Chrome 擴充的實際使用
 - [ ] 測試了桌面版在 Word、PowerPoint、記事本的實際使用
+- [ ] **用全新環境驗過第一次開啟的流程**：Chrome 移除後重新載入應自動開啟說明頁；
+      桌面版刪掉 `settings.ini` 後重開應自動跳出使用說明
 - [ ] 若有新功能，確認說明文件已更新（README.md、docs/）
 - [ ] 【贊助連結】`SUPPORT_URL` 已填入（或保持為空、留待後續填入）
 - [ ] 打上版本標籤 `git tag v1.0.0`
