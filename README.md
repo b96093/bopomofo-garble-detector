@@ -46,6 +46,14 @@ powershell -File desktop\build.ps1        # 編譯桌面版 exe（需 Ahk2Exe）
 - `desktop/preview.ahk` + `preview.py` —— 把候選窗渲染成 PNG，調版面時不必執行程式就能看效果
 - `desktop/check-globals.py` —— 檢查 AHK 的全域變數陷阱（大小寫混用、參數遮蔽）
 
+## 贊助連結
+
+「支持開發」入口的網址目前留空，**留空時整個入口不會出現**，所以現在發布也不會有死連結。
+申請好收款帳號後，把同一個網址填進這兩處，再各自重新打包即可：
+
+- `desktop/app.ahk` —— `SUPPORT_URL`（會出現在系統列選單與設定頁）
+- `src/options/options.js` —— `SUPPORT_URL`（會出現在擴充設定頁底部）
+
 ## 授權與資料來源
 
 程式碼採 MIT。注音詞庫由開源資料前處理而成，詳見 [docs/NOTICE.md](docs/NOTICE.md)：

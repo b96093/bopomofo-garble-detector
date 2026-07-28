@@ -60,6 +60,9 @@ global LEVEL := 2                  ; 靈敏度 1(很保守)～5(很積極)，2 �
 global THRESH := 0.8, MINSYL := 2  ; 由 LEVEL 換算而來
 global SETGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
+; 贊助連結：填入後，系統列選單與設定頁才會出現「支持開發」入口。
+; 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
+global SUPPORT_URL := ""
 
 
 ; ---------- 啟動 ----------
@@ -69,6 +72,10 @@ LoadSettings()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
 A_TrayMenu.Add("設定…", (*) => ShowSettings())
+if (SUPPORT_URL != "") {
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("支持開發…", (*) => OpenSupport())
+}
 A_TrayMenu.Add()
 A_TrayMenu.Add("結束", (*) => ExitApp())
 A_TrayMenu.Default := "設定…"
@@ -875,6 +882,10 @@ ShowSettings() {
     g.SetFont("s9")
     g.Add("Text", "xm y+20 w420 c888888",
         "偵測內容只存在記憶體，不寫入檔案、不連上網路。")
+    if (SUPPORT_URL != "") {
+        link := g.Add("Text", "xm y+10 w420 c1A5FB4", "這個工具永久免費 —— 覺得好用的話，可以請我喝杯咖啡 ☕")
+        link.OnEvent("Click", (*) => OpenSupport())
+    }
 
     g.SetFont("s10")
     g.Add("Button", "xm y+16 w96 h30 Default", "儲存").OnEvent("Click", (*) => SaveFromGui(g))
@@ -898,6 +909,11 @@ SaveFromGui(g) {
     Reset()
     g.Hide()
     Tip("設定已儲存", 1500)
+}
+
+OpenSupport() {
+    if (SUPPORT_URL != "")
+        try Run(SUPPORT_URL)
 }
 
 ; ---------- 其他 ----------

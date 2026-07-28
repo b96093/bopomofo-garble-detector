@@ -12,6 +12,8 @@
     fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; }
     legend { font-size: 13px; color: #666; }
     #status { color: #178a4c; font-size: 13px; height: 16px; }
+    #support { display: none; margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; }
+    #support a { color: #1a5fb4; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -36,6 +38,11 @@
 
   <p id="status"></p>
   <p class="hint">變更後，重新整理正在編輯的網頁即可生效。</p>
+
+  <div id="support">
+    <a id="support-link" href="#" target="_blank" rel="noopener">☕ 支持開發</a>
+    <div class="hint">這個工具永久免費、也不會有廣告。覺得好用的話，可以請我喝杯咖啡。</div>
+  </div>
 
   <script src="options.js"></script>
 </body>
