@@ -2,7 +2,7 @@
 (async () => {
   const settings = await new Promise((r) =>
     chrome.storage.sync.get({ enabled: true, mode: 'conservative' }, r));
-  if (!settings.enabled) { console.log('[文字亂碼偵測] 已停用'); return; }
+  if (!settings.enabled) { console.log('[注音亂碼偵測] 已停用'); return; }
 
   const eng = (p) => chrome.runtime.getURL(`src/engine/${p}`);
   const con = (p) => chrome.runtime.getURL(`src/content/${p}`);
@@ -17,5 +17,5 @@
     : { threshold: 0.8, minSyllables: 2 };
 
   initDetector(dict, detect, opts);
-  console.log('[文字亂碼偵測] 已啟用（' + settings.mode + '），字典條目：', dict.size);
+  console.log('[注音亂碼偵測] 已啟用（' + settings.mode + '），字典條目：', dict.size);
 })();

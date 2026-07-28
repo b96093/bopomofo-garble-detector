@@ -32,9 +32,9 @@ git push origin v1.0.0
 
 ### 3. 打包（若還沒有）
 
-確保 `dist/` 下有最新的兩個 zip：
-- `dist/文字亂碼偵測.zip` ——  Chrome 擴充
-- `dist/注音亂碼偵測-桌面版/注音亂碼偵測.exe` —— 桌面版 exe
+確保 `dist/` 下有最新的兩個檔案：
+- `dist/注音亂碼偵測-Chrome擴充.zip` —— Chrome 擴充
+- `dist/注音亂碼偵測-桌面版.zip` —— 桌面版（內含 exe、詞庫、說明）
 
 ```powershell
 cd "D:\Claude code session庫\文字轉換器"
@@ -52,8 +52,8 @@ powershell -File desktop\build.ps1
 4. 填 Release title（例：`v1.0.0 — 首次發布`）
 5. 貼下方的 Release Notes（見下文）
 6. **Attach binaries** —— 拖或點選這兩個檔案上傳：
-   - `dist/文字亂碼偵測.zip`
-   - `dist/注音亂碼偵測-桌面版/注音亂碼偵測.exe`
+   - `dist/注音亂碼偵測-Chrome擴充.zip`
+   - `dist/注音亂碼偵測-桌面版.zip`
 7. 勾 **Set as a pre-release**（如果是測試版），或 **Set as the latest release**（正式版）
 8. 點 **Publish release**
 
@@ -63,8 +63,8 @@ powershell -File desktop\build.ps1
 
 ```bash
 gh release create v1.0.0 `
-  dist/文字亂碼偵測.zip `
-  dist/注音亂碼偵測-桌面版/注音亂碼偵測.exe `
+  dist/注音亂碼偵測-Chrome擴充.zip `
+  dist/注音亂碼偵測-桌面版.zip `
   -t "v1.0.0 — 首次發布" `
   -F release-notes.txt
 ```
@@ -89,15 +89,17 @@ gh release create v1.0.0 `
 ## 安裝
 
 ### Chrome 擴充
-1. 下載 `文字亂碼偵測.zip` 並解壓
+1. 下載 `注音亂碼偵測-Chrome擴充.zip` 並解壓
 2. 開啟 Chrome 網址列輸入 `chrome://extensions/`
 3. 開啟右上角「開發者模式」
 4. 點「載入未封裝擴充功能」，選剛剛解壓的資料夾
 
 ### 桌面版（Word、PowerPoint、LINE 等）
-1. 下載 `注音亂碼偵測.exe`
-2. 執行即可（無需安裝）
+1. 下載 `注音亂碼偵測-桌面版.zip` 並解壓
+2. 執行 `注音亂碼偵測.exe`（無需安裝）
 3. 系統列會出現圖示，第一次啟動會載入詞庫（約 5–8 秒）
+
+> exe 與 `dict.txt` 必須放在同一個資料夾，不要只把 exe 單獨搬出來 —— 詞庫是外部檔案。
 
 ## 隱私
 
@@ -161,7 +163,7 @@ gh release create v1.0.0 `
 
 ## 檔案大小參考
 
-- `文字亂碼偵測.zip`（Chrome）：約 1,500 KB
-- `注音亂碼偵測.exe`（桌面版）：約 1,350 KB
+- `注音亂碼偵測-Chrome擴充.zip`：約 1,545 KB
+- `注音亂碼偵測-桌面版.zip`：約 2,268 KB（含 5 MB 詞庫，壓縮後）
 
 如果差異太大（例如變成 10 MB），代表可能誤打包了不該包的東西（詞庫、node_modules 等）—— 檢查 `build.ps1` 和 `.gitignore`。

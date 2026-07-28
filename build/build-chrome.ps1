@@ -4,8 +4,8 @@
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$out  = Join-Path $root 'dist\文字亂碼偵測'
-$zip  = Join-Path $root 'dist\文字亂碼偵測.zip'
+$out  = Join-Path $root 'dist\注音亂碼偵測-Chrome擴充'
+$zip  = Join-Path $root 'dist\注音亂碼偵測-Chrome擴充.zip'
 
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory -Path $out -Force | Out-Null

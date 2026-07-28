@@ -1,6 +1,6 @@
 {
-  "name": "text-garble-detector",
-  "version": "0.0.1",
+  "name": "bopomofo-garble-detector",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
