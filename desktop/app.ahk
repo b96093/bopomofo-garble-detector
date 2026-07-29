@@ -75,7 +75,7 @@ global WELGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 ; 贊助連結：填入後，系統列選單與設定頁才會出現「支持開發」入口。
 ; 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
-global SUPPORT_URL := ""
+global SUPPORT_URL := "https://ko-fi.com/gu005168"
 
 
 ; ---------- 啟動 ----------
