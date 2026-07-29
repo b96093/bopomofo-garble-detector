@@ -885,13 +885,15 @@ ShowWelcome() {
     g.SetFont("s11 w400")
     g.Add("Text", "xm y+10 w" . W . " c666666", "ji394t au04    →    我愛吃麵")
     g.SetFont("s10")
+    ; 自己斷行，不靠控制項寬度 —— 交給它折會在不同 DPI 下折出孤字結尾
     g.Add("Text", "xm y+10 w" . W,
-        "你不用做任何事，照常打字就好。偵測到亂碼時，游標旁會自動跳出候選中文。")
+        "你不用做任何事，照常打字就好。`n偵測到亂碼時，游標旁會自動跳出候選中文。")
 
     g.SetFont("s10 w600")
     g.Add("Text", "xm y+18 w" . W, "先試試看")
     g.SetFont("s11 w400")
-    g.Add("Edit", "xm y+8 w" . W . " h50")
+    ; -VScroll：多行 Edit 預設會掛一條捲軸，這裡只打一行字，捲軸純粹是雜訊
+    g.Add("Edit", "xm y+8 w" . W . " h50 -VScroll")
     g.SetFont("s9")
     g.Add("Text", "xm y+6 w" . W . " c888888",
         "在上面打 ji394t au04 —— 候選窗會真的跳出來（這是完整功能，不是模擬畫面）。")
@@ -933,6 +935,7 @@ ShowWelcome() {
     g.Add("Button", "xm y+16 w110 h32 Default", "開始使用").OnEvent("Click", (*) => g.Hide())
     g.Add("Button", "x+8 yp w110 h32", "開啟設定…").OnEvent("Click", (*) => ShowSettings())
     g.OnEvent("Close", (*) => g.Hide())
+    g.OnEvent("Escape", (*) => g.Hide())
     WELGUI := g
     g.Show("AutoSize")
     MarkWelcomed()
