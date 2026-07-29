@@ -18,7 +18,7 @@
 1. GitHub repo → Settings → Pages
 2. Source 選 `Deploy from a branch`，branch 選 `main`、資料夾選 `/docs`
 3. 等一兩分鐘，網址會是
-   `https://<你的帳號>.github.io/<repo名>/privacy-policy`
+   `https://b96093.github.io/bopomofo-garble-detector/privacy-policy`
 
 ---
 

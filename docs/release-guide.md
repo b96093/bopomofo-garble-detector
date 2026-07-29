@@ -46,7 +46,7 @@ powershell -File desktop\build.ps1
 
 #### 用 GitHub 網頁介面（簡單）
 
-1. 開啟 https://github.com/你的帳號/文字轉換器/releases
+1. 開啟 https://github.com/b96093/bopomofo-garble-detector/releases
 2. 點 **Draft a new release**
 3. **Choose a tag** —— 選你剛剛推上去的 `v1.0.0`
 4. 填 Release title（例：`v1.0.0 — 首次發布`）
@@ -109,11 +109,11 @@ gh release create v1.0.0 `
 
 ## 意見回饋
 
-問題或建議請至 [GitHub Issues](https://github.com/你的帳號/文字轉換器/issues)
+問題或建議請至 [GitHub Issues](https://github.com/b96093/bopomofo-garble-detector/issues)
 
 ---
 
-**[完整文件](https://github.com/你的帳號/文字轉換器/blob/main/README.md)**
+**[完整文件](https://github.com/b96093/bopomofo-garble-detector/blob/main/README.md)**
 ```
 
 ### 版本 X.Y.Z（後續更新）
@@ -139,7 +139,7 @@ gh release create v1.0.0 `
 
 ## 安裝
 
-見 [README](https://github.com/你的帳號/文字轉換器#安裝)
+見 [README](https://github.com/b96093/bopomofo-garble-detector#安裝)
 ```
 
 ## 檢查清單
