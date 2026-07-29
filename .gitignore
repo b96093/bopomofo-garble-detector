@@ -3,7 +3,8 @@ build/data/
 
 dist/
 
-desktop/dict.txt
+# desktop/dict.txt 必須進版控 —— README 教使用者自行編譯來驗證 exe 沒有惡意，
+# 缺了它 desktop/build.ps1 會直接失敗，那個承諾就變成空話。
 
 # logo 檢查用暫存圖
 assets/logo/_*
