@@ -108,8 +108,10 @@ Tip("注音亂碼偵測已啟動`n詞庫 " . DICT.Count . " 讀音", 2000)
 ; 第一次執行先把使用說明打開。這是背景常駐工具 —— 若什麼都不說就開始監看，
 ; 使用者打字時突然冒出一個浮窗，第一反應會是中毒而不是「功能生效了」。
 ; 要等詞庫載入完（READY）才開，說明視窗裡的試打框才真的能用。
-if (IniRead(SETTINGS_FILE, "settings", "welcomed", "0") != "1")
+if (IniRead(SETTINGS_FILE, "settings", "welcomed", "0") != "1") {
+    CreateDesktopShortcut()
     ShowWelcome()
+}
 
 ; ---------- 全域監看 ----------
 global IH := InputHook("V")
@@ -840,6 +842,24 @@ LevelDesc(n) {
         case 4: return "積極：連單一個字也會跳出通知浮窗；打英文時偶爾會被打擾。"
         case 5: return "很積極：盡量不漏接，寧可多跳出通知浮窗；打英文時較常被打擾。"
         default: return "保守（建議）：很有把握才跳出通知浮窗；偶爾會漏接很短的亂碼。"
+    }
+}
+
+; ---------- 桌面捷徑 ----------
+; 免安裝程式沒有安裝流程，不會出現在開始功能表，Windows 搜尋也找不到。
+; 使用者從系統列選「結束」之後，往往就想不起來 exe 解壓在哪個資料夾了。
+; 首次執行時建一個桌面捷徑；不想要的人直接刪掉即可，不需要任何設定。
+CreateDesktopShortcut() {
+    link := A_Desktop . "\注音亂碼偵測.lnk"
+    if (FileExist(link))
+        return
+    try {
+        ; 未編譯時要透過 AutoHotkey 執行檔帶入腳本路徑
+        target := A_IsCompiled ? A_ScriptFullPath : A_AhkPath
+        args := A_IsCompiled ? "" : Chr(34) . A_ScriptFullPath . Chr(34)
+        ; 工作目錄要設在程式所在資料夾 —— dict.txt 是外部檔案，找不到就無法運作
+        FileCreateShortcut(target, link, A_ScriptDir, args,
+            "注音亂碼偵測", A_ScriptDir . "\icon.ico")
     }
 }
 
