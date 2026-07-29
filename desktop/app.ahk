@@ -95,6 +95,7 @@ if (SUPPORT_URL != "") {
 }
 A_TrayMenu.Add()
 A_TrayMenu.Add("結束（關閉程式，圖示會消失）", (*) => ExitApp())
+A_TrayMenu.Add("移除本工具…", (*) => Uninstall())
 A_TrayMenu.Default := "設定…"
 SyncPauseMenu()
 
@@ -1042,6 +1043,27 @@ SaveFromGui(g) {
 OpenSupport() {
     if (SUPPORT_URL != "")
         try Run(SUPPORT_URL)
+}
+
+; ---------- 移除 ----------
+; 程式本身完全自包含，但會在資料夾外留下兩個捷徑（桌面、開機啟動）。
+; 使用者只刪資料夾的話，開機啟動捷徑會殘留，Windows 每次開機都會去
+; 嘗試啟動一個已經不存在的檔案 —— 所以要提供一個清乾淨的方式。
+Uninstall() {
+    msg := "即將進行：`n`n"
+         . "・刪除桌面捷徑`n"
+         . "・取消開機自動啟動`n"
+         . "・結束程式`n`n"
+         . "完成後會開啟程式所在資料夾，你直接刪掉整個資料夾就完全移除了。`n"
+         . "（設定檔在資料夾內；你打過的文字從未被記錄，沒有其他殘留）`n`n"
+         . "確定要移除嗎？"
+    if (MsgBox(msg, "移除注音亂碼偵測", "YesNo Icon?") != "Yes")
+        return
+    try FileDelete(A_Desktop . "\注音亂碼偵測.lnk")
+    SetAutoStart(false)
+    ; 開資料夾並選取程式本身，讓使用者不必自己找路徑
+    try Run('explorer.exe /select,"' . A_ScriptFullPath . '"')
+    ExitApp()
 }
 
 ; ---------- 其他 ----------
