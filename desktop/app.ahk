@@ -83,7 +83,10 @@ TraySetIcon(A_ScriptDir "\icon.ico", 1, true)
 A_IconTip := "注音亂碼偵測（詞庫載入中，請稍候…）"
 LoadSettings()
 A_TrayMenu.Delete()
-A_TrayMenu.Add("暫停 / 繼續偵測", (*) => TogglePause())
+; 用「打勾」表示目前狀態，而不是把兩個動作寫在同一行 ——
+; 舊寫法（「暫停 / 繼續偵測」）看不出現在是哪個狀態，
+; 也讓人分不清它和「結束」的差別，結果就是想暫停卻按了結束。
+A_TrayMenu.Add("暫停偵測", (*) => TogglePause())
 A_TrayMenu.Add("使用說明…", (*) => ShowWelcome())
 A_TrayMenu.Add("設定…", (*) => ShowSettings())
 if (SUPPORT_URL != "") {
@@ -91,8 +94,9 @@ if (SUPPORT_URL != "") {
     A_TrayMenu.Add("支持開發…", (*) => OpenSupport())
 }
 A_TrayMenu.Add()
-A_TrayMenu.Add("結束", (*) => ExitApp())
+A_TrayMenu.Add("結束（關閉程式，圖示會消失）", (*) => ExitApp())
 A_TrayMenu.Default := "設定…"
+SyncPauseMenu()
 
 DICT := LoadDict(A_ScriptDir "\dict.txt")
 READY := true
@@ -1006,6 +1010,7 @@ SaveFromGui(g) {
     CHROME_DETECT := v.Chrome ? true : false
     ApplyLevel()
     SaveSettings()
+    SyncPauseMenu()
     if (!SetAutoStart(v.Auto))
         MsgBox("開機自動啟動設定失敗，可能是權限不足。", "注音亂碼偵測", "Icon!")
     A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
@@ -1025,8 +1030,19 @@ TogglePause() {
     PAUSED := !PAUSED
     SaveSettings()
     Reset()
+    SyncPauseMenu()
     A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
-    Tip(PAUSED ? "已暫停偵測" : "已繼續偵測", 1200)
+    Tip(PAUSED ? "已暫停偵測（圖示仍在系統列）" : "已繼續偵測", 1500)
+}
+
+; 讓選單上的打勾反映目前狀態。設定頁也會改 PAUSED，所以兩邊都要呼叫。
+SyncPauseMenu() {
+    try {
+        if (PAUSED)
+            A_TrayMenu.Check("暫停偵測")
+        else
+            A_TrayMenu.Uncheck("暫停偵測")
+    }
 }
 
 Tip(s, ms) {
