@@ -1,0 +1,8 @@
+# GitHub Pages 設定。存在的唯一目的是讓隱私權政策有一個公開、可讀的網址 ——
+# Chrome 線上應用程式商店送審時必填。
+#
+# 注意：Jekyll 只會轉換「有 front matter」的 .md 檔；沒有的會被原樣丟出去，
+# 在瀏覽器裡看起來就是一坨純文字。所以 privacy-policy.md 開頭有 front matter。
+title: 注音亂碼偵測
+description: 打字忘了切換輸入法時，把英文亂碼還原成中文
+theme: jekyll-theme-minimal
