@@ -16,7 +16,21 @@ Copy-Item (Join-Path $root 'src') (Join-Path $out 'src') -Recurse
 Copy-Item (Join-Path $root 'docs\readme-chrome.md') (Join-Path $out 'README.md')
 Copy-Item (Join-Path $root 'docs\NOTICE.md') (Join-Path $out 'NOTICE.md')
 
-Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -Force
+# ZIP 規格要求路徑分隔符是正斜線，但在 Windows PowerShell 5.1（.NET Framework）上
+# Compress-Archive 與 ZipFile.CreateFromDirectory 都會寫成反斜線（src\content\content.js）。
+# Chrome 線上應用程式商店會把它當成「檔名含反斜線的單一檔案」，
+# manifest 引用的 src/... 路徑就全部找不到 —— 擴充直接壞掉。
+# 所以逐一建立項目並自己指定正斜線。
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+if (Test-Path $zip) { Remove-Item $zip -Force }
+$archive = [System.IO.Compression.ZipFile]::Open($zip, 'Create')
+try {
+  Get-ChildItem $out -Recurse -File | ForEach-Object {
+    $rel = $_.FullName.Substring($out.Length + 1).Replace('\', '/')
+    [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $rel)
+  }
+} finally { $archive.Dispose() }
 
 Write-Host "完成："
 Get-ChildItem $out -File | ForEach-Object { "  {0,-22} {1,8:N0} KB" -f $_.Name, ($_.Length / 1KB) }

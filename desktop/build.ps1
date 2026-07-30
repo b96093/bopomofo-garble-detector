@@ -41,7 +41,20 @@ Copy-Item (Join-Path $here 'README.md') $out
 Copy-Item (Join-Path $root 'docs\NOTICE.md') $out
 
 $zip = Join-Path $root 'dist\注音亂碼偵測-桌面版.zip'
-Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -Force
+# 同 build-chrome.ps1：Compress-Archive 與 ZipFile.CreateFromDirectory 在
+# .NET Framework 上都會寫出反斜線路徑，不符 ZIP 規格，故逐一建立項目
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+if (Test-Path $zip) { Remove-Item $zip -Force }
+$archive = [System.IO.Compression.ZipFile]::Open($zip, 'Create')
+try {
+  # 排除 settings.ini：若在打包前執行過 exe 測試，這個檔會留在輸出資料夾。
+  # 它帶有 welcomed=1，包進去會讓每個使用者都跳過第一次開啟的使用說明。
+  Get-ChildItem $out -Recurse -File | Where-Object { $_.Name -ne 'settings.ini' } | ForEach-Object {
+    $rel = $_.FullName.Substring($out.Length + 1).Replace('\', '/')
+    [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $rel)
+  }
+} finally { $archive.Dispose() }
 
 Write-Host "`n完成："
 Get-ChildItem $out -File | ForEach-Object { "  {0,-24} {1,8:N0} KB" -f $_.Name, ($_.Length / 1KB) }
