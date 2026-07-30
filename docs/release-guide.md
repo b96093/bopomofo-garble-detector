@@ -183,6 +183,23 @@ AHK 編譯的 exe 幾乎一定會被 Windows Defender 以
 > 所以流程要固定成：**先編譯 → 立刻回報 → 等通過 → 才發布**。
 > 不要編譯完馬上上傳 Release。
 
+### 已提交的誤判回報紀錄
+
+| 項目 | 內容 |
+| --- | --- |
+| Submission ID | `b587a8a7-edf1-4e2b-a138-4e4e2c7f5ee6` |
+| 提交時間 | 2026-07-30 10:48（台北時間） |
+| 提交者 | b96093@gmail.com |
+| User Opinion | PuaFalsePositive |
+| 判定名稱 | `Program:Win32/Contebrew.A!ml` |
+| 定義版本 | 1.455.417.0 |
+| 對應 exe SHA256 | `1185F41AA9E3645BF408EB07D5206E98ADCC8F4512DB03D153A13EBB19C1B2F3` |
+
+查看進度：<https://www.microsoft.com/en-us/wdsi/submissionhistory>
+
+> ⚠️ 在收到結果之前**不要改動 `desktop/` 下的任何檔案**。重新編譯會改變 exe 的
+> SHA256，這次提交就對不上了，得整個重來。改 `docs/`、`src/`、README 都安全。
+
 ### 記錄本次發布的雜湊
 
 ```powershell
