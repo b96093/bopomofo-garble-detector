@@ -8,17 +8,21 @@
 | 項目 | 說明 |
 | --- | --- |
 | 開發者帳號 | <https://chrome.google.com/webstore/devconsole> —— 需 Google 帳號 + **一次性**註冊費 |
-| 隱私權政策網址 | 必填。把 `docs/privacy-policy.md` 發佈到 GitHub Pages，取得公開網址 |
+| 隱私權政策網址 | ✅ 已完成，直接填這個：<br>`https://b96093.github.io/bopomofo-garble-detector/privacy-policy` |
 | 上傳用 zip | `dist/注音亂碼偵測-Chrome擴充.zip`（**注意：要壓 zip，不是資料夾**） |
 
 > 建議用**專門的信箱**註冊。開發者信箱之後不能更改，且會顯示在商店頁面上。
 
-### 把隱私權政策放上 GitHub Pages
+### GitHub Pages（已完成）
 
-1. GitHub repo → Settings → Pages
-2. Source 選 `Deploy from a branch`，branch 選 `main`、資料夾選 `/docs`
-3. 等一兩分鐘，網址會是
-   `https://b96093.github.io/bopomofo-garble-detector/privacy-policy`
+Pages 已開啟（main 分支的 `/docs`），並實際驗證過渲染結果：
+
+- 隱私權政策：<https://b96093.github.io/bopomofo-garble-detector/privacy-policy>
+- 網站首頁：<https://b96093.github.io/bopomofo-garble-detector/>
+
+> Jekyll **只會轉換有 YAML front matter 的 `.md` 檔**，沒有的會被原樣輸出，
+> 在瀏覽器裡就是一坨純文字。所以 `index.md` 與 `privacy-policy.md` 開頭都有
+> front matter，`docs/_config.yml` 也指定了主題。日後新增要公開的頁面別忘了加。
 
 ---
 
