@@ -18,9 +18,13 @@ title: 注音亂碼偵測
 | 適用範圍 | Chrome 裡的所有網頁 | Word、PowerPoint、LINE、記事本等所有 Windows 程式 |
 | 判斷準確度 | 較高（能直接讀輸入框內容） | 一般（攔在輸入法之前） |
 
+## 安裝
+
+- **Chrome 擴充** —— [Chrome 線上應用程式商店](https://chromewebstore.google.com/detail/gjghbjnkbbccdhfiddmceijjkebajilm)
+- **Windows 桌面版** —— [下載最新版](https://github.com/b96093/bopomofo-garble-detector/releases)
+
 ## 連結
 
-- [下載與安裝](https://github.com/b96093/bopomofo-garble-detector/releases)
 - [原始碼與說明文件](https://github.com/b96093/bopomofo-garble-detector)
 - [隱私權政策](privacy-policy)
 - [問題回報](https://github.com/b96093/bopomofo-garble-detector/issues)

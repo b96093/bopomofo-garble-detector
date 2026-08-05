@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | 適用範圍 | Chrome 裡的所有網頁（Facebook、Google…） | **Word、PowerPoint、LINE、記事本等所有 Windows 程式** |
 | 判斷準確度 | 較高（能直接讀輸入框內容） | 一般（攔在輸入法之前，靠輸入法狀態判斷） |
-| 安裝 | 載入未封裝擴充 | 解壓縮後執行 exe |
+| 安裝 | **[Chrome 線上應用程式商店](https://chromewebstore.google.com/detail/gjghbjnkbbccdhfiddmceijjkebajilm)** | [下載](https://github.com/b96093/bopomofo-garble-detector/releases)後解壓縮執行 exe |
 | 說明 | [docs/readme-chrome.md](docs/readme-chrome.md) | [desktop/README.md](desktop/README.md) |
 
 **建議兩個都裝**：Chrome 交給擴充、其他程式交給桌面版。

@@ -6,8 +6,13 @@
 | --- | --- |
 | 送審日期 | 2026-07-30 |
 | 版本 | 1.0.0 |
-| 狀態 | 已提交，等待審查 |
+| **狀態** | ✅ **2026-07-31 已發布 — 公開** |
+| **商店網址** | <https://chromewebstore.google.com/detail/gjghbjnkbbccdhfiddmceijjkebajilm> |
+| Extension ID | `gjghbjnkbbccdhfiddmceijjkebajilm` |
 | 開發者帳號 | b96093@gmail.com（已驗證聯絡信箱） |
+
+> 送審隔天就通過，比預期的「數週」快得多。
+> **Chrome 也不會顯眼地通知**，是主動去開發者主控台才發現已經上架五天。
 
 送審時 Chrome 出現「系統將延遲發布」提示，原因是內容腳本使用 `<all_urls>`。
 **這個提示無法透過改設計消除**：
