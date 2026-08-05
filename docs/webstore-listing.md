@@ -96,6 +96,8 @@ Pages 已開啟（main 分支的 `/docs`），並實際驗證過渲染結果：
 ・一般輸入框、textarea，以及 Facebook 留言框這類的 contenteditable 富文字框
 ・Chrome 的新分頁與網址列是瀏覽器內建介面，基於安全考量禁止任何擴充存取，
 　這是平台限制
+・Google 文件把文字繪製在 canvas 上而非 DOM，任何擴充都讀不到，因此無法支援；
+　該情境請改用桌面版
 
 ■ 其他程式也想用？
 
