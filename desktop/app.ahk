@@ -46,6 +46,8 @@ global ANCMODE := "point"
 global MANUALX := -1, MANUALY := -1
 global DRAGGING := false, DRAGDX := 0, DRAGDY := 0
 global FLIPPED := false   ; 是否已翻到插入點上方（決定一次就固定，避免展開/收起時來回跳）
+global FLIPDONE := false  ; 翻面是否已經決定過。決定時會預留同音字盤展開後的高度，
+                          ; 所以之後不論展開或收起，浮窗都不會再改變位置。
 global ANCW := [0, 0, 0, 0]   ; 開窗當下作用中視窗的位置大小（視窗單位）
 ; 選取轉換用
 global ICON := "", ICONTEXT := "", ICONHINT := "", ICON_ON := false
@@ -238,10 +240,10 @@ ClickAway() {
 }
 
 Reset() {
-    global BUF, HIT, ST, MANUALX, MANUALY, FLIPPED
+    global BUF, HIT, ST, MANUALX, MANUALY, FLIPPED, FLIPDONE
     BUF := "", HIT := "", ST := ""
     MANUALX := -1, MANUALY := -1     ; 拖曳只對當下那個候選窗有效
-    FLIPPED := false
+    FLIPPED := false, FLIPDONE := false
     HidePopup()
     HideIcon()
 }
@@ -499,7 +501,7 @@ BuildPopup() {
 
 ; ---------- 畫出候選窗 ----------
 Render() {
-    global POPUP_ON, LASTGEO, HITS, FLIPPED
+    global POPUP_ON, LASTGEO, HITS, FLIPPED, FLIPDONE
     if (ST == "")
         return
     ; 變數名不可用 st —— AHK 不分大小寫，會撞到全域的 ST
@@ -517,10 +519,16 @@ Render() {
         py := ANCW[2] + ANCW[4] - ph - 50
     } else {
         px := ANCX, py := ANCY
-        ; 翻面只決定一次，否則展開/收起同音字時會上下彈跳
+        ; 翻面在開窗時就決定，而且用「同音字盤展開後」的高度來判斷。
+        ; 舊寫法用當下高度判斷 —— 展開同音字讓浮窗變高才觸發翻面，
+        ; 使用者眼中就是浮窗突然跳到另一個位置。
         ScreenBounds(px, py, &scrL, &scrT, &scrR, &scrB)
-        if (!FLIPPED && py + ph > scrB - 10)
-            FLIPPED := true
+        if (!FLIPDONE) {
+            FLIPPED := (ANCY + ph + MaxTrayExtra() > scrB - 10)
+            FLIPDONE := true
+        }
+        ; 未翻面＝上緣釘在插入點、向下長；翻面＝下緣釘在插入點上方、向上長。
+        ; 兩種都只往單一方向展開，位置可預期。
         if (FLIPPED)
             py := ANCY - ph - 36
     }

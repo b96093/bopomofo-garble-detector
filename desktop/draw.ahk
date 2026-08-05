@@ -15,6 +15,7 @@ global LY := {
     cell: 38, cellGap: 5, cellR: 9,
     trayPad: 7, trayR: 10,
     tcell: 34, tcellGap: 4, tcellR: 8,
+    trayMaxRows: 4,          ; 同音字盤最多顯示幾列，超過就捲動（避免浮窗高到要翻面）
     btnH: 34, btnR: 9,
     footH: 18,
     winR: 12
@@ -149,6 +150,13 @@ DrawIconImg(g, x, y, size, path) {
 }
 
 ; ---------- 版面計算 ----------
+; 同音字盤展開後最多會讓浮窗長高多少。定位時要預留這個高度，
+; 否則展開的當下才發現放不下、才翻面，浮窗就會在使用者眼前跳走。
+MaxTrayExtra() {
+    tc := DPX(LY.tcell), tg := DPX(LY.tcellGap), tp := DPX(LY.trayPad)
+    return LY.trayMaxRows * (tc + tg) - tg + tp * 2 + DPX(6) + DPX(LY.footH) + DPX(2)
+}
+
 BuildLayout(view, homsFor) {
     global TRAYCOLS
     inSent := (view.zone == "sent")
@@ -226,26 +234,42 @@ BuildLayout(view, homsFor) {
             tcols := Max(6, (cw - tp * 2) // (tc + tg))
             TRAYCOLS := tcols
             rows := (homs.Length + tcols - 1) // tcols
-            trayH := rows * (tc + tg) - tg + tp * 2
+            ; 同音字最多可達五十幾個。若整盤全畫，浮窗會高到放不下而被迫翻面或
+            ; 貼齊螢幕邊緣 —— 使用者會看到它「跳」到別的地方。改成固定顯示幾列、
+            ; 捲動跟著選取走，浮窗高度就有上限，位置得以固定。（Chrome 版用
+            ; max-height + overflow-y 達成同一件事）
+            visRows := Min(rows, LY.trayMaxRows)
+            selRow := (view.hi > 0) ? ((view.hi - 1) // tcols) : 0
+            rowOff := Max(0, Min(selRow - visRows + 1, rows - visRows))
+            if (selRow < rowOff)
+                rowOff := selRow
+            trayH := visRows * (tc + tg) - tg + tp * 2
             ops.Push({t: "box", x: pad, y: y, w: cw, h: trayH, r: DPX(LY.trayR), fill: CO.trayBg})
             tx0 := pad + tp, ty := y + tp
             tcol := 0
             for i, wch in homs {
+                r0 := (i - 1) // tcols
+                if (r0 < rowOff || r0 >= rowOff + visRows)
+                    continue
+                tcol := Mod(i - 1, tcols)
                 bx := tx0 + tcol * (tc + tg)
+                by := y + tp + (r0 - rowOff) * (tc + tg)
                 cur := (wch == view.draft[view.ci])
                 foc := (i == view.hi)
-                ops.Push({t: "box", x: bx, y: ty, w: tc, h: tc, r: DPX(LY.tcellR),
+                ops.Push({t: "box", x: bx, y: by, w: tc, h: tc, r: DPX(LY.tcellR),
                     fill: foc ? CO.selBg : CO.cellBg,
                     border: foc ? CO.cellBorderOn : (cur ? CO.accentSoft : CO.cellBorder)})
-                DrawS(ops, bx, ty, tc, tc, wch, foc ? CO.accent : CO.text, 12, 1)
-                hits.Push({k: "hom", i: i, x: bx, y: ty, w: tc, h: tc})
-                tcol++
-                if (tcol >= tcols) {
-                    tcol := 0
-                    ty += tc + tg
-                }
+                DrawS(ops, bx, by, tc, tc, wch, foc ? CO.accent : CO.text, 12, 1)
+                hits.Push({k: "hom", i: i, x: bx, y: by, w: tc, h: tc})
             }
             y += trayH + DPX(6)
+            ; 有捲動時標示目前位置，否則使用者不知道下面還有字
+            if (rows > visRows) {
+                DrawS(ops, pad, y, cw, DPX(LY.footH),
+                    "第 " . (rowOff + 1) . "–" . (rowOff + visRows) . " 列 / 共 " . rows . " 列（↑↓ 捲動）",
+                    CO.faint, 8, 1)
+                y += DPX(LY.footH) + DPX(2)
+            }
         }
     }
 
