@@ -194,6 +194,15 @@ AHK 編譯的 exe 幾乎一定會被 Windows Defender 以
 | 判定名稱 | `Program:Win32/Contebrew.A!ml` |
 | 定義版本 | 1.455.417.0 |
 | 對應 exe SHA256 | `1185F41AA9E3645BF408EB07D5206E98ADCC8F4512DB03D153A13EBB19C1B2F3` |
+| **結果** | ✅ **2026-08-05 Completed —— 誤判成立，不會加入偵測** |
+
+分析師回覆原文：
+
+> The submitted files do not meet our criteria for malware or potentially unwanted
+> applications. **No detection will be added for these files.**
+
+從送出到結案約 6 天（4 個工作日）。**注意：Microsoft 不會主動寄通知信**，
+必須自己到提交紀錄頁查看，不要空等。
 
 查看進度：<https://www.microsoft.com/en-us/wdsi/submissionhistory>
 
