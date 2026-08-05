@@ -201,8 +201,11 @@ AHK 編譯的 exe 幾乎一定會被 Windows Defender 以
 > The submitted files do not meet our criteria for malware or potentially unwanted
 > applications. **No detection will be added for these files.**
 
-從送出到結案約 6 天（4 個工作日）。**注意：Microsoft 不會主動寄通知信**，
-必須自己到提交紀錄頁查看，不要空等。
+**同一天（2026-07-30）就回覆了**，速度比預期快很多。
+
+⚠️ **Microsoft 會寄通知信，但很容易被誤認成別的信而略過。**
+本次就是收到了卻沒發現，白等了好幾天才去查提交紀錄頁。
+下次送出後，除了留意信箱，**直接到提交紀錄頁看 Status 最保險**。
 
 查看進度：<https://www.microsoft.com/en-us/wdsi/submissionhistory>
 
