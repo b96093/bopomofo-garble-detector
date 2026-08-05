@@ -52,11 +52,13 @@ powershell -File desktop\build.ps1        # 編譯桌面版 exe（需 Ahk2Exe）
 
 詳見 [docs/release-guide.md](docs/release-guide.md)。包含版本號規則、git 指令、Release Notes 範本和檢查清單。
 
-### 上架 Chrome 線上應用程式商店
+### Chrome 線上應用程式商店
 
-詳見 [docs/webstore-listing.md](docs/webstore-listing.md)。所有要填的欄位都已寫好，複製貼上即可。
-上架後，使用者就不必再開「開發人員模式」手動載入。
-隱私權政策見 [docs/privacy-policy.md](docs/privacy-policy.md)（需發佈到 GitHub Pages 取得公開網址）。
+✅ 已於 2026-07-31 上架：<https://chromewebstore.google.com/detail/gjghbjnkbbccdhfiddmceijjkebajilm>
+
+上架材料與送審紀錄見 [docs/webstore-listing.md](docs/webstore-listing.md)，
+隱私權政策見 [docs/privacy-policy.md](docs/privacy-policy.md)（已發佈於 GitHub Pages）。
+發新版時把新的 zip 上傳到開發者主控台即可，使用者會自動更新。
 
 ### 贊助連結
 

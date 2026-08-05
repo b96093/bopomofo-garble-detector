@@ -26,8 +26,7 @@
 
 ---
 
-這份文件把上架時要填的每個欄位都先寫好，屆時複製貼上即可。
-上架後手動載入的門檻（開發人員模式、每次啟動跳警告、無法自動更新）就全部消失。
+這份文件記錄上架時填過的每個欄位，發新版或被要求補件時可直接沿用。
 
 ## 事前準備
 
@@ -183,8 +182,12 @@ Word、PowerPoint、LINE 等 Windows 程式另有桌面版，詳見專案頁面�
 - 若被退件，信中會說明原因，修正後可重新送出
 - 通過後擴充會有一個永久網址，把它加進專案 README 與 GitHub Release 說明
 
-## 上架後要改的地方
+## 上架後要改的地方（已完成）
 
-- `README.md` —— 安裝方式改為商店連結
-- `docs/readme-chrome.md` —— 移除「開發人員模式」整段，改為一行商店連結
-- `docs/release-guide.md` —— Chrome 版不再需要附 zip 到 Release
+- ✅ `README.md` —— 安裝方式改為商店連結
+- ✅ `docs/readme-chrome.md` —— 手動載入說明收進摺疊區塊，只留給開發用途
+- ✅ `docs/index.md`（Pages 首頁）—— 新增安裝一節
+- ✅ `docs/release-notes-v1.0.0.md` —— Chrome 段改為商店連結
+- ✅ `docs/video-plan.md` —— 影片文案的下載連結
+
+Release 仍附 Chrome zip，但只註明是給要手動載入或檢視原始碼的人用。

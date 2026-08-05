@@ -21,7 +21,7 @@ ji35p 2k7cp3vu3cj0 su3     →     我真的很喜歡你
 | | Chrome 擴充 | Windows 桌面版 |
 | --- | --- | --- |
 | 範圍 | Chrome 裡的所有網頁 | Word、PowerPoint、LINE、記事本等所有程式 |
-| 型態 | 未上架前需開發人員模式載入 | 免安裝 exe |
+| 安裝 | [Chrome 線上應用程式商店](https://chromewebstore.google.com/detail/gjghbjnkbbccdhfiddmceijjkebajilm)（已上架） | 免安裝 exe |
 
 ### 功能（依行銷價值排序，非依開發順序）
 
