@@ -287,14 +287,34 @@ Scan() {
 }
 
 ; ---------- 選取轉換 ----------
+ClipSeq() {
+    return DllCall("GetClipboardSequenceNumber", "UInt")
+}
+
 ; Windows 不讓程式直接讀別的程式裡選取的文字，只能靠送出「複製」再從剪貼簿讀回，
 ; 讀完立刻還原原本的剪貼簿內容。整個過程只在記憶體，不寫檔、不外傳。
+;
+; 舊寫法是「先清空剪貼簿 → ClipWait 等內容出現」。問題是這個函式在每次水平拖曳
+; 滑鼠、每次 Ctrl+A 都會被呼叫，而多數時候根本沒有選到文字 —— 那時 ClipWait 會
+; 等滿逾時（實測 437ms），期間使用者的剪貼簿是空的：按 Ctrl+V 會貼到空白，
+; 剛截好的圖也會被結尾的「還原」蓋掉。
+;
+; 改用剪貼簿序號判斷複製是否真的發生。沒發生就直接返回，剪貼簿一個位元組都不動。
 GetSelectedText() {
-    saved := ClipboardAll()
-    A_Clipboard := ""
+    seq0 := ClipSeq()
+    saved := ClipboardAll()          ; 唯讀，不會改變序號
     Send("^c")
-    text := ClipWait(0.4) ? A_Clipboard : ""
-    A_Clipboard := saved
+    deadline := A_TickCount + 220
+    while (A_TickCount < deadline && ClipSeq() == seq0)
+        Sleep(10)
+    if (ClipSeq() == seq0)
+        return ""                    ; 沒有選取 —— 使用者的剪貼簿完全沒被碰過
+    seqOurs := ClipSeq()             ; 我們的 ^c 造成的序號
+    text := A_Clipboard
+    ; 讀取期間若剪貼簿又被別人寫入（例如使用者剛好按了截圖），就不要還原，
+    ; 否則會把對方的內容蓋掉
+    if (ClipSeq() == seqOurs)
+        A_Clipboard := saved
     return text
 }
 
