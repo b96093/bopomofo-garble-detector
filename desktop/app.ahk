@@ -978,69 +978,102 @@ ShowWelcome() {
     }
     ; 刻意不加 AlwaysOnTop：候選窗本身是置頂的，說明視窗若也置頂又拿到焦點，
     ; 就會蓋住它正要示範的那個候選窗。
+    ;
+    ; 排版全部用明確座標、且不使用輔助函式。理由各有一個實測教訓：
+    ;   · y+N 相對定位與 AutoSize 都會少算頁尾色帶，視窗高度不足而截斷內容
+    ;   · 曾把輔助函式的參數命名為 w，AHK 不分大小寫，它就是外層的寬度變數 W，
+    ;     第一次呼叫就把 W 設成 0，之後所有文字控制項寬度變 0、整片消失
+    ; 攤平寫雖然囉嗦，但每個座標都看得見、改得動、驗證得了。
     g := Gui("", "注音亂碼偵測 — 使用說明")
     g.BackColor := "FFFFFF"
-    g.MarginX := 22, g.MarginY := 18
-    W := 460
+    g.MarginX := 0, g.MarginY := 0
+    PAD := 26, FN := "Microsoft JhengHei"
 
-    g.SetFont("s13 w600", "Microsoft JhengHei")
-    g.Add("Text", "w" . W, "打字忘了切換輸入法時，幫你救回來")
-    g.SetFont("s11 w400")
-    g.Add("Text", "xm y+10 w" . W . " c666666", "ji394t au04    →    我愛吃麵")
-    g.SetFont("s10")
-    ; 自己斷行，不靠控制項寬度 —— 交給它折會在不同 DPI 下折出孤字結尾
-    g.Add("Text", "xm y+10 w" . W,
-        "你不用做任何事，照常打字就好。`n偵測到亂碼時，游標旁會自動跳出候選中文。")
+    ; ── 標題帶 ──
+    g.Add("Text", "x0 y0 w612 h84 Background1A5FB4")
+    g.SetFont("s14 w600 cFFFFFF", FN)
+    g.Add("Text", "x" . PAD . " y22 w560 BackgroundTrans", "打字忘了切換輸入法時，幫你救回來")
+    g.SetFont("s10 w400 cD6E4F7", FN)
+    g.Add("Text", "x" . PAD . " y52 w560 BackgroundTrans", "你不用做任何事，照常打字就好。")
 
-    g.SetFont("s10 w600")
-    g.Add("Text", "xm y+18 w" . W, "先試試看")
-    g.SetFont("s11 w400")
-    ; -VScroll：多行 Edit 預設會掛一條捲軸，這裡只打一行字，捲軸純粹是雜訊
-    g.Add("Edit", "xm y+8 w" . W . " h50 -VScroll")
-    g.SetFont("s9")
-    g.Add("Text", "xm y+6 w" . W . " c888888",
-        "在上面打 ji394t au04 —— 候選窗會真的跳出來（這是完整功能，不是模擬畫面）。")
+    ; ── 示範卡：整份說明最重要的一句 ──
+    g.Add("Text", "x0 y96 w612 h58 BackgroundF2F6FC")
+    g.SetFont("s14 w600 c1A5FB4", "Consolas")
+    g.Add("Text", "x" . PAD . " y113 w160 BackgroundTrans", "ji394t au04")
+    g.SetFont("s12 w400 cAAAAAA", FN)
+    g.Add("Text", "x" . (PAD + 172) . " y114 w40 BackgroundTrans", "→")
+    g.SetFont("s14 w600 c1E1E1E", FN)
+    g.Add("Text", "x" . (PAD + 214) . " y111 w200 BackgroundTrans", "我愛吃麵")
 
-    g.SetFont("s10 w600")
-    g.Add("Text", "xm y+18 w" . W, "候選窗跳出來之後")
-    g.SetFont("s10 w400")
-    for pair in [["↑ ↓", "換一個候選句"]
-               , ["Enter", "換成中文"]
-               , ["Esc", "不要，繼續打英文"]
-               , ["→", "展開單個字的同音字（例如把「面」換成「麵」）"]] {
-        g.Add("Text", "xm y+6 w76 c1A5FB4", pair[1])
-        g.Add("Text", "x+0 yp w" . (W - 76), pair[2])
+    g.SetFont("s10 w600 c1A5FB4", FN)
+    g.Add("Text", "x" . PAD . " y174 w560 BackgroundTrans", "先試試看")
+    g.SetFont("s12 w400 c1E1E1E", FN)
+    g.Add("Edit", "x" . PAD . " y198 w560 h42 -VScroll")
+    g.SetFont("s9 w400 c999999", FN)
+    g.Add("Text", "x" . PAD . " y248 w560 BackgroundTrans",
+        "在上面打 ji394t au04，候選窗會真的跳出來 —— 這是完整功能，不是模擬畫面。")
+
+    g.SetFont("s10 w600 c1A5FB4", FN)
+    g.Add("Text", "x" . PAD . " y286 w560 BackgroundTrans", "候選窗跳出來之後")
+    g.SetFont("s10 w600 c1A5FB4", FN)
+    g.Add("Text", "x" . PAD . " y312 w70 BackgroundTrans", "↑ ↓")
+    g.SetFont("s10 w400 c444444", FN)
+    g.Add("Text", "x" . (PAD + 78) . " y312 w482 BackgroundTrans", "換一個候選句")
+    g.SetFont("s10 w600 c1A5FB4", FN)
+    g.Add("Text", "x" . PAD . " y338 w70 BackgroundTrans", "Enter")
+    g.SetFont("s10 w400 c444444", FN)
+    g.Add("Text", "x" . (PAD + 78) . " y338 w482 BackgroundTrans", "換成中文")
+    g.SetFont("s10 w600 c1A5FB4", FN)
+    g.Add("Text", "x" . PAD . " y364 w70 BackgroundTrans", "Esc")
+    g.SetFont("s10 w400 c444444", FN)
+    g.Add("Text", "x" . (PAD + 78) . " y364 w482 BackgroundTrans", "不要，繼續打英文")
+    g.SetFont("s10 w600 c1A5FB4", FN)
+    g.Add("Text", "x" . PAD . " y390 w70 BackgroundTrans", "→")
+    g.SetFont("s10 w400 c444444", FN)
+    g.Add("Text", "x" . (PAD + 78) . " y390 w482 BackgroundTrans", "展開同音字（把「面」換成「麵」）")
+
+    g.SetFont("s9 w400 c888888", FN)
+    g.Add("Text", "x" . PAD . " y422 w560 BackgroundTrans",
+        "永遠不會自動替換 —— 一定要你按 Enter 或用滑鼠點，才會動到你的文字。")
+
+    g.SetFont("s10 w600 c1A5FB4", FN)
+    g.Add("Text", "x" . PAD . " y458 w560 BackgroundTrans", "打完才發現打錯了？")
+    g.SetFont("s10 w400 c444444", FN)
+    g.Add("Text", "x" . PAD . " y484 w560 BackgroundTrans",
+        "把那段亂碼用滑鼠選取起來，旁邊會出現小按鈕，點它就能轉換。")
+
+    g.SetFont("s10 w600 c1A5FB4", FN)
+    g.Add("Text", "x" . PAD . " y524 w560 BackgroundTrans", "之後在哪裡找到它")
+    g.SetFont("s10 w400 c444444", FN)
+    g.Add("Text", "x" . PAD . " y550 w560 BackgroundTrans",
+        "常駐在右下角系統列。在圖示上按右鍵可暫停偵測、開啟設定、重看這份說明。")
+
+    ; ── 頁尾 ──
+    g.Add("Text", "x0 y590 w612 h74 BackgroundF7F7F7")
+    g.SetFont("s10 w400 c1E1E1E", FN)
+    g.Add("Button", "x" . PAD . " y602 w104 h32 Default", "開始使用").OnEvent("Click", (*) => g.Hide())
+    g.Add("Button", "x+8 yp w104 h32", "開啟設定…").OnEvent("Click", (*) => ShowSettings())
+
+    ; 贊助放頁尾右側：與主要動作分開，但用強調色與較大字級，不會被當成註腳。
+    ; 這是使用者剛看完說明、對工具最有好感的時刻。
+    if (SUPPORT_URL != "") {
+        ; 不放 ☕：AHK 的 Text 控制項走 GDI，畫不出彩色 emoji，
+        ; 用 Segoe UI Emoji 也只會得到一個看不出是咖啡杯的單色輪廓。
+        ; 藍色粗體本身已經夠醒目。
+        g.SetFont("s11 w600 c1A5FB4", FN)
+        cof := g.Add("Text", "x" . (PAD + 366) . " y609 w194 BackgroundTrans", "請我喝杯咖啡 →")
+        cof.OnEvent("Click", (*) => OpenSupport())
     }
-    g.SetFont("s9")
-    g.Add("Text", "xm y+10 w" . W . " c666666",
-        "永遠不會自動替換 —— 一定要你按 Enter 或用滑鼠點，才會動到你的文字。"
-        . "`n不理它繼續打字也可以，候選窗會自己消失。")
+    g.SetFont("s9 w400 c999999", FN)
+    g.Add("Text", "x" . PAD . " y640 w560 BackgroundTrans",
+        "完全離線 · 不寫檔 · 不蒐集內容　　這個工具永久免費")
 
-    g.SetFont("s10 w600")
-    g.Add("Text", "xm y+18 w" . W, "打完才發現打錯了？")
-    g.SetFont("s10 w400")
-    g.Add("Text", "xm y+6 w" . W,
-        "把那段亂碼用滑鼠選取起來，旁邊會出現一個小按鈕，點它就能轉換。"
-        . "`nWord、PowerPoint、LINE、記事本等程式都適用。")
-
-    g.SetFont("s10 w600")
-    g.Add("Text", "xm y+18 w" . W, "之後在哪裡找到它")
-    g.SetFont("s10 w400")
-    g.Add("Text", "xm y+6 w" . W,
-        "程式會常駐在右下角系統列（圖示可能被摺疊起來，點「^」可以展開）。"
-        . "`n在圖示上按右鍵，可以暫停偵測、開啟設定、重看這份說明，或結束程式。")
-
-    g.SetFont("s9")
-    g.Add("Text", "xm y+18 w" . W . " c888888",
-        "完全離線運作：不連上網路、不寫入任何檔案、不蒐集你打的內容。")
-
-    g.SetFont("s10")
-    g.Add("Button", "xm y+16 w110 h32 Default", "開始使用").OnEvent("Click", (*) => g.Hide())
-    g.Add("Button", "x+8 yp w110 h32", "開啟設定…").OnEvent("Click", (*) => ShowSettings())
     g.OnEvent("Close", (*) => g.Hide())
     g.OnEvent("Escape", (*) => g.Hide())
     WELGUI := g
-    g.Show("AutoSize")
+    ; Show() 的 h 是「視窗」高度而非客戶區，標題列會吃掉一部分，
+    ; 所以要比內容底緣（664）再多留一些，否則頁尾會被切掉。
+    g.Show("w616 h692")
     MarkWelcomed()
 }
 
