@@ -36,6 +36,9 @@ global POPUP := ""
 global HITS := []         ; 目前畫面上的可點擊區域
 global TRAYCOLS := 10     ; 同音字盤實際欄數（繪圖時算出，鍵盤換行要用）
 global POPUP_ON := false
+; 目前環境能否顯示候選窗。#HotIf 每按一次鍵就會求值，不能在裡面直接做
+; DllCall 與視窗查詢，所以由 WatchWindow 每 400ms 更新這個快取。
+global CANSHOW := true
 global CELLSTATE := Map() ; 每個控制項目前的內容簽章，用來跳過沒變化的更新
 global LASTGEO := ""      ; 視窗目前的位置與大小
 global ANCX := 0, ANCY := 0  ; 候選窗定位點（開啟時算一次，導航期間不再變動）
@@ -160,7 +163,8 @@ OnResetKey(hook, vk, sc) {
 
 ; 切換視窗就清空（避免把上一個視窗的輸入帶過來）
 WatchWindow() {
-    global LASTWIN, CLICKOK
+    global LASTWIN, CLICKOK, CANSHOW
+    CANSHOW := CanShowOverlay()
     w := WinExist("A")
     if (w != LASTWIN) {
         LASTWIN := w
@@ -246,6 +250,43 @@ Reset() {
 }
 
 ; ---------- 偵測 ----------
+; 現在的環境能不能顯示候選窗？
+;
+; 全螢幕遊戲（例如英雄聯盟）會獨佔畫面，我們的分層視窗畫不上去。但程式並不知道
+; 自己沒被畫出來 —— POPUP_ON 仍為 true，於是 Enter 被熱鍵攔截並直接套用第一個候選。
+; 使用者按 Enter 是想送出聊天訊息，結果訊息沒送出、文字卻自己變成中文，
+; 而且完全沒有選字的機會。這違背了「永不自動替換，一定要你確認」——
+; 確認介面看不見時，那個確認等於不存在。比不支援更糟。
+;
+; 所以：顯示不了 UI 的環境，就完全不偵測。
+CanShowOverlay() {
+    ; Windows 自己就是用這個 API 判斷「現在適不適合彈通知」
+    ; 變數不可命名為 st —— AHK 不分大小寫，會撞到全域的 ST（候選窗狀態）
+    notifState := 0
+    try {
+        if (DllCall("shell32\SHQueryUserNotificationState", "Int*", &notifState) == 0) {
+            if (notifState == 3 || notifState == 4)     ; D3D 全螢幕 / 簡報模式
+                return false
+        }
+    }
+    ; 無邊框全螢幕未必會被上面抓到，再用幾何條件補一刀：
+    ; 作用中視窗鋪滿某個螢幕、且沒有標題列
+    try {
+        hwnd := WinExist("A")
+        if (hwnd) {
+            WinGetPos(&wx, &wy, &ww, &wh, hwnd)
+            if (!(WinGetStyle(hwnd) & 0x00C00000)) {      ; 無 WS_CAPTION
+                Loop MonitorGetCount() {
+                    MonitorGet(A_Index, &ml, &mt, &mr, &mb)
+                    if (ww >= mr - ml && wh >= mb - mt && wx <= ml && wy <= mt)
+                        return false
+                }
+            }
+        }
+    }
+    return true
+}
+
 ; 目前視窗是否交由 Chrome 擴充處理
 IsExcludedApp() {
     if (CHROME_DETECT)
@@ -265,6 +306,13 @@ Scan() {
         return
     }
     if (IsExcludedApp()) {        ; Chrome 裡交給擴充，避免兩個候選窗同時出現
+        BUF := ""
+        HidePopup()
+        return
+    }
+    ; 全螢幕遊戲等環境畫不出候選窗。若還是偵測，Enter 會被攔截並直接替換文字，
+    ; 使用者卻看不到任何候選 —— 寧可完全不作用。
+    if (!CanShowOverlay()) {
         BUF := ""
         HidePopup()
         return
@@ -317,7 +365,7 @@ GetSelectedText() {
 
 CheckSelection(fromMouse := true) {
     global SELRES, SELFROMMOUSE
-    if (!READY || BUSY || PAUSED || POPUP_ON || IsExcludedApp())
+    if (!READY || BUSY || PAUSED || POPUP_ON || IsExcludedApp() || !CanShowOverlay())
         return
     SELFROMMOUSE := fromMouse
     text := Trim(GetSelectedText(), " `t`r`n")
@@ -683,12 +731,15 @@ ImeChineseMode() {
 
 ; ---------- 鍵盤操作 ----------
 ; icon 顯示中：Enter 進候選窗、Esc 收起（畫面上寫了 ↵ 就要真的能用）
-#HotIf ICON_ON && !POPUP_ON
+#HotIf ICON_ON && !POPUP_ON && CANSHOW
 Enter:: IconClicked()
 Escape:: HideIcon()
 #HotIf
 
-#HotIf POPUP_ON
+; 加上 CANSHOW：全螢幕遊戲裡條件不成立，Enter／方向鍵完全不被攔截，
+; 原樣穿透給遊戲。若只在 OnEnter 裡擋，Enter 仍會被吃掉，
+; 使用者會發現「聊天訊息按 Enter 送不出去」。
+#HotIf POPUP_ON && CANSHOW
 Enter:: OnEnter()
 Escape:: OnEsc()
 Up:: Move("up")
