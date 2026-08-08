@@ -37,6 +37,7 @@ if (-not (Test-Path $exe)) { Write-Error "編譯失敗，未產生 exe" }
 # 執行時需要的外部檔案
 Copy-Item (Join-Path $here 'dict.txt') $out
 Copy-Item (Join-Path $here 'icon.ico') $out
+Copy-Item (Join-Path $here 'icon-paused.ico') $out   # 暫停時的灰階系統列圖示
 Copy-Item (Join-Path $here 'README.md') $out
 Copy-Item (Join-Path $root 'docs\NOTICE.md') $out
 

@@ -102,7 +102,7 @@ DICT := LoadDict(A_ScriptDir "\dict.txt")
 READY := true
 BuildPopup()
 BuildIcon()
-A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
+SyncTrayIcon()
 Tip("注音亂碼偵測已啟動`n詞庫 " . DICT.Count . " 讀音", 2000)
 
 ; 第一次執行先把使用說明打開。這是背景常駐工具 —— 若什麼都不說就開始監看，
@@ -1045,11 +1045,11 @@ ShowSettings() {
     g.SetFont("s10")
     g.Add("Button", "xm y+16 w96 h30 Default", "儲存").OnEvent("Click", (*) => SaveFromGui(g))
     g.Add("Button", "x+8 yp w96 h30", "關閉").OnEvent("Click", (*) => g.Hide())
-    ; 移除放在最右下、用不顯眼的樣式 —— 這是一次性且不可逆的動作，
-    ; 不該和每天在用的設定項目搶注意力，但也不能藏到找不到。
+    ; 移除放在最右下，與儲存／關閉隔開。原本做成灰色 Text 想低調，結果反效果：
+    ; 看起來像停用、滑鼠移上去也不會變成手指，使用者以為按不動。
+    ; 用真正的 Button —— 外觀與游標都會告訴使用者「這可以按」。
     g.SetFont("s9")
-    rm := g.Add("Text", "x+90 yp+10 c888888", "移除本工具…")
-    rm.OnEvent("Click", (*) => Uninstall())
+    g.Add("Button", "x+110 yp w110 h30", "移除本工具…").OnEvent("Click", (*) => Uninstall())
     g.OnEvent("Close", (*) => g.Hide())
     SETGUI := g
     g.Show("AutoSize")
@@ -1066,7 +1066,7 @@ SaveFromGui(g) {
     SyncPauseMenu()
     if (!SetAutoStart(v.Auto))
         MsgBox("開機自動啟動設定失敗，可能是權限不足。", "注音亂碼偵測", "Icon!")
-    A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
+    SyncTrayIcon()
     Reset()
     g.Hide()
     Tip("設定已儲存", 1500)
@@ -1089,7 +1089,14 @@ Uninstall() {
          . "完成後會開啟程式所在資料夾，你直接刪掉整個資料夾就完全移除了。`n"
          . "（設定檔在資料夾內；你打過的文字從未被記錄，沒有其他殘留）`n`n"
          . "確定要移除嗎？"
-    if (MsgBox(msg, "移除注音亂碼偵測", "YesNo Icon?") != "Yes")
+    ; 設定視窗是 AlwaysOnTop。不指定 Owner 的話，這個確認框會被壓在它後面 ——
+    ; 使用者看不到任何反應，會以為按鈕壞了，直到關掉設定視窗才發現它一直在。
+    opt := "YesNo Icon?"
+    try {
+        if (SETGUI != "" && WinExist("ahk_id " . SETGUI.Hwnd))
+            opt .= " Owner" . SETGUI.Hwnd
+    }
+    if (MsgBox(msg, "移除注音亂碼偵測", opt) != "Yes")
         return
     try FileDelete(A_Desktop . "\注音亂碼偵測.lnk")
     SetAutoStart(false)
@@ -1105,8 +1112,15 @@ TogglePause() {
     SaveSettings()
     Reset()
     SyncPauseMenu()
-    A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
+    SyncTrayIcon()
     Tip(PAUSED ? "已暫停偵測（圖示仍在系統列）" : "已繼續偵測", 1500)
+}
+
+; 系統列圖示要能一眼看出狀態：監看中＝彩色，已暫停＝灰階（比照 OneDrive 的做法）。
+; 只靠滑鼠停留才看得到的提示文字不夠 —— 圖示本身就該說明狀態。
+SyncTrayIcon() {
+    try TraySetIcon(A_ScriptDir . (PAUSED ? "\icon-paused.ico" : "\icon.ico"), 1, true)
+    A_IconTip := "注音亂碼偵測（" . (PAUSED ? "已暫停" : "監看中") . "）"
 }
 
 ; 讓選單上的打勾反映目前狀態。設定頁也會改 PAUSED，所以兩邊都要呼叫。
