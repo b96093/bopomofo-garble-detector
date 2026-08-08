@@ -85,19 +85,16 @@ TraySetIcon(A_ScriptDir "\icon.ico", 1, true)
 A_IconTip := "注音亂碼偵測（詞庫載入中，請稍候…）"
 LoadSettings()
 A_TrayMenu.Delete()
-; 用「打勾」表示目前狀態，而不是把兩個動作寫在同一行 ——
-; 舊寫法（「暫停 / 繼續偵測」）看不出現在是哪個狀態，
-; 也讓人分不清它和「結束」的差別，結果就是想暫停卻按了結束。
+; 托盤選單只放會反覆用到的動作。「支持開發」與「移除本工具」都是一次性的，
+; 放在這裡只會讓每次右鍵都得多掃過兩行 —— 移進設定頁。
+;
+; 「暫停偵測」用打勾表示目前狀態，而不是把兩個動作寫成「暫停 / 繼續偵測」——
+; 後者看不出現在是哪個狀態，也讓人分不清它和「結束」的差別。
 A_TrayMenu.Add("暫停偵測", (*) => TogglePause())
 A_TrayMenu.Add("使用說明…", (*) => ShowWelcome())
 A_TrayMenu.Add("設定…", (*) => ShowSettings())
-if (SUPPORT_URL != "") {
-    A_TrayMenu.Add()
-    A_TrayMenu.Add("支持開發…", (*) => OpenSupport())
-}
 A_TrayMenu.Add()
-A_TrayMenu.Add("結束（關閉程式，圖示會消失）", (*) => ExitApp())
-A_TrayMenu.Add("移除本工具…", (*) => Uninstall())
+A_TrayMenu.Add("結束", (*) => ExitApp())
 A_TrayMenu.Default := "設定…"
 SyncPauseMenu()
 
@@ -1046,6 +1043,11 @@ ShowSettings() {
     g.SetFont("s10")
     g.Add("Button", "xm y+16 w96 h30 Default", "儲存").OnEvent("Click", (*) => SaveFromGui(g))
     g.Add("Button", "x+8 yp w96 h30", "關閉").OnEvent("Click", (*) => g.Hide())
+    ; 移除放在最右下、用不顯眼的樣式 —— 這是一次性且不可逆的動作，
+    ; 不該和每天在用的設定項目搶注意力，但也不能藏到找不到。
+    g.SetFont("s9")
+    rm := g.Add("Text", "x+90 yp+10 c888888", "移除本工具…")
+    rm.OnEvent("Click", (*) => Uninstall())
     g.OnEvent("Close", (*) => g.Hide())
     SETGUI := g
     g.Show("AutoSize")
