@@ -1044,9 +1044,12 @@ ShowWelcome() {
 
     g.SetFont("s10 w600 c1A5FB4", FN)
     g.Add("Text", "x" . PAD . " y524 w560 BackgroundTrans", "之後在哪裡找到它")
+    ; 直接把真正的圖示畫出來 —— 使用者要在系統列一堆小圖裡找它，
+    ; 光用文字說「本工具的圖示」沒有幫助
+    g.Add("Picture", "x" . PAD . " y548 w22 h22", A_ScriptDir . "\icon.ico")
     g.SetFont("s10 w400 c444444", FN)
-    g.Add("Text", "x" . PAD . " y550 w560 BackgroundTrans",
-        "常駐在右下角系統列。在圖示上按右鍵可暫停偵測、開啟設定、重看這份說明。")
+    g.Add("Text", "x" . (PAD + 30) . " y550 w530 BackgroundTrans",
+        "找這個圖示。在它上面按右鍵可暫停偵測、開啟設定、重看這份說明。")
 
     ; ── 頁尾 ──
     g.Add("Text", "x0 y590 w612 h74 BackgroundF7F7F7")
@@ -1057,12 +1060,12 @@ ShowWelcome() {
     ; 贊助放頁尾右側：與主要動作分開，但用強調色與較大字級，不會被當成註腳。
     ; 這是使用者剛看完說明、對工具最有好感的時刻。
     if (SUPPORT_URL != "") {
-        ; 不放 ☕：AHK 的 Text 控制項走 GDI，畫不出彩色 emoji，
-        ; 用 Segoe UI Emoji 也只會得到一個看不出是咖啡杯的單色輪廓。
-        ; 藍色粗體本身已經夠醒目。
-        g.SetFont("s11 w600 c1A5FB4", FN)
-        cof := g.Add("Text", "x" . (PAD + 366) . " y609 w194 BackgroundTrans", "請我喝杯咖啡 →")
-        cof.OnEvent("Click", (*) => OpenSupport())
+        ; 用 Button 而不是彩色文字：文字再顯眼也不會把游標變成手指，
+        ; 使用者看不出可以點（設定頁的「移除本工具」就踩過同一個坑）。
+        ; 稱呼用「開發者」而非「我」—— 使用者不認識視窗裡的「我」是誰。
+        g.SetFont("s10 w400 c1E1E1E", FN)
+        g.Add("Button", "x" . (PAD + 386) . " y602 w174 h32", "請開發者喝杯咖啡")
+            .OnEvent("Click", (*) => OpenSupport())
     }
     g.SetFont("s9 w400 c999999", FN)
     g.Add("Text", "x" . PAD . " y640 w560 BackgroundTrans",
@@ -1122,8 +1125,12 @@ ShowSettings() {
     g.Add("Text", "xm y+20 w420 c888888",
         "偵測內容只存在記憶體，不寫入檔案、不連上網路。")
     if (SUPPORT_URL != "") {
-        link := g.Add("Text", "xm y+10 w420 c1A5FB4", "這個工具永久免費 —— 覺得好用的話，可以請我喝杯咖啡 ☕")
-        link.OnEvent("Click", (*) => OpenSupport())
+        ; 同說明視窗：用 Button，文字連結看不出可以點
+        g.Add("Text", "xm y+10 w420 c888888", "這個工具永久免費，也不會有廣告。")
+        g.SetFont("s10")
+        g.Add("Button", "xm y+8 w174 h32", "請開發者喝杯咖啡")
+            .OnEvent("Click", (*) => OpenSupport())
+        g.SetFont("s9")
     }
 
     g.SetFont("s10")
