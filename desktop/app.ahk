@@ -467,9 +467,11 @@ ShowIcon(preview) {
     ICONTEXT.Value := "→ " . shown
     ICONTEXT.Move(35, 9, w - 46, 22)
     ICONHINT.Move(35, 33, w - 46, 18)
-    if (SELFROMMOUSE) {                     ; 滑鼠選取 → 出現在剛放開滑鼠的地方
-        MouseGetPos(&mx, &my)
-        ix := mx + 8, iy := my + 18
+    ; 滑鼠選取 → 出現在「放開滑鼠的位置」，而不是現在的滑鼠位置。
+    ; 從放開滑鼠到這裡中間隔了去抖動 120ms + 讀剪貼簿最多 220ms，
+    ; 期間滑鼠早就移開了 —— 用當下位置會讓浮窗看起來隨機亂跳。
+    if (SELFROMMOUSE && LASTUPX != 0) {
+        ix := LASTUPX + 8, iy := LASTUPY + 18
     } else if (CLICKOK) {                   ; 鍵盤選取 → 用「你點進文字框的位置」
         ix := CLICKX, iy := CLICKY + 30
     } else {                                ; 真的沒線索 → 視窗底部置中

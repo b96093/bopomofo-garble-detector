@@ -280,7 +280,7 @@ BuildLayout(view, homsFor) {
     hits.Push({k: "commit", x: pad, y: y, w: cw, h: bh})
     y += bh + DPX(8)
 
-    hint := inSent ? "↑↓ 選句 · ↓ 進逐字 · Enter 插入"
+    hint := inSent ? "↑↓ 選句 · ←→↓ 進逐字 · Enter 插入"
         : (view.zone == "chars") ? "←→ 選字 · ↓ 展開同音 · Enter 插入"
         : "←→↑↓ 選同音字 · Enter 換上 · Esc 返回"
     DrawS(ops, pad, y, cw - DPX(44), DPX(LY.footH), hint, CO.faint, 8)
