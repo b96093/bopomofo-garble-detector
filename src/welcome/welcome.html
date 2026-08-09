@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>注音亂碼偵測 — 使用說明</title>
   <style>
     :root { --line: #e6e6e6; --muted: #6b6b6b; --accent: #1a5fb4; }
@@ -13,10 +14,16 @@
     }
     header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
     header img { width: 48px; height: 48px; }
-    h1 { font-size: 22px; margin: 0; font-weight: 600; }
+    h1 { font-size: 24px; margin: 0; font-weight: 600; }
     .lede { color: var(--muted); margin: 0 0 2.5rem; }
-    h2 { font-size: 16px; font-weight: 600; margin: 2.5rem 0 .75rem; }
-    p { margin: .5rem 0; }
+    /* 標題原本和內文同為 16px，層級只靠粗體撐，掃視時分不出段落。
+       放大並加上分隔線，讓每一節的起點一眼可見。 */
+    h2 {
+      font-size: 19px; font-weight: 600; margin: 3rem 0 1rem;
+      padding-top: 1.5rem; border-top: 1px solid var(--line);
+    }
+    h2:first-of-type { border-top: none; padding-top: 0; margin-top: 2.5rem; }
+    p { margin: .6rem 0; }
     .demo-line {
       font-size: 19px; margin: 1.5rem 0; padding: 1rem 1.2rem;
       background: #f6f8fb; border-radius: 10px; text-align: center;
@@ -51,9 +58,18 @@
       padding: .8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0;
     }
     .callout p { margin: .5rem 0; }
-    .limits { padding-left: 1.2rem; margin: .6rem 0; }
-    .limits li { margin: .5rem 0; color: var(--muted); font-size: 14px; }
-    .limits strong { color: #1e1e1e; }
+    .callout p:last-child { margin-bottom: 0; }
+    /* 限制清單原本用「——」把場合和原因串成一段，折行後標題就淹沒在說明裡。
+       改成兩欄，場合固定在左，掃一眼就知道自己是不是踩到其中一項。 */
+    .limits td:first-child { width: 190px; white-space: normal; font-weight: 600; }
+    .limits td:last-child { color: var(--muted); font-size: 14px; }
+    /* 視窗窄的時候固定寬度的首欄會把說明擠成細長條（實測 279px 寬時整節高度多一倍）。
+       兩欄改成上下堆疊。快捷鍵表格欄位短，不受影響。 */
+    @media (max-width: 560px) {
+      .limits td { display: block; width: auto; border-bottom: none; padding: .2rem 0; }
+      .limits td:first-child { padding-top: .6rem; }
+      .limits tr { display: block; border-bottom: 1px solid #f0f0f0; padding-bottom: .4rem; }
+    }
     code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: 13px; }
     footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
     a { color: var(--accent); }
@@ -115,39 +131,36 @@
   </p>
 
   <h2 id="limits">有些地方它幫不上忙</h2>
-  <p class="note">這幾種情況不是設定問題，是瀏覽器或網站的架構限制：</p>
-  <ul class="limits">
-    <li>
-      <strong>Google 文件</strong> —— Docs 把文字畫在 canvas 上，內容不存在於網頁結構裡，
-      擴充讀不到你打了什麼，也不知道游標在哪。任何依賴網頁結構的擴充都一樣。
-    </li>
-    <li>
-      <strong>Chrome 的新分頁、設定頁、擴充功能頁</strong> ——
-      瀏覽器基於安全考量禁止任何擴充存取內建頁面。
-    </li>
-    <li><strong>Chrome 線上應用程式商店</strong> —— 同上，屬於瀏覽器保護範圍。</li>
-    <li>
-      <strong>本機檔案（<code>file://</code>）</strong> ——
-      預設關閉。到擴充功能頁開啟「允許存取檔案網址」就能用。
-    </li>
-  </ul>
+  <p>這幾種情況不是設定問題，是瀏覽器或網站的架構限制：</p>
+  <table class="limits">
+    <tr>
+      <td>Google 文件</td>
+      <td>文字畫在 canvas 上，網頁結構裡讀不到，擴充不知道你打了什麼</td>
+    </tr>
+    <tr>
+      <td>Chrome 內建頁面</td>
+      <td>新分頁、設定頁、擴充功能頁、線上應用程式商店 —— 瀏覽器禁止任何擴充存取</td>
+    </tr>
+    <tr>
+      <td>本機檔案 <code>file://</code></td>
+      <td>預設關閉，到擴充功能頁開啟「允許存取檔案網址」就能用</td>
+    </tr>
+  </table>
 
   <div class="callout">
     <p><strong>這些情況改用桌面版就能用。</strong></p>
-    <p class="note">
-      桌面版在作業系統層攔截鍵盤，完全不依賴網頁結構，所以 Google 文件、Word、
-      PowerPoint、LINE、記事本統統可用 —— Google 文件已實測確認正常。
-    </p>
+    <p>桌面版在作業系統層攔截鍵盤，不依賴網頁結構，Google 文件已實測確認正常。</p>
     <p>
       <a class="support-btn" href="https://b96093.github.io/bopomofo-garble-detector/"
          target="_blank" rel="noopener">下載 Windows 桌面版</a>
     </p>
-    <p class="note">
-      兩個都裝的話，請在桌面版設定裡<strong>取消勾選</strong>「在 Chrome 中也偵測」，
-      否則一般網頁會跳出兩個候選窗。但這樣桌面版在 Google 文件也會一起停用 ——
-      若你主要用 Google 文件，就保持勾選、改成停用這個擴充。
-    </p>
   </div>
+
+  <p class="note">
+    兩個都裝的話，在桌面版設定裡取消勾選「在 Chrome 中也偵測」可避免跳出兩個候選窗；
+    但那會讓桌面版在 Google 文件也一起停用。主要用 Google 文件的話，
+    就保持勾選、改成停用這個擴充。
+  </p>
 
   <h2>隱私</h2>
   <p class="note">
