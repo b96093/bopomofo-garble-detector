@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "注音亂碼偵測",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "打字忘了切換輸入法時，自動偵測注音亂碼並就地還原成中文。",
   "background": {
     "service_worker": "src/background.js"
