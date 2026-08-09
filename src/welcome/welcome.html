@@ -9,8 +9,18 @@
     * { box-sizing: border-box; }
     body {
       font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
-      max-width: 640px; margin: 0 auto; padding: 3rem 1.5rem 4rem;
+      max-width: 1040px; margin: 0 auto; padding: 3rem 1.5rem 4rem;
       color: #1c1c1c; line-height: 1.75;
+    }
+    /* 寬螢幕上讓區塊並排。單純把文字欄拉寬會傷閱讀（中文一行超過 40 字左右
+       效率就掉），所以維持窄欄、改用兩欄並排來換取捲動長度。 */
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 3.5rem; }
+    .cols > section { min-width: 0; }
+    .lede, .intro { max-width: 620px; }
+    @media (max-width: 900px) {
+      .cols { grid-template-columns: 1fr; gap: 0; }
+      /* 收成單欄後若仍用 1040px 的容器，一行會長到 47 個字左右，反而更難讀 */
+      body { max-width: 680px; }
     }
     header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
     header img { width: 48px; height: 48px; }
@@ -65,6 +75,10 @@
        改成兩欄，場合固定在左，掃一眼就知道自己是不是踩到其中一項。 */
     .limits td:first-child { font-weight: 600; }
     .limits td:last-child { color: var(--muted); font-size: 14px; }
+    /* 圖示自己畫，不用各家的官方 logo —— 那些有商標使用限制。
+       線條圖示達到一樣的「一眼掃到」效果，而且檔案極小、縮放不失真。 */
+    .ico { display: inline-block; vertical-align: -4px; margin-right: .45rem; color: var(--accent); }
+    .limits td:first-child { white-space: nowrap; }
     /* 視窗窄的時候固定寬度的首欄會把說明擠成細長條（實測 279px 寬時整節高度多一倍）。
        兩欄改成上下堆疊。快捷鍵表格欄位短，不受影響。 */
     @media (max-width: 560px) {
@@ -99,73 +113,108 @@
     <code>ji394t au04</code><span class="arrow">→</span><span class="zh">我愛吃麵</span>
   </div>
 
-  <p><strong>你不用做任何事，照常打字就好。</strong>偵測到亂碼時，游標旁會自動跳出候選中文。</p>
+  <p class="intro"><strong>你不用做任何事，照常打字就好。</strong>偵測到亂碼時，游標旁會自動跳出候選中文。</p>
 
-  <h2>先試試看</h2>
-  <div class="try">
-    <textarea id="demo" rows="2" spellcheck="false" placeholder="在這裡打打看，或直接貼上：ji394t au04"></textarea>
-    <div id="result"><span class="none">打字後，這裡會顯示偵測到的中文。</span></div>
-  </div>
-  <p class="note">
-    這個框只是示範。實際使用時，候選會直接跳在你打字的游標旁邊 ——
-    在下方任何網站的輸入框都能用。
-  </p>
+  <div class="cols">
+    <section>
+      <h2>先試試看</h2>
+      <div class="try">
+        <textarea id="demo" rows="2" spellcheck="false" placeholder="在這裡打打看，或直接貼上：ji394t au04"></textarea>
+        <div id="result"><span class="none">打字後，這裡會顯示偵測到的中文。</span></div>
+      </div>
+      <p class="note">
+        這個框只是示範。實際使用時，候選會直接跳在你打字的游標旁邊 ——
+        在下方任何網站的輸入框都能用。
+      </p>
+    </section>
 
-  <h2>候選窗跳出來之後</h2>
-  <table>
-    <tr><td><kbd>↑</kbd><kbd>↓</kbd></td><td>換一個候選句</td></tr>
-    <tr><td><kbd>Enter</kbd></td><td>換成中文</td></tr>
-    <tr><td><kbd>Esc</kbd></td><td>不要，繼續打英文</td></tr>
-    <tr><td><kbd>→</kbd></td><td>展開單個字的同音字（例如把「面」換成「麵」）</td></tr>
-  </table>
+    <section>
+      <h2>候選窗跳出來之後</h2>
+      <table>
+        <tr><td><kbd>↑</kbd><kbd>↓</kbd></td><td>換一個候選句</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>換成中文</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>不要，繼續打英文</td></tr>
+        <tr><td><kbd>→</kbd></td><td>展開單個字的同音字（例如把「面」換成「麵」）</td></tr>
+      </table>
 
-  <div class="callout">
-    <strong>永遠不會自動替換。</strong>一定要你按 <kbd>Enter</kbd> 或用滑鼠點，才會動到你的文字。
-    不理它繼續打字也可以，候選窗會自己消失。
-  </div>
-
-  <h2>打完才發現打錯了？</h2>
-  <p>
-    把那段亂碼<strong>用滑鼠選取起來</strong>，旁邊會出現一個小按鈕，點它就能轉換。
-    不限剛打的字，網頁上任何可編輯的亂碼都行。
-  </p>
-
-  <h2>覺得太常跳，或都不跳？</h2>
-  <p>
-    到<a href="../options/options.html" id="opt-link">擴充功能選項</a>調整靈敏度，也可以整個關掉偵測。
-  </p>
-
-  <h2 id="limits">有些地方它幫不上忙</h2>
-  <p>這幾種情況不是設定問題，是瀏覽器或網站的架構限制：</p>
-  <table class="limits">
-    <tr>
-      <td>Google 文件</td>
-      <td>文字畫在 canvas 上，網頁結構裡讀不到，擴充不知道你打了什麼</td>
-    </tr>
-    <tr>
-      <td>Chrome 內建頁面</td>
-      <td>新分頁、設定頁、擴充功能頁、線上應用程式商店 —— 瀏覽器禁止任何擴充存取</td>
-    </tr>
-    <tr>
-      <td>本機檔案 <code>file://</code></td>
-      <td>預設關閉，到擴充功能頁開啟「允許存取檔案網址」就能用</td>
-    </tr>
-  </table>
-
-  <div class="callout">
-    <p><strong>這些情況改用桌面版就能用。</strong></p>
-    <p>桌面版在作業系統層攔截鍵盤，不依賴網頁結構，Google 文件已實測確認正常。</p>
-    <p>
-      <a class="support-btn" href="https://b96093.github.io/bopomofo-garble-detector/"
-         target="_blank" rel="noopener">下載 Windows 桌面版</a>
-    </p>
+      <div class="callout">
+        <strong>永遠不會自動替換。</strong>一定要你按 <kbd>Enter</kbd> 或用滑鼠點，才會動到你的文字。
+        不理它繼續打字也可以，候選窗會自己消失。
+      </div>
+    </section>
   </div>
 
-  <p class="note">
-    兩個都裝的話，在桌面版設定裡取消勾選「在 Chrome 中也偵測」可避免跳出兩個候選窗；
-    但那會讓桌面版在 Google 文件也一起停用。主要用 Google 文件的話，
-    就保持勾選、改成停用這個擴充。
-  </p>
+  <div class="cols">
+    <section>
+      <h2>打完才發現打錯了？</h2>
+      <p>
+        把那段亂碼<strong>用滑鼠選取起來</strong>，旁邊會出現一個小按鈕，點它就能轉換。
+        不限剛打的字，網頁上任何可編輯的亂碼都行。
+      </p>
+    </section>
+
+    <section>
+      <h2>覺得太常跳，或都不跳？</h2>
+      <p>
+        到<a href="../options/options.html" id="opt-link">擴充功能選項</a>調整靈敏度，也可以整個關掉偵測。
+      </p>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section>
+      <h2 id="limits">有些地方它幫不上忙</h2>
+      <p>這幾種情況不是設定問題，是瀏覽器或網站的架構限制：</p>
+      <table class="limits">
+        <tr>
+          <td>
+            <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+              <path d="M14 3v5h5M9 13h6M9 17h4"/>
+            </svg>Google 文件
+          </td>
+          <td>文字畫在 canvas 上，網頁結構裡讀不到，擴充不知道你打了什麼</td>
+        </tr>
+        <tr>
+          <td>
+            <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2"/>
+              <path d="M3 9h18M7 6.5h.01M10 6.5h.01"/>
+            </svg>Chrome 內建頁面
+          </td>
+          <td>新分頁、設定頁、擴充功能頁、線上應用程式商店 —— 瀏覽器禁止任何擴充存取</td>
+        </tr>
+        <tr>
+          <td>
+            <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            </svg>本機檔案
+          </td>
+          <td>預設關閉，到擴充功能頁開啟「允許存取檔案網址」就能用</td>
+        </tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>那就改用桌面版</h2>
+      <div class="callout">
+        <p><strong>上面那些情況，桌面版都能用。</strong></p>
+        <p>桌面版在作業系統層攔截鍵盤，不依賴網頁結構，Google 文件已實測確認正常。</p>
+        <p>
+          <a class="support-btn" href="https://b96093.github.io/bopomofo-garble-detector/"
+             target="_blank" rel="noopener">下載 Windows 桌面版</a>
+        </p>
+      </div>
+      <p class="note">
+        兩個都裝的話，在桌面版設定裡取消勾選「在 Chrome 中也偵測」可避免跳出兩個候選窗；
+        但那會讓桌面版在 Google 文件也一起停用。主要用 Google 文件的話，
+        就保持勾選、改成停用這個擴充。
+      </p>
+    </section>
+  </div>
 
   <h2>隱私</h2>
   <p class="note">
