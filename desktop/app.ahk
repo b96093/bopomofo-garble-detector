@@ -81,6 +81,9 @@ global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 ; 贊助連結：填入後，系統列選單與設定頁才會出現「支持開發」入口。
 ; 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
 global SUPPORT_URL := "https://ko-fi.com/gu005168"
+; 問題回報管道。本工具刻意不做任何遙測，所以這是唯一會有的回饋來源 ——
+; 沒有它，使用者遇到問題只會默默解除安裝，而你永遠不會知道。
+global ISSUES_URL := "https://github.com/b96093/bopomofo-garble-detector/issues"
 
 
 ; ---------- 啟動 ----------
@@ -1133,6 +1136,12 @@ ShowSettings() {
         g.SetFont("s9")
     }
 
+    ; 版本號與回報管道。使用者回報問題時若不知道版本，幾乎無從查起 ——
+    ; 這個 exe 光是開發期間就重編了七次。
+    g.SetFont("s9")
+    g.Add("Text", "xm y+18 w200 c888888", "注音亂碼偵測　" . AppVersion())
+    g.Add("Button", "x+0 yp-6 w96 h28", "回報問題").OnEvent("Click", (*) => OpenIssues())
+
     g.SetFont("s10")
     g.Add("Button", "xm y+16 w96 h30 Default", "儲存").OnEvent("Click", (*) => SaveFromGui(g))
     g.Add("Button", "x+8 yp w96 h30", "關閉").OnEvent("Click", (*) => g.Hide())
@@ -1161,6 +1170,23 @@ SaveFromGui(g) {
     Reset()
     g.Hide()
     Tip("設定已儲存", 1500)
+}
+
+; 版本號取自編譯進 exe 的版本資訊（來源就是檔頭的 Ahk2Exe 指示詞），
+; 不另外維護一份常數，免得改了一邊忘了另一邊。
+AppVersion() {
+    if (A_IsCompiled) {
+        try {
+            v := FileGetVersion(A_ScriptFullPath)
+            if (v != "")
+                return RegExReplace(v, "\.0$")      ; 1.0.0.0 → 1.0.0
+        }
+    }
+    return "開發版"
+}
+
+OpenIssues() {
+    try Run(ISSUES_URL)
 }
 
 OpenSupport() {
