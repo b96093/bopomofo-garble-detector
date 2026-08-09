@@ -19,10 +19,10 @@
     /* 標題原本和內文同為 16px，層級只靠粗體撐，掃視時分不出段落。
        放大並加上分隔線，讓每一節的起點一眼可見。 */
     h2 {
-      font-size: 19px; font-weight: 600; margin: 3rem 0 1rem;
-      padding-top: 1.5rem; border-top: 1px solid var(--line);
+      font-size: 19px; font-weight: 600; margin: 2.2rem 0 .8rem;
+      padding-top: 1.4rem; border-top: 1px solid var(--line);
     }
-    h2:first-of-type { border-top: none; padding-top: 0; margin-top: 2.5rem; }
+    h2:first-of-type { border-top: none; padding-top: 0; margin-top: 2rem; }
     p { margin: .6rem 0; }
     .demo-line {
       font-size: 19px; margin: 1.5rem 0; padding: 1rem 1.2rem;
@@ -46,8 +46,10 @@
     .cand.top .v { font-weight: 600; }
 
     table { border-collapse: collapse; width: 100%; }
-    td { padding: .45rem .2rem; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
-    td:first-child { width: 130px; white-space: nowrap; }
+    td { padding: .5rem .2rem; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    /* 首欄靠內容決定寬度。原本固定 130px，但 kbd 只有 29px 寬 ——
+       中間空了 98px，視線要跨過一大片空白才找得到對應的說明。 */
+    td:first-child { width: 1%; white-space: nowrap; padding-right: 1.4rem; }
     kbd {
       font-family: inherit; font-size: 13px; background: #f2f2f2; border: 1px solid #d8d8d8;
       border-bottom-width: 2px; border-radius: 5px; padding: 1px 7px; margin-right: 2px;
@@ -61,7 +63,7 @@
     .callout p:last-child { margin-bottom: 0; }
     /* 限制清單原本用「——」把場合和原因串成一段，折行後標題就淹沒在說明裡。
        改成兩欄，場合固定在左，掃一眼就知道自己是不是踩到其中一項。 */
-    .limits td:first-child { width: 190px; white-space: normal; font-weight: 600; }
+    .limits td:first-child { font-weight: 600; }
     .limits td:last-child { color: var(--muted); font-size: 14px; }
     /* 視窗窄的時候固定寬度的首欄會把說明擠成細長條（實測 279px 寬時整節高度多一倍）。
        兩欄改成上下堆疊。快捷鍵表格欄位短，不受影響。 */
