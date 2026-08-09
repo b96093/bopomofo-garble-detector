@@ -28,7 +28,7 @@ title: 注音亂碼偵測
 - [原始碼與說明文件](https://github.com/b96093/bopomofo-garble-detector)
 - [隱私權政策](privacy-policy)
 - [問題回報](https://github.com/b96093/bopomofo-garble-detector/issues)
-- [支持開發](support)
+- [聯絡與合作](support)
 
 ## 隱私
 
