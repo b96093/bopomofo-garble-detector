@@ -10,6 +10,13 @@ export function isTextField(el) {
   return false;
 }
 
+// contenteditable 會把空白存成不斷行空白（U+00A0），否則 HTML 會把尾端空白折疊掉。
+// 但使用者按的就是空白鍵 —— 在大千佈局裡那是一聲的聲調鍵，不是斷詞用的空格。
+// 讀進來時先還原，引擎才不會把它當成邊界。1:1 替換不改變長度，索引仍對得上文字節點。
+export function normalizeTyped(text) {
+  return text.replace(/ /g, ' ');
+}
+
 function closestEditableHost(node) {
   const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
   return el ? el.closest('[contenteditable=""],[contenteditable="true"]') : null;
@@ -27,7 +34,7 @@ export function getEditableContext() {
   if (sel && sel.rangeCount && sel.isCollapsed) {
     const node = sel.anchorNode;
     if (node && node.nodeType === Node.TEXT_NODE && closestEditableHost(node)) {
-      return { kind: 'ce', node, text: node.textContent, caret: sel.anchorOffset, host: closestEditableHost(node) };
+      return { kind: 'ce', node, text: normalizeTyped(node.textContent), caret: sel.anchorOffset, host: closestEditableHost(node) };
     }
   }
   return null;
@@ -60,7 +67,7 @@ export function getSelectionContext() {
   if (sel && sel.rangeCount && !sel.isCollapsed) {
     const range = sel.getRangeAt(0);
     if (closestEditableHost(range.commonAncestorContainer)) {
-      return { kind: 'range', range, text: sel.toString() };
+      return { kind: 'range', range, text: normalizeTyped(sel.toString()) };
     }
   }
   return null;
