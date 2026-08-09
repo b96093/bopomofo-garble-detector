@@ -220,10 +220,16 @@ AHK 編譯的 exe 幾乎一定會被 Windows Defender 以
 
 | 項目 | 內容 |
 | --- | --- |
-| 提交日期 | （待填） |
+| Submission ID | `88b4dfac-5ad1-4a73-8634-5bb29aaa5882` |
+| 提交時間 | 2026-08-09 23:34（台北時間） |
+| 提交者 | b96093@gmail.com |
+| User Opinion | PuaFalsePositive |
+| 判定名稱 | `Program:Win32/Contebrew.A!ml` |
+| 定義版本 | 1.457.80.0 |
 | 對應 exe SHA256 | `1DD108F880C0721284D947968C085C94045D01F67AD5D461B48FA4608751150C` |
-| Submission ID | （待填） |
-| 狀態 | 尚未送出 |
+| 狀態 | Submitted（送出時） |
+
+🔒 **`desktop/` 自 2026-08-09 起凍結**，直到這筆有結果為止。
 
 **為什麼會有第三次**：第二次送出（2026-08-06）後沒有凍結 `desktop/`，
 接連提交了剪貼簿修正、系統列選單、暫停圖示、全螢幕修正、使用說明重做、設定頁版本號
