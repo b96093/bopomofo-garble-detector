@@ -221,7 +221,7 @@ AHK 編譯的 exe 幾乎一定會被 Windows Defender 以
 | 項目 | 內容 |
 | --- | --- |
 | 提交日期 | （待填） |
-| 對應 exe SHA256 | `BD82EEE43F0C4E095C14F607418E76B48719590D1078E4278A86BF0CE5E6403A` |
+| 對應 exe SHA256 | `A881F43D217A1B89AD678B4EC1DE44C1D2273C120001C5A33B47A88B47394CB2` |
 | Submission ID | （待填） |
 | 狀態 | 尚未送出 |
 

@@ -80,7 +80,11 @@ global WELGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 ; 贊助連結：填入後，系統列選單與設定頁才會出現「支持開發」入口。
 ; 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
-global SUPPORT_URL := "https://ko-fi.com/gu005168"
+;
+; 指向自家頁面而非收款平台，是為了讓收款方式能隨時更換 —— 這個常數編進 exe，
+; 一改就得重新編譯，hash 一變防毒白名單就失效，得整套複驗流程重來一次。
+; 指到 GitHub Pages 之後，換收款平台只要改 docs/support.md，exe 完全不用動。
+global SUPPORT_URL := "https://b96093.github.io/bopomofo-garble-detector/support"
 ; 問題回報管道。本工具刻意不做任何遙測，所以這是唯一會有的回饋來源 ——
 ; 沒有它，使用者遇到問題只會默默解除安裝，而你永遠不會知道。
 global ISSUES_URL := "https://github.com/b96093/bopomofo-garble-detector/issues"
