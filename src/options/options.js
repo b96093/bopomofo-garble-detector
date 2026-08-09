@@ -26,10 +26,9 @@ function save() {
 
 document.addEventListener('DOMContentLoaded', () => {
   load();
-  if (SUPPORT_URL) {
-    $('support-link').href = SUPPORT_URL;
-    $('support').style.display = 'block';
-  }
+  // 贊助入口在 HTML 裡預設就顯示；這裡只把網址對回單一來源，留空時才整塊藏起來
+  if (SUPPORT_URL) $('support-link').href = SUPPORT_URL;
+  else $('support').style.display = 'none';
   $('enabled').addEventListener('change', save);
   document.querySelectorAll('input[name=mode]').forEach((el) => el.addEventListener('change', save));
 });

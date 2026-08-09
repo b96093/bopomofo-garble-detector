@@ -13,7 +13,8 @@
     fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; }
     legend { font-size: 13px; color: #666; }
     #status { color: #178a4c; font-size: 13px; height: 16px; }
-    #support { display: none; margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; }
+    /* 預設就顯示；JS 只在 SUPPORT_URL 為空時才隱藏（同 welcome.html） */
+    #support { margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; }
     /* 做成看得出可以點的按鈕，與說明頁、桌面版一致 */
     #support a {
       display: inline-block; margin-top: .6rem; padding: .5rem .9rem;
@@ -55,7 +56,10 @@
 
   <div id="support">
     <div class="hint">這個工具永久免費，也不會有廣告。</div>
-    <a id="support-link" href="#" target="_blank" rel="noopener">☕ 請開發者喝杯咖啡</a>
+    <!-- href 的真正來源是 src/support.js，載入後由 options.js 覆寫；
+         這裡寫死同一個網址，是為了 JS 沒跑起來時連結仍然可用。 -->
+    <a id="support-link" target="_blank" rel="noopener"
+       href="https://b96093.github.io/bopomofo-garble-detector/support">☕ 請開發者喝杯咖啡</a>
   </div>
 
   <script type="module" src="options.js"></script>
