@@ -74,7 +74,7 @@
     footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
     a { color: var(--accent); }
     /* 預設就顯示。原本是預設隱藏、靠 welcome.js 打開，但那支檔案第一件事是載入
-       5MB 詞庫 —— 詞庫掛掉就連贊助入口一起消失，兩件不相干的事被綁在一起。
+       5MB 詞庫 —— 詞庫掛掉就連聯絡入口一起消失，兩件不相干的事被綁在一起。
        改成 JS 只在 SUPPORT_URL 為空時才隱藏，失敗方向是安全的。 */
     #support { margin-top: .9rem; }
     /* 做成看得出可以點的按鈕。灰色內文連結太容易被當成註腳略過 —— 桌面版
@@ -172,12 +172,12 @@
   </p>
 
   <footer>
-    <p class="note">本工具永久免費，也不會有廣告。</p>
+    <p class="note">本工具永久免費，沒有廣告，也不收贊助。有問題或想一起做點東西，歡迎來信。</p>
     <p id="support">
       <!-- href 的真正來源是 src/support.js，載入後由 welcome.js 覆寫。
            這裡寫死同一個網址，是為了 JS 沒跑起來時連結仍然可用。 -->
       <a id="support-link" class="support-btn" target="_blank" rel="noopener"
-         href="https://b96093.github.io/bopomofo-garble-detector/support">☕ 請開發者喝杯咖啡</a>
+         href="https://b96093.github.io/bopomofo-garble-detector/support">聯絡開發者</a>
     </p>
   </footer>
 

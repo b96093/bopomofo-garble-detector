@@ -47,7 +47,7 @@ function run() {
 
 box.addEventListener('input', run);
 
-// 贊助入口在 HTML 裡預設就顯示（見 welcome.html 的 #support 註解）。
+// 聯絡入口在 HTML 裡預設就顯示（見 welcome.html 的 #support 註解）。
 // 這裡只負責兩件事：把網址對回單一來源，以及 SUPPORT_URL 留空時整塊藏起來。
 if (SUPPORT_URL) {
   document.getElementById('support-link').href = SUPPORT_URL;

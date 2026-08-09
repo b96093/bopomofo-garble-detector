@@ -78,8 +78,9 @@ global THRESH := 0.8, MINSYL := 2  ; 由 LEVEL 換算而來
 global SETGUI := ""
 global WELGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
-; 贊助連結：填入後，系統列選單與設定頁才會出現「支持開發」入口。
+; 聯絡頁連結：填入後，說明視窗與設定頁才會出現「聯絡開發者」入口。
 ; 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
+; 變數名沿用 SUPPORT_URL，與 Chrome 版的 src/support.js 對應。
 ;
 ; 指向自家頁面而非收款平台，是為了讓收款方式能隨時更換 —— 這個常數編進 exe，
 ; 一改就得重新編譯，hash 一變防毒白名單就失效，得整套複驗流程重來一次。
@@ -1064,18 +1065,18 @@ ShowWelcome() {
     g.Add("Text", "x0 y590 w612 h74 BackgroundF7F7F7")
     g.SetFont("s10 w400 c1E1E1E", FN)
     g.Add("Button", "x" . PAD . " y602 w104 h32 Default", "開始使用").OnEvent("Click", (*) => g.Hide())
-    ; 開設定時把說明收起來：兩個視窗都有「請開發者喝杯咖啡」，疊在一起會看到兩顆
+    ; 開設定時把說明收起來：兩個視窗都有「聯絡開發者」，疊在一起會看到兩顆
     ; 一樣的按鈕，顯得急著要錢。而且看說明與改設定本來就是前後兩件事，不必並存。
     g.Add("Button", "x+8 yp w104 h32", "開啟設定…").OnEvent("Click", (*) => (g.Hide(), ShowSettings()))
 
-    ; 贊助放頁尾右側：與主要動作分開，但用強調色與較大字級，不會被當成註腳。
+    ; 聯絡入口放頁尾右側：與主要動作分開，但不會被當成註腳。
     ; 這是使用者剛看完說明、對工具最有好感的時刻。
     if (SUPPORT_URL != "") {
         ; 用 Button 而不是彩色文字：文字再顯眼也不會把游標變成手指，
         ; 使用者看不出可以點（設定頁的「移除本工具」就踩過同一個坑）。
         ; 稱呼用「開發者」而非「我」—— 使用者不認識視窗裡的「我」是誰。
         g.SetFont("s10 w400 c1E1E1E", FN)
-        g.Add("Button", "x" . (PAD + 386) . " y602 w174 h32", "請開發者喝杯咖啡")
+        g.Add("Button", "x" . (PAD + 386) . " y602 w174 h32", "聯絡開發者")
             .OnEvent("Click", (*) => OpenSupport())
     }
     g.SetFont("s9 w400 c999999", FN)
@@ -1137,9 +1138,9 @@ ShowSettings() {
         "偵測內容只存在記憶體，不寫入檔案、不連上網路。")
     if (SUPPORT_URL != "") {
         ; 同說明視窗：用 Button，文字連結看不出可以點
-        g.Add("Text", "xm y+10 w420 c888888", "這個工具永久免費，也不會有廣告。")
+        g.Add("Text", "xm y+10 w420 c888888", "這個工具永久免費，沒有廣告，也不收贊助。")
         g.SetFont("s10")
-        g.Add("Button", "xm y+8 w174 h32", "請開發者喝杯咖啡")
+        g.Add("Button", "xm y+8 w174 h32", "聯絡開發者")
             .OnEvent("Click", (*) => OpenSupport())
         g.SetFont("s9")
     }
