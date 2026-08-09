@@ -125,6 +125,18 @@ Check("尾端 NBSP 還原後可偵測", First(Detect(NormalizeTyped("su3gji" . N
 Check("中間 NBSP 還原後可偵測", First(Detect(NormalizeTyped("su3gji" . NBSP . "su3gji"), dict, 0.5, 1, true)), "你說你說")
 
 Say("")
+Say("── 選取路徑不誤判（CheckSelection 用的門檻）──")
+; 桌面版的選取提示是被動的：每次滑鼠拖曳、每次 Ctrl+A 都會跑。
+; 那是複製東西的日常動作，不是意圖，所以要用和打字路徑一樣的門檻（THRESH/MINSYL），
+; 不能放寬成 (0.5, 1, manual)，否則選個版本號、IP、電話號碼都會跳圖示。
+Check("版本號", First(Detect("1.457.72.0", dict, 0.8, 2)), "null")
+Check("IP 位址", First(Detect("192.168.0.1", dict, 0.8, 2)), "null")
+Check("手機號碼（選取）", First(Detect("0966335806", dict, 0.8, 2)), "null")
+Check("純數字（選取）", First(Detect("8731", dict, 0.8, 2)), "null")
+Check("時間（選取）", First(Detect("09:41", dict, 0.8, 2)), "null")
+Check("真亂碼仍要跳", First(Detect("ji394t au04", dict, 0.8, 2)), "我愛吃面")
+
+Say("")
 Say(Format("結果：{1} 通過 / {2} 失敗", PASS, FAIL))
 Dump()
 ExitApp(FAIL > 0 ? 1 : 0)

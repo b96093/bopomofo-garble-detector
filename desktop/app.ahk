@@ -380,8 +380,10 @@ CheckSelection(fromMouse := true) {
         HideIcon()
         return
     }
-    ; 使用者主動選取＝已表明意圖，門檻放寬（跳過常見英文那關、單字也能轉）
-    res := Detect(text, DICT, 0.5, 1, true)
+    ; 用和打字路徑一樣的門檻。這裡是「被動」提示 —— 每次滑鼠拖曳、每次 Ctrl+A 都會跑，
+    ; 選字複製是日常動作而非意圖。放寬成 (0.5, 1, manual) 會讓版本號、IP、電話號碼
+    ; 統統跳出圖示打擾人，而那些正是使用者最常選取來複製的東西。
+    res := Detect(text, DICT, THRESH, MINSYL)
     if (res == "") {
         HideIcon()
         return

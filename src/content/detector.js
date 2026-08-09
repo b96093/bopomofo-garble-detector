@@ -17,6 +17,14 @@ function debounce(fn, ms) {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
+// 選取路徑的偵測門檻。這兩種觸發的「意圖強度」差很多，不能共用一組：
+//   被動提示 —— 只要選取任何文字就跑。選字複製是日常動作，不是意圖，
+//               門檻放寬會讓版本號、IP、電話號碼統統跳出來打擾人。
+//   明確熱鍵 —— 使用者按了 Ctrl+Alt+Z，就是表明「我要轉這段」，選到什麼都該給候選。
+export function selectionOpts(opts, explicit) {
+  return explicit ? { ...opts, manual: true, minSyllables: 1, threshold: 0.5 } : opts;
+}
+
 export function initDetector(dict, detect, opts = {}) {
   const popup = createPopup();
   const hint = createHint();
@@ -56,15 +64,16 @@ export function initDetector(dict, detect, opts = {}) {
   }
   const scanDebounced = debounce(scan, 160);
 
-  // 手動補救：把選取的那段拿去判定（使用者已表明意圖，門檻放寬）
+  // 手動補救：把選取的那段拿去判定
+  // explicit=true 代表使用者按了熱鍵（門檻放寬，見 selectionOpts）
   // 回傳可開啟候選窗的動作，或 null（選取內容不是亂碼）
-  function prepareSelection() {
+  function prepareSelection(explicit = false) {
     const sc = getSelectionContext();
     if (!sc || !sc.text.trim()) return null;
     const lead = sc.text.match(/^\s*/)[0];
     const trail = sc.text.match(/\s*$/)[0];
     const core = sc.text.slice(lead.length, sc.text.length - trail.length);
-    const res = detect(core, dict, { ...opts, manual: true, minSyllables: 1, threshold: 0.5 });
+    const res = detect(core, dict, selectionOpts(opts, explicit));
     if (!res) return null;
     return {
       preview: res.candidates[0],
@@ -102,7 +111,7 @@ export function initDetector(dict, detect, opts = {}) {
     if (e.key === 'Escape' && hint.isVisible()) { hint.hide(); return; }
     // 保留快捷鍵給習慣鍵盤的人（與浮出按鈕等效）
     if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
-      const sel = prepareSelection();
+      const sel = prepareSelection(true);
       if (sel) { e.preventDefault(); e.stopPropagation(); sel.open(); }
     }
   }, true);
