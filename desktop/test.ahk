@@ -114,6 +114,17 @@ Check("含字母仍正常", First(Detect("ji394t au04", dict)), "我愛吃面")
 Check("含字母的數字句", First(Detect("a930ek7", dict)), "買0個")
 
 Say("")
+Say("── 不斷行空白（從瀏覽器富文字框複製過來的選取內容）──")
+; 瀏覽器在 contenteditable 裡把空白存成 U+00A0，複製出來也是 U+00A0。
+; 但使用者按的是空白鍵 —— 大千佈局裡那是一聲的聲調鍵，不是斷詞用的空格。
+NBSP := Chr(0xA0)
+Check("NBSP 還原成空白鍵", NormalizeTyped("su3gji" . NBSP), "su3gji ")
+Check("還原不改變長度", StrLen(NormalizeTyped("su3gji" . NBSP . "su3gji")), 13)
+Check("其他字元原樣不動", NormalizeTyped("ji394t au04"), "ji394t au04")
+Check("尾端 NBSP 還原後可偵測", First(Detect(NormalizeTyped("su3gji" . NBSP), dict, 0.5, 1, true)), "你說")
+Check("中間 NBSP 還原後可偵測", First(Detect(NormalizeTyped("su3gji" . NBSP . "su3gji"), dict, 0.5, 1, true)), "你說你說")
+
+Say("")
 Say(Format("結果：{1} 通過 / {2} 失敗", PASS, FAIL))
 Dump()
 ExitApp(FAIL > 0 ? 1 : 0)

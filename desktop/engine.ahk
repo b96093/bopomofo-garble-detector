@@ -193,6 +193,14 @@ IsRunChar(ch) {
     return InStr(";/.,- ", ch, true) > 0
 }
 
+; 瀏覽器在 contenteditable（FB 留言框、Gmail 編輯區等）裡會把空白存成不斷行空白
+; U+00A0，否則 HTML 會把尾端空白折疊掉；複製出來的純文字也是 U+00A0。
+; 但使用者按的就是空白鍵 —— 大千佈局裡那是一聲的聲調鍵，不是斷詞用的空格。
+; 讀進來時先還原，IsRunChar 才不會把它當成邊界。打字路徑收到的是真實按鍵，不受影響。
+NormalizeTyped(s) {
+    return StrReplace(s, Chr(0xA0), " ")
+}
+
 HanRatio(s) {
     if (s == "")
         return 0

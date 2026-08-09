@@ -371,7 +371,7 @@ CheckSelection(fromMouse := true) {
     if (!READY || BUSY || PAUSED || POPUP_ON || IsExcludedApp() || !CanShowOverlay())
         return
     SELFROMMOUSE := fromMouse
-    text := Trim(GetSelectedText(), " `t`r`n")
+    text := Trim(NormalizeTyped(GetSelectedText()), " `t`r`n")
     if (text == "" || StrLen(text) > 120) {   ; 太長的選取不是我們的使用情境
         HideIcon()
         return
