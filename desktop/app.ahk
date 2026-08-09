@@ -1064,7 +1064,9 @@ ShowWelcome() {
     g.Add("Text", "x0 y590 w612 h74 BackgroundF7F7F7")
     g.SetFont("s10 w400 c1E1E1E", FN)
     g.Add("Button", "x" . PAD . " y602 w104 h32 Default", "開始使用").OnEvent("Click", (*) => g.Hide())
-    g.Add("Button", "x+8 yp w104 h32", "開啟設定…").OnEvent("Click", (*) => ShowSettings())
+    ; 開設定時把說明收起來：兩個視窗都有「請開發者喝杯咖啡」，疊在一起會看到兩顆
+    ; 一樣的按鈕，顯得急著要錢。而且看說明與改設定本來就是前後兩件事，不必並存。
+    g.Add("Button", "x+8 yp w104 h32", "開啟設定…").OnEvent("Click", (*) => (g.Hide(), ShowSettings()))
 
     ; 贊助放頁尾右側：與主要動作分開，但用強調色與較大字級，不會被當成註腳。
     ; 這是使用者剛看完說明、對工具最有好感的時刻。

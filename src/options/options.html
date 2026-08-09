@@ -13,7 +13,13 @@
     legend { font-size: 13px; color: #666; }
     #status { color: #178a4c; font-size: 13px; height: 16px; }
     #support { display: none; margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; }
-    #support a { color: #1a5fb4; font-size: 14px; }
+    /* 做成看得出可以點的按鈕，與說明頁、桌面版一致 */
+    #support a {
+      display: inline-block; margin-top: .6rem; padding: .5rem .9rem;
+      border: 1px solid #ddd; border-radius: 6px;
+      color: #1a5fb4; font-size: 14px; text-decoration: none;
+    }
+    #support a:hover { background: #f6f9fd; border-color: #1a5fb4; }
   </style>
 </head>
 <body>
@@ -42,8 +48,8 @@
   <p><a href="../welcome/welcome.html" target="_blank">重看使用說明</a></p>
 
   <div id="support">
-    <a id="support-link" href="#" target="_blank" rel="noopener">☕ 支持開發</a>
-    <div class="hint">這個工具永久免費、也不會有廣告。覺得好用的話，可以請我喝杯咖啡。</div>
+    <div class="hint">這個工具永久免費，也不會有廣告。</div>
+    <a id="support-link" href="#" target="_blank" rel="noopener">☕ 請開發者喝杯咖啡</a>
   </div>
 
   <script type="module" src="options.js"></script>

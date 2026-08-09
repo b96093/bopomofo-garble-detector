@@ -52,7 +52,14 @@
     }
     footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
     a { color: var(--accent); }
-    #support { display: none; }
+    #support { display: none; margin-top: .9rem; }
+    /* 做成看得出可以點的按鈕。灰色內文連結太容易被當成註腳略過 —— 桌面版
+       踩過同一個坑（見 desktop/app.ahk 的說明視窗頁尾）。 */
+    .support-btn {
+      display: inline-block; padding: .5rem .9rem; border: 1px solid var(--line);
+      border-radius: 6px; font-size: 14px; text-decoration: none; color: var(--accent);
+    }
+    .support-btn:hover { background: #f6f9fd; border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -109,9 +116,9 @@
   </p>
 
   <footer>
-    <p class="note">
-      本工具永久免費，也不會有廣告。
-      <span id="support">覺得好用的話，可以<a id="support-link" href="#" target="_blank" rel="noopener">請我喝杯咖啡 ☕</a>。</span>
+    <p class="note">本工具永久免費，也不會有廣告。</p>
+    <p id="support">
+      <a id="support-link" class="support-btn" href="#" target="_blank" rel="noopener">☕ 請開發者喝杯咖啡</a>
     </p>
   </footer>
 

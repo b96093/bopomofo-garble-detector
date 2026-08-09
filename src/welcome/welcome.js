@@ -49,7 +49,7 @@ box.addEventListener('input', run);
 
 if (SUPPORT_URL) {
   document.getElementById('support-link').href = SUPPORT_URL;
-  document.getElementById('support').style.display = 'inline';
+  document.getElementById('support').style.display = 'block';
 }
 
 // 擴充頁面之間不能用相對路徑直接開啟選項頁
