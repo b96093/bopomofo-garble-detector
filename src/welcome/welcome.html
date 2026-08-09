@@ -50,6 +50,11 @@
       border-left: 3px solid var(--accent); background: #f6f9fd;
       padding: .8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0;
     }
+    .callout p { margin: .5rem 0; }
+    .limits { padding-left: 1.2rem; margin: .6rem 0; }
+    .limits li { margin: .5rem 0; color: var(--muted); font-size: 14px; }
+    .limits strong { color: #1e1e1e; }
+    code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: 13px; }
     footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
     a { color: var(--accent); }
     #support { display: none; margin-top: .9rem; }
@@ -108,6 +113,41 @@
   <p>
     到<a href="../options/options.html" id="opt-link">擴充功能選項</a>調整靈敏度，也可以整個關掉偵測。
   </p>
+
+  <h2 id="limits">有些地方它幫不上忙</h2>
+  <p class="note">這幾種情況不是設定問題，是瀏覽器或網站的架構限制：</p>
+  <ul class="limits">
+    <li>
+      <strong>Google 文件</strong> —— Docs 把文字畫在 canvas 上，內容不存在於網頁結構裡，
+      擴充讀不到你打了什麼，也不知道游標在哪。任何依賴網頁結構的擴充都一樣。
+    </li>
+    <li>
+      <strong>Chrome 的新分頁、設定頁、擴充功能頁</strong> ——
+      瀏覽器基於安全考量禁止任何擴充存取內建頁面。
+    </li>
+    <li><strong>Chrome 線上應用程式商店</strong> —— 同上，屬於瀏覽器保護範圍。</li>
+    <li>
+      <strong>本機檔案（<code>file://</code>）</strong> ——
+      預設關閉。到擴充功能頁開啟「允許存取檔案網址」就能用。
+    </li>
+  </ul>
+
+  <div class="callout">
+    <p><strong>這些情況改用桌面版就能用。</strong></p>
+    <p class="note">
+      桌面版在作業系統層攔截鍵盤，完全不依賴網頁結構，所以 Google 文件、Word、
+      PowerPoint、LINE、記事本統統可用 —— Google 文件已實測確認正常。
+    </p>
+    <p>
+      <a class="support-btn" href="https://b96093.github.io/bopomofo-garble-detector/"
+         target="_blank" rel="noopener">下載 Windows 桌面版</a>
+    </p>
+    <p class="note">
+      兩個都裝的話，請在桌面版設定裡<strong>取消勾選</strong>「在 Chrome 中也偵測」，
+      否則一般網頁會跳出兩個候選窗。但這樣桌面版在 Google 文件也會一起停用 ——
+      若你主要用 Google 文件，就保持勾選、改成停用這個擴充。
+    </p>
+  </div>
 
   <h2>隱私</h2>
   <p class="note">
