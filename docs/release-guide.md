@@ -227,9 +227,29 @@ AHK 編譯的 exe 幾乎一定會被 Windows Defender 以
 | 判定名稱 | `Program:Win32/Contebrew.A!ml` |
 | 定義版本 | 1.457.80.0 |
 | 對應 exe SHA256 | `1DD108F880C0721284D947968C085C94045D01F67AD5D461B48FA4608751150C` |
-| 狀態 | Submitted（送出時） |
+| **結果** | ✅ **2026-08-10 Completed —— 不符合惡意程式／PUA 判定標準** |
 
-🔒 **`desktop/` 自 2026-08-09 起凍結**，直到這筆有結果為止。
+分析師回覆原文：
+
+> The submitted files do not meet our criteria for malware or potentially unwanted
+> applications. **No detection will be removed for these files.**
+>
+> If we need to remove the detection for submitted files, Requesting you share below
+> information with us for further investigation.
+
+⚠️ **這次的措辭要看仔細**：第一次寫的是 "No detection will be **added**"，這次是
+"will be **removed**"。乍看像被拒絕，其實是「**目前沒有偵測可以移除**」——因為這顆
+exe 根本沒被判定。送件前後各掃過一次都是 found no threats（定義版本 1.457.80.0），
+與此一致。他們套用的是「要求移除既有偵測」情境的樣板，而這個案子沒有偵測存在。
+
+**這份結果保證什麼、不保證什麼**：
+
+- ✅ 不會被歸類為惡意程式或 PUA
+- ❌ **不保證使用者不會看到警告**。SmartScreen 是另一套機制 —— 它看的是下載聲譽與
+  數位簽章，不是惡意程式判定。沒有簽章、下載量又少的新 exe，幾乎一定會跳
+  「Windows 已保護您的電腦」。那不是這份回覆能解決的，要靠程式碼簽章憑證或累積下載量。
+
+🔓 **`desktop/` 解凍**（2026-08-10）。
 
 **為什麼會有第三次**：第二次送出（2026-08-06）後沒有凍結 `desktop/`，
 接連提交了剪貼簿修正、系統列選單、暫停圖示、全螢幕修正、使用說明重做、設定頁版本號
