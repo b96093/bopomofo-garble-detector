@@ -21,7 +21,7 @@ title: 注音亂碼偵測
 ## 安裝
 
 - **Chrome 擴充** —— [Chrome 線上應用程式商店](https://chromewebstore.google.com/detail/gjghbjnkbbccdhfiddmceijjkebajilm)
-- **Windows 桌面版** —— [下載最新版](https://github.com/b96093/bopomofo-garble-detector/releases)
+- **Windows 桌面版** —— [下載與安裝說明](install)（執行時會跳出 Windows 警告，那一頁有說明怎麼過）
 
 ## 連結
 
