@@ -251,6 +251,52 @@ exe 根本沒被判定。送件前後各掃過一次都是 found no threats（�
 
 🔓 **`desktop/` 解凍**（2026-08-10）。
 
+### ⚠️ 但這次送錯了偵測名稱 —— 最重要的一課
+
+複驗通過後做真實情境測試（上傳到雲端硬碟再用瀏覽器下載），結果**下載直接失敗**，
+Chrome 顯示「系統偵測到病毒」。查 Defender 紀錄才發現：
+
+| | 我們送審的 | 實際擋下載的 |
+| --- | --- | --- |
+| 名稱 | `Program:Win32/Contebrew.A!ml` | **`Trojan:Win32/Wacatac.C!ml`** |
+| 類別 | PUA | **Trojan（惡意程式）** |
+| 嚴重度 | 4 | **5（Severe）** |
+| ThreatID | 251873 | 2147749372 |
+
+`Contebrew` 是 2026-07-28 那版舊 exe 的判定名稱，我們一路沿用到第三次提交。
+**但每次重編出的 exe 可能觸發完全不同的分類器** —— 這顆觸發的是 Wacatac。
+
+這也解釋了「No detection will be **removed**」的措辭：沒有 Contebrew 偵測可以移除，
+因為真正存在的是 Wacatac。分析師的回覆從頭到尾都是正確的，是我們報錯了。
+
+**兩個關鍵教訓**：
+
+1. **本機掃描乾淨 ≠ 使用者不會被擋。** `MpCmdRun -Scan` 對本機檔案回報 no threats，
+   但瀏覽器下載的檔案帶有 mark-of-the-web，會走雲端分類器 —— 那是完全不同的判定路徑。
+   **送件前一定要先做真實下載測試**，否則會像這次一樣，報了一個根本不存在的偵測名稱。
+
+2. **偵測名稱要從實機查，不要沿用舊記錄。** 查法：
+
+   ```powershell
+   Get-MpThreatDetection | Sort-Object InitialDetectionTime -Descending |
+       Select-Object -First 3 InitialDetectionTime, ThreatID, Resources
+   Get-MpThreat | Select-Object ThreatID, ThreatName, SeverityID, IsActive
+   ```
+
+   用 ThreatID 對照出 ThreatName，那才是要填進表單的名稱。
+
+### 第四次提交（正確的偵測名稱）
+
+| 項目 | 內容 |
+| --- | --- |
+| 提交日期 | （待填） |
+| Submission ID | （待填） |
+| 判定名稱 | `Trojan:Win32/Wacatac.C!ml` |
+| 提交類別 | **Incorrectly detected as malware/malicious**（不是 PUA） |
+| 定義版本 | 1.457.80.0 |
+| 對應 exe SHA256 | `1DD108F880C0721284D947968C085C94045D01F67AD5D461B48FA4608751150C`（與第三次相同，未重編） |
+| 狀態 | 尚未送出 |
+
 **為什麼會有第三次**：第二次送出（2026-08-06）後沒有凍結 `desktop/`，
 接連提交了剪貼簿修正、系統列選單、暫停圖示、全螢幕修正、使用說明重做、設定頁版本號
 等 8 個 commit，每一次都會讓重新編譯出的 exe 換一個 hash。
