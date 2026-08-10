@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | 適用範圍 | Chrome 裡的所有網頁 | **Word、PowerPoint、LINE、記事本等所有 Windows 程式** |
 | 判斷準確度 | 較高（能直接讀輸入框內容） | 一般（攔在輸入法之前） |
-| 下載 | `注音亂碼偵測-Chrome擴充.zip` | `注音亂碼偵測-桌面版.zip` |
+| 下載 | `bopomofo-garble-detector-chrome.zip` | `bopomofo-garble-detector-desktop.zip` |
 
 兩個都裝也可以。此時請到桌面版設定頁取消勾選「在 Chrome 中也偵測」，否則會跳出兩個候選窗。
 
@@ -37,12 +37,12 @@
 
 點「加到 Chrome」即可，會自動更新。安裝後會開啟一份使用說明，附可直接打字試的示範框。
 
-> 附件裡的 `注音亂碼偵測-Chrome擴充.zip` 是給想手動載入或檢視原始碼的人，
+> 附件裡的 `bopomofo-garble-detector-chrome.zip` 是給想手動載入或檢視原始碼的人，
 > 一般使用者用商店版就好。
 
 ### 桌面版
 
-1. 下載並解壓 `注音亂碼偵測-桌面版.zip`
+1. 下載並解壓 `bopomofo-garble-detector-desktop.zip`
 2. 執行 `注音亂碼偵測.exe`
 3. 首次啟動載入詞庫約 5～8 秒，完成後會跳出使用說明並建立桌面捷徑
 

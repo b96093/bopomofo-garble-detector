@@ -5,7 +5,9 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $out  = Join-Path $root 'dist\注音亂碼偵測-Chrome擴充'
-$zip  = Join-Path $root 'dist\注音亂碼偵測-Chrome擴充.zip'
+# 檔名用 ASCII：GitHub Release 的附件會把非 ASCII 字元換成「-」，
+# 中文檔名上傳後會變成「-Chrome.zip」這種認不出來的東西。
+$zip  = Join-Path $root 'dist\bopomofo-garble-detector-chrome.zip'
 
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory -Path $out -Force | Out-Null

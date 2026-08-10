@@ -41,7 +41,9 @@ Copy-Item (Join-Path $here 'icon-paused.ico') $out   # 暫停時的灰階系統�
 Copy-Item (Join-Path $here 'README.md') $out
 Copy-Item (Join-Path $root 'docs\NOTICE.md') $out
 
-$zip = Join-Path $root 'dist\注音亂碼偵測-桌面版.zip'
+# 檔名用 ASCII：GitHub Release 的附件會把非 ASCII 字元換成「-」，
+# 中文檔名上傳後會變成「-.zip」，使用者下載完全認不出是什麼。
+$zip = Join-Path $root 'dist\bopomofo-garble-detector-desktop.zip'
 # 同 build-chrome.ps1：Compress-Archive 與 ZipFile.CreateFromDirectory 在
 # .NET Framework 上都會寫出反斜線路徑，不符 ZIP 規格，故逐一建立項目
 Add-Type -AssemblyName System.IO.Compression

@@ -34,7 +34,7 @@
 | --- | --- |
 | 開發者帳號 | <https://chrome.google.com/webstore/devconsole> —— 需 Google 帳號 + **一次性**註冊費 |
 | 隱私權政策網址 | ✅ 已完成，直接填這個：<br>`https://b96093.github.io/bopomofo-garble-detector/privacy-policy` |
-| 上傳用 zip | `dist/注音亂碼偵測-Chrome擴充.zip`（**注意：要壓 zip，不是資料夾**） |
+| 上傳用 zip | `dist/bopomofo-garble-detector-chrome.zip`（**注意：要壓 zip，不是資料夾**） |
 
 > 建議用**專門的信箱**註冊。開發者信箱之後不能更改，且會顯示在商店頁面上。
 

@@ -12,7 +12,7 @@ title: 安裝 Windows 桌面版 — 注音亂碼偵測
 ## 1. 下載
 
 到 [Releases 頁面](https://github.com/b96093/bopomofo-garble-detector/releases)，
-下載 **`注音亂碼偵測-桌面版.zip`**（約 2.3 MB）。
+下載 **`bopomofo-garble-detector-desktop.zip`**（約 2.3 MB）。
 
 ## 2. 解壓縮
 
