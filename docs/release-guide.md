@@ -289,13 +289,34 @@ Chrome 顯示「系統偵測到病毒」。查 Defender 紀錄才發現：
 
 | 項目 | 內容 |
 | --- | --- |
-| 提交日期 | （待填） |
-| Submission ID | （待填） |
+| Submission ID | `2eff2859-5c35-4de3-a1e5-8c47b57917f8` |
+| 提交時間 | 2026-08-10 14:56（台北時間） |
+| User Opinion | Incorrect detection |
 | 判定名稱 | `Trojan:Win32/Wacatac.C!ml` |
 | 提交類別 | **Incorrectly detected as malware/malicious**（不是 PUA） |
 | 定義版本 | 1.457.80.0 |
 | 對應 exe SHA256 | `1DD108F880C0721284D947968C085C94045D01F67AD5D461B48FA4608751150C`（與第三次相同，未重編） |
-| 狀態 | 尚未送出 |
+| **結果** | ✅ **2026-08-10 Completed —— 偵測已移除** |
+
+分析師回覆原文：
+
+> At this time, the submitted files do not meet our criteria for malware or potentially
+> unwanted applications. **The detection has been removed.**
+
+**這才是要的措辭**。三次「No detection will be added／removed」都不是通過的意思，
+只有 "The detection **has been** removed" 才是真的移除了偵測。收到回覆時務必看清楚
+是哪一種。
+
+**回覆裡附的本機快取清除步驟**（分析師要求照做，否則本機仍會擋）：
+
+```
+以系統管理員開啟命令提示字元，切到 C:\Program Files\Windows Defender
+MpCmdRun.exe -removedefinitions -dynamicsignatures
+MpCmdRun.exe -SignatureUpdate
+```
+
+清完之後**務必重做一次真實下載測試**（上傳雲端硬碟 → 用瀏覽器下載）才算數。
+本機掃描乾淨不代表下載不會被擋 —— 這是這輪學到最貴的一課。
 
 **為什麼會有第三次**：第二次送出（2026-08-06）後沒有凍結 `desktop/`，
 接連提交了剪貼簿修正、系統列選單、暫停圖示、全螢幕修正、使用說明重做、設定頁版本號
