@@ -134,6 +134,36 @@ IH.Start()
 
 SetTimer(WatchWindow, 400)
 
+; ---------- 鍵盤 hook 看門狗 ----------
+; Windows 會在兩種情況下「靜默」移除低階鍵盤 hook，而且不通知程式：
+;   1. 從睡眠／休眠恢復時
+;   2. hook 回呼超過 LowLevelHooksTimeout（預設 300ms）—— 開機時系統忙碌很容易中
+; 發生後 IH 物件還在、系統列圖示還在，看起來一切正常，但鍵盤事件已經進不來，
+; 使用者只會覺得「偵測莫名其妙不動了」，而且只有重開程式才會好。
+;
+; AHK 沒有辦法查詢 OS 端的 hook 還在不在，所以只能重裝。重裝很便宜，
+; 唯一的代價是那一瞬間的按鍵不會被收到 —— 用 BUSY／POPUP_ON 避開關鍵時刻。
+RehookInput() {
+    global IH
+    if (BUSY || POPUP_ON)
+        return
+    try {
+        IH.Stop()
+        IH.Start()
+    }
+}
+
+; 睡眠恢復：這是最準的時機
+OnMessage(0x218, OnPowerBroadcast)          ; WM_POWERBROADCAST
+OnPowerBroadcast(wParam, lParam, msg, hwnd) {
+    if (wParam = 0x7)                       ; PBT_APMRESUMESUSPEND
+        SetTimer(RehookInput, -1500)        ; 等系統穩定一點再重裝
+}
+
+; 保險網：開機時的超時掉鉤不會有電源事件可接，只能定期重裝。
+; 五分鐘一次，使用者不會察覺。
+SetTimer(RehookInput, 300000)
+
 OnChar(hook, ch) {
     global BUF          ; 函式內有指派的變數一定要宣告，否則會被當成區域變數
     if (!READY || BUSY || PAUSED)
@@ -353,9 +383,41 @@ ClipSeq() {
 ; 剛截好的圖也會被結尾的「還原」蓋掉。
 ;
 ; 改用剪貼簿序號判斷複製是否真的發生。沒發生就直接返回，剪貼簿一個位元組都不動。
+; 剪貼簿裡放的是圖片、檔案或 OLE 物件時，完全不要碰它。
+;
+; 原本用 ClipboardAll() 備份再寫回，等於把整包內容（含 OLE）搬出搬入一趟。
+; PowerPoint 放的是複雜的嵌入物件，一旦發現自己的剪貼簿資料被動過就會跳
+; 「可能造成 PowerPoint 不穩」；截圖也會在這個過程裡被弄丟。
+; 而這件事在每次水平拖曳、每次 Ctrl+A 都會發生一遍。
+;
+; IsClipboardFormatAvailable 不需要 OpenClipboard，不會跟其他程式搶。
+ClipHasRichData() {
+    for fmt in [2, 8, 15, 17] {      ; CF_BITMAP, CF_DIB, CF_HDROP, CF_DIBV5
+        if DllCall("IsClipboardFormatAvailable", "UInt", fmt)
+            return true
+    }
+    for name in ["Embed Source", "Object Descriptor", "Link Source"] {
+        id := DllCall("RegisterClipboardFormat", "Str", name, "UInt")
+        if (id && DllCall("IsClipboardFormatAvailable", "UInt", id))
+            return true
+    }
+    return false
+}
+
+global LASTPROBE := 0
+
 GetSelectedText() {
+    global LASTPROBE
+    ; 冷卻：拖曳選字很容易連續觸發，沒必要每次都去戳剪貼簿
+    if (A_TickCount - LASTPROBE < 700)
+        return ""
+    ; 有圖片或 OLE 就直接放棄這次偵測 —— 使用者的內容比這個功能重要
+    if (ClipHasRichData())
+        return ""
+    LASTPROBE := A_TickCount
     seq0 := ClipSeq()
-    saved := ClipboardAll()          ; 唯讀，不會改變序號
+    ; 只備份文字。走到這裡代表剪貼簿裡沒有圖片或 OLE，不必動用 ClipboardAll()
+    saved := A_Clipboard
     Send("^c")
     deadline := A_TickCount + 220
     while (A_TickCount < deadline && ClipSeq() == seq0)
