@@ -78,6 +78,10 @@ global THRESH := 0.8, MINSYL := 2  ; 由 LEVEL 換算而來
 global SETGUI := ""
 global WELGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
+; 選取轉換的快捷鍵。與 Chrome 擴充一致，兩邊只要記一組。
+; 可在 settings.ini 改（下一版做成設定頁的按鍵擷取介面）。
+global HOTKEY_STR := "^!z"
+global HOTKEY_OK := false
 ; 聯絡頁連結：填入後，說明視窗與設定頁才會出現「聯絡開發者」入口。
 ; 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
 ; 變數名沿用 SUPPORT_URL，與 Chrome 版的 src/support.js 對應。
@@ -102,6 +106,9 @@ A_TrayMenu.Delete()
 ; 「暫停偵測」用打勾表示目前狀態，而不是把兩個動作寫成「暫停 / 繼續偵測」——
 ; 後者看不出現在是哪個狀態，也讓人分不清它和「結束」的差別。
 A_TrayMenu.Add("暫停偵測", (*) => TogglePause())
+; 選取轉換放進系統列，是因為它現在只能主動觸發，而快捷鍵一天用不到五次 ——
+; 隔一陣子沒用一定忘記按鍵。這裡永遠找得到，而且項目上就寫著目前的快捷鍵。
+A_TrayMenu.Add(TrayConvertLabel(), (*) => ConvertSelection(false))
 A_TrayMenu.Add("使用說明…", (*) => ShowWelcome())
 A_TrayMenu.Add("設定…", (*) => ShowSettings())
 A_TrayMenu.Add()
@@ -153,6 +160,57 @@ RehookInput() {
     }
 }
 
+; ---------- 選取轉換：主動觸發 ----------
+; 快捷鍵可在 settings.ini 改（下一版會做成設定頁的按鍵擷取介面）：
+;   [settings]
+;   hotkey=^!z          ^=Ctrl  !=Alt  +=Shift  #=Win
+; 註冊失敗（組合無效、或已被系統／其他程式佔用）時不讓程式掛掉 ——
+; 系統列選單那條路仍然可用，使用者不會完全沒轍。
+RegisterConvertHotkey() {
+    global HOTKEY_OK
+    HOTKEY_OK := false
+    if (HOTKEY_STR == "")
+        return
+    try {
+        Hotkey(HOTKEY_STR, (*) => ConvertSelection(true))
+        HOTKEY_OK := true
+    }
+}
+
+TrayConvertLabel() {
+    return HOTKEY_OK ? ("轉換選取的文字`t" . HotkeyPretty(HOTKEY_STR)) : "轉換選取的文字"
+}
+
+; ^!z → Ctrl+Alt+Z，給人看的
+HotkeyPretty(s) {
+    out := ""
+    for pair in [["^", "Ctrl+"], ["!", "Alt+"], ["+", "Shift+"], ["#", "Win+"]] {
+        if InStr(s, pair[1]) {
+            out .= pair[2]
+            s := StrReplace(s, pair[1])
+        }
+    }
+    return out . StrUpper(s)
+}
+
+; fromHotkey=false 代表從系統列點進來 —— 那時焦點已經被系統列奪走，
+; 必須先切回原本的視窗，Ctrl+C 才會送到正確的地方。
+ConvertSelection(fromHotkey) {
+    if (!READY || BUSY || PAUSED || POPUP_ON)
+        return
+    if (!fromHotkey && LASTWIN) {
+        try {
+            WinActivate("ahk_id " . LASTWIN)
+            WinWaitActive("ahk_id " . LASTWIN, , 0.6)
+            Sleep(60)          ; 等程式把焦點與選取狀態接回去
+        }
+    }
+    CheckSelection(false)
+    ; 選取內容不是亂碼時要說一聲，否則使用者按了沒反應會以為壞了
+    if (SELRES == "")
+        Tip("選取的內容看起來不是注音亂碼", 1600)
+}
+
 ; 睡眠恢復：這是最準的時機
 OnMessage(0x218, OnPowerBroadcast)          ; WM_POWERBROADCAST
 OnPowerBroadcast(wParam, lParam, msg, hwnd) {
@@ -181,11 +239,9 @@ OnResetKey(hook, vk, sc) {
     global BUF
     if (BUSY)
         return
-    ; 按住 Shift 移動＝用鍵盤選取文字，等停下來再檢查選取內容
-    if (GetKeyState("Shift", "P") && (vk = 37 || vk = 38 || vk = 39 || vk = 40 || vk = 36 || vk = 35)) {
-        SetTimer(() => CheckSelection(false), -280)
+    ; 註：這裡原本會在「Shift+方向鍵」時自動檢查選取內容，已移除 —— 見 MouseUp 的說明。
+    if (GetKeyState("Shift", "P") && (vk = 37 || vk = 38 || vk = 39 || vk = 40 || vk = 36 || vk = 35))
         return
-    }
     HideIcon()                    ; 按了其他鍵就代表選取已失效
     ; 退格：緩衝要跟著縮短 —— 候選窗開著時也一樣，否則會顯示刪除前的舊結果
     if (vk = 8) {
@@ -215,7 +271,7 @@ WatchWindow() {
 ~LButton Up::MouseUp()
 ~RButton::ClickAway()
 ; Ctrl+A 全選（Canva、PPT 這類文字方框常用）也視為選取完成
-~^a::SetTimer(() => CheckSelection(false), -180)
+; 註：原本 Ctrl+A 之後會自動檢查選取內容，已移除 —— 見 MouseUp 的說明。
 
 MouseDown() {
     global MDX, MDY, CLICKX, CLICKY, CLICKOK, DRAGGING, DRAGDX, DRAGDY
@@ -256,14 +312,24 @@ MouseDown() {
 MouseUp() {
     global LASTUPT, LASTUPX, LASTUPY
     MouseGetPos(&x, &y)
-    dx := Abs(x - MDX), dy := Abs(y - MDY)
-    ; 選取文字幾乎都是水平方向；在 Canva 這類程式裡「搬移物件」也是拖曳，
-    ; 但多半帶有明顯的上下位移，用這點把它濾掉，避免誤觸。
-    dragged := (dx > 4 && dx > dy * 1.4)
-    dbl := (A_TickCount - LASTUPT < 450 && Abs(x - LASTUPX) < 5 && Abs(y - LASTUPY) < 5)
     LASTUPT := A_TickCount, LASTUPX := x, LASTUPY := y
-    if (dragged || dbl)
-        SetTimer(CheckSelection, -120)
+    ; ── 這裡原本會在水平拖曳或雙擊之後自動檢查選取內容，已全部移除 ──
+    ;
+    ; 讀取選取文字沒有旁路：Windows 不提供「看一眼目前選取」的介面，
+    ; 工具只能真的代替使用者按一次 Ctrl+C。而原本的觸發條件是
+    ; 「水平位移 > 4px 或雙擊」—— 拖動圖案、拖捲軸、雙擊開檔全都符合，
+    ; 一小時會觸發上百次。
+    ;
+    ; 代價實測出來很嚴重：
+    ;   • PowerPoint 被迫把選取物序列化成 18 種格式（PNG／中繼檔／SVG／
+    ;     簡報內部結構…），而後續的還原又把那些格式清掉 ——
+    ;     PPT 因此不斷跳「可能造成 PowerPoint 不穩」
+    ;   • 截圖框選也是水平拖曳，會與截圖工具搶著寫剪貼簿，
+    ;     瀏覽器讀到殘缺內容（貼圖時 failed to process image）
+    ;   • 使用者剛複製的內容會被換掉，還原時只還原得回純文字
+    ;
+    ; 換來的只是「剛好選到亂碼時浮出的小按鈕」，而大多數選取都不是亂碼。
+    ; 改為主動觸發：快捷鍵或系統列選單，一天幾次，且都是使用者要求的。
 }
 
 ; 點在候選窗或 icon 上不算「點別處」，否則會在點到之前就先關掉視窗
@@ -966,13 +1032,15 @@ DragMove() {
 
 ; ---------- 設定 ----------
 LoadSettings() {
-    global CHROME_DETECT, PAUSED, LEVEL
+    global CHROME_DETECT, PAUSED, LEVEL, HOTKEY_STR
     CHROME_DETECT := (IniRead(SETTINGS_FILE, "settings", "chromeDetect", "1") != "0")
     PAUSED := (IniRead(SETTINGS_FILE, "settings", "enabled", "1") == "0")
     LEVEL := Integer(IniRead(SETTINGS_FILE, "settings", "level", "2"))
     if (LEVEL < 1 || LEVEL > 5)
         LEVEL := 2
     ApplyLevel()
+    HOTKEY_STR := IniRead(SETTINGS_FILE, "settings", "hotkey", "^!z")
+    RegisterConvertHotkey()
 }
 
 SaveSettings() {
@@ -1121,7 +1189,8 @@ ShowWelcome() {
     g.Add("Text", "x" . PAD . " y458 w560 BackgroundTrans", "打完才發現打錯了？")
     g.SetFont("s10 w400 c444444", FN)
     g.Add("Text", "x" . PAD . " y484 w560 BackgroundTrans",
-        "把那段亂碼用滑鼠選取起來，旁邊會出現小按鈕，點它就能轉換。")
+        "選取那段亂碼，然後按 " . (HOTKEY_OK ? HotkeyPretty(HOTKEY_STR) : "系統列圖示右鍵的「轉換選取的文字」")
+        . "，或從系統列圖示右鍵選「轉換選取的文字」。")
 
     g.SetFont("s10 w600 c1A5FB4", FN)
     g.Add("Text", "x" . PAD . " y524 w560 BackgroundTrans", "之後在哪裡找到它")
