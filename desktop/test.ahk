@@ -125,16 +125,33 @@ Check("尾端 NBSP 還原後可偵測", First(Detect(NormalizeTyped("su3gji" . N
 Check("中間 NBSP 還原後可偵測", First(Detect(NormalizeTyped("su3gji" . NBSP . "su3gji"), dict, 0.5, 1, true)), "你說你說")
 
 Say("")
-Say("── 選取路徑不誤判（CheckSelection 用的門檻）──")
-; 桌面版的選取提示是被動的：每次滑鼠拖曳、每次 Ctrl+A 都會跑。
-; 那是複製東西的日常動作，不是意圖，所以要用和打字路徑一樣的門檻（THRESH/MINSYL），
-; 不能放寬成 (0.5, 1, manual)，否則選個版本號、IP、電話號碼都會跳圖示。
+Say("── 打字路徑的嚴格門檻不誤判 ──")
+; 打字偵測是被動的（每一個按鍵都會跑），所以門檻嚴格：
+; 版本號、IP、電話號碼這些常見字串都不能觸發。
+; 註：選取轉換已改為主動觸發，不再共用這組門檻，見下一節。
 Check("版本號", First(Detect("1.457.72.0", dict, 0.8, 2)), "null")
 Check("IP 位址", First(Detect("192.168.0.1", dict, 0.8, 2)), "null")
 Check("手機號碼（選取）", First(Detect("0966335806", dict, 0.8, 2)), "null")
 Check("純數字（選取）", First(Detect("8731", dict, 0.8, 2)), "null")
 Check("時間（選取）", First(Detect("09:41", dict, 0.8, 2)), "null")
 Check("真亂碼仍要跳", First(Detect("ji394t au04", dict, 0.8, 2)), "我愛吃面")
+
+Say("")
+Say("── 選取轉換的門檻（快捷鍵／系統列主動觸發）──")
+; 這條路只由使用者主動觸發，門檻要放寬：他已經指著一段字說「轉這個」，
+; 再用打字路徑的嚴格門檻去懷疑，只會讓短亂碼明明拼得出中文卻回報「不像亂碼」。
+SelDetect(s) {
+    global dict
+    return First(Detect(s, dict, 0.5, 1, true))
+}
+Check("單音節 su3", SelDetect("su3"), "你")
+Check("單音節 ji3", SelDetect("ji3"), "我")
+Check("兩音節 su3gji", SelDetect("su3gji"), "你說")
+Check("整句仍正常", SelDetect("ji394t au04"), "我愛吃面")
+
+Say("")
+Say("── 對照：打字路徑的嚴格門檻會擋掉短亂碼 ──")
+Check("su3 在嚴格門檻下被擋", First(Detect("su3", dict, 0.8, 2)), "null")
 
 Say("")
 Say(Format("結果：{1} 通過 / {2} 失敗", PASS, FAIL))

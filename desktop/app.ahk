@@ -496,10 +496,13 @@ CheckSelection(fromMouse := true) {
         HideIcon()
         return
     }
-    ; 用和打字路徑一樣的門檻。這裡是「被動」提示 —— 每次滑鼠拖曳、每次 Ctrl+A 都會跑，
-    ; 選字複製是日常動作而非意圖。放寬成 (0.5, 1, manual) 會讓版本號、IP、電話號碼
-    ; 統統跳出圖示打擾人，而那些正是使用者最常選取來複製的東西。
-    res := Detect(text, DICT, THRESH, MINSYL)
+    ; 門檻放寬（單音節也算、跳過常見英文那關）。
+    ;
+    ; 這裡曾經改成跟打字路徑一樣嚴格，那在「被動偵測」時代是對的 —— 當時每次拖曳、
+    ; 每次雙擊都會跑到這裡，寬鬆門檻會讓版本號、IP、電話號碼統統跳出圖示。
+    ; 但現在只有快捷鍵與系統列選單會呼叫，使用者已經明確說「轉這一段」，
+    ; 再懷疑他就只是幫倒忙 —— 短亂碼拼得出中文卻回報「不像亂碼」，最沒道理。
+    res := Detect(text, DICT, 0.5, 1, true)
     if (res == "") {
         HideIcon()
         return
@@ -587,10 +590,18 @@ OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
     ; 定位只在開啟時算一次：插入點會閃爍，重算會讓視窗在游標與滑鼠位置之間跳動
     if (ST == "") {
         ANCW := ActiveWinRect()
-        if (ax >= 0) {                       ; 呼叫端已指定（滑鼠選取）
+        if (ax >= 0) {                       ; 呼叫端已指定
             ANCMODE := "point", ANCX := ax, ANCY := ay
-        } else if (CaretPos(&px, &py)) {     ; 有插入點 → 貼在文字行下方
+        } else if (CaretPos(&px, &py)) {     ; 有插入點 → 貼在文字行下方（最準）
             ANCMODE := "point", ANCX := px, ANCY := py + 6
+        } else if (src == "selection") {
+            ; 選取轉換現在一律由使用者主動觸發，剛選完文字時滑鼠就停在選取範圍的
+            ; 尾端 —— 那是他視線所在，比「按下滑鼠的位置」新，也比視窗置中可預測。
+            ;
+            ; 自繪 UI（Electron 類的 Claude、LINE，或 Chrome 網址列）拿不到插入點，
+            ; 以前會掉到視窗底部置中，浮窗就出現在跟操作無關的地方，看起來像亂跳。
+            MouseGetPos(&mx, &my)
+            ANCMODE := "point", ANCX := mx, ANCY := my + 24
         } else if (CLICKOK) {                ; 畫布類程式 → 用「你點進文字框的位置」
             ANCMODE := "point", ANCX := CLICKX, ANCY := CLICKY + 30
         } else {                             ; 真的沒線索 → 視窗底部置中
