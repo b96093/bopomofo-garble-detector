@@ -60,6 +60,9 @@ global MDX := 0, MDY := 0 ; 滑鼠按下的位置（用來判斷是否為拖曳�
 ; 最後一次點擊的位置：在 Canva 這類程式要打字一定得先點進文字框，
 ; 所以這個位置最接近文字所在，比「目前滑鼠位置」或「固定底部」都準。
 global CLICKX := 0, CLICKY := 0, CLICKOK := false
+; 選取轉換的去抖動時間戳。務必宣告在自動執行區段內 ——
+; 寫在函式之間的 global 初始化永遠不會被執行，執行期會直接報「未指派值」。
+global LASTPROBE := 0
 global LASTUPT := 0, LASTUPX := 0, LASTUPY := 0   ; 判斷雙擊選字
 ; 注意：所有全域初始化都必須寫在第一個熱鍵之前，
 ; 因為 AHK 的自動執行區在遇到熱鍵定義時就結束了。
@@ -449,41 +452,22 @@ ClipSeq() {
 ; 剛截好的圖也會被結尾的「還原」蓋掉。
 ;
 ; 改用剪貼簿序號判斷複製是否真的發生。沒發生就直接返回，剪貼簿一個位元組都不動。
-; 剪貼簿裡放的是圖片、檔案或 OLE 物件時，完全不要碰它。
+; 讀取目前選取的文字。沒有旁路 —— Windows 不提供「看一眼選取內容」的介面，
+; 只能真的代替使用者按一次 Ctrl+C，所以這個函式一定會動到剪貼簿。
 ;
-; 原本用 ClipboardAll() 備份再寫回，等於把整包內容（含 OLE）搬出搬入一趟。
-; PowerPoint 放的是複雜的嵌入物件，一旦發現自己的剪貼簿資料被動過就會跳
-; 「可能造成 PowerPoint 不穩」；截圖也會在這個過程裡被弄丟。
-; 而這件事在每次水平拖曳、每次 Ctrl+A 都會發生一遍。
-;
-; IsClipboardFormatAvailable 不需要 OpenClipboard，不會跟其他程式搶。
-ClipHasRichData() {
-    for fmt in [2, 8, 15, 17] {      ; CF_BITMAP, CF_DIB, CF_HDROP, CF_DIBV5
-        if DllCall("IsClipboardFormatAvailable", "UInt", fmt)
-            return true
-    }
-    for name in ["Embed Source", "Object Descriptor", "Link Source"] {
-        id := DllCall("RegisterClipboardFormat", "Str", name, "UInt")
-        if (id && DllCall("IsClipboardFormatAvailable", "UInt", id))
-            return true
-    }
-    return false
-}
-
-global LASTPROBE := 0
-
+; 早期版本在每次拖曳、每次雙擊時自動呼叫這裡，一小時上百次，才會演變成
+; PowerPoint 不穩、截圖被搶。改成只由快捷鍵與系統列選單呼叫之後，
+; 頻率降到一天幾次，而且每次都是使用者主動要求 ——
+; 那就該老老實實用 ClipboardAll() 完整備份還原，不要因為剪貼簿裡剛好有圖片
+; 就默默拒絕服務（使用者按了鍵卻什麼都沒發生，只會以為程式壞了）。
 GetSelectedText() {
     global LASTPROBE
-    ; 冷卻：拖曳選字很容易連續觸發，沒必要每次都去戳剪貼簿
-    if (A_TickCount - LASTPROBE < 700)
-        return ""
-    ; 有圖片或 OLE 就直接放棄這次偵測 —— 使用者的內容比這個功能重要
-    if (ClipHasRichData())
+    ; 只用來去抖動，避免快捷鍵按住不放或連點選單時重複觸發
+    if (A_TickCount - LASTPROBE < 300)
         return ""
     LASTPROBE := A_TickCount
     seq0 := ClipSeq()
-    ; 只備份文字。走到這裡代表剪貼簿裡沒有圖片或 OLE，不必動用 ClipboardAll()
-    saved := A_Clipboard
+    saved := ClipboardAll()          ; 唯讀，不會改變序號
     Send("^c")
     deadline := A_TickCount + 220
     while (A_TickCount < deadline && ClipSeq() == seq0)
@@ -492,14 +476,8 @@ GetSelectedText() {
         return ""                    ; 沒有選取 —— 使用者的剪貼簿完全沒被碰過
     seqOurs := ClipSeq()             ; 我們的 ^c 造成的序號
     text := A_Clipboard
-    ; 序號變了卻拿不到文字 —— 那就不是我們的 ^c，是別人往剪貼簿寫了非文字內容。
-    ;
-    ; 最常見的情境是 Win+Shift+S 截圖：框選要拖曳，而截圖框通常寬大於高，
-    ; 會通過 MouseUp 的 dragged 判定而觸發到這裡。接著使用者的圖片落地、序號改變，
-    ; 我們卻誤以為是自己的 ^c 成功了，最後把備份還原回去 —— 剛截好的圖就被蓋掉。
-    ;
-    ; 這也解釋了為什麼症狀時好時壞：框選在 220ms 內完成才會被吃掉，慢一點就逾時返回。
-    ; 這時候寧可放棄這次偵測，也不能動使用者的剪貼簿。
+    ; 序號變了卻拿不到文字 —— 那不是我們的 ^c，是別人往剪貼簿寫了非文字內容
+    ;（例如使用者剛好在此時截圖）。這種時候不能還原，否則會把對方的內容蓋掉。
     if (text == "")
         return ""
     ; 讀取期間若剪貼簿又被別人寫入，就不要還原，否則會把對方的內容蓋掉
