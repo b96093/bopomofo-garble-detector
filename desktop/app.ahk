@@ -425,8 +425,13 @@ Scan() {
         HidePopup()
         return
     }
-    ; 輸入法在中文模式 → 使用者正常打中文，不該出手
-    if (ImeChineseMode()) {
+    ; 輸入法在中文模式 → 使用者正常打中文，不該出手。
+    ;
+    ; 但「中文模式」不等於「正在打中文」：微軟注音在中文模式下按了 Caps Lock，
+    ; 輸出的是大寫英文，而輸入法仍然回報中文模式。那正是這個工具該救的情境
+    ; （想打中文卻跑出一串英文），舊寫法卻因為這道守門完全不出手。
+    ; Caps Lock 亮著時就不能用輸入法模式當理由跳過。
+    if (ImeChineseMode() && !GetKeyState("CapsLock", "T")) {
         BUF := ""
         HidePopup()
         return
