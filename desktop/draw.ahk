@@ -152,11 +152,6 @@ DrawIconImg(g, x, y, size, path) {
 ; ---------- 版面計算 ----------
 ; 同音字盤展開後最多會讓浮窗長高多少。定位時要預留這個高度，
 ; 否則展開的當下才發現放不下、才翻面，浮窗就會在使用者眼前跳走。
-MaxTrayExtra() {
-    tc := DPX(LY.tcell), tg := DPX(LY.tcellGap), tp := DPX(LY.trayPad)
-    return LY.trayMaxRows * (tc + tg) - tg + tp * 2 + DPX(6) + DPX(LY.footH) + DPX(2)
-}
-
 BuildLayout(view, homsFor) {
     global TRAYCOLS
     inSent := (view.zone == "sent")
