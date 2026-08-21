@@ -24,7 +24,7 @@ $exe  = Join-Path $out '注音亂碼偵測.exe'
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory -Path $out -Force | Out-Null
 
-Write-Host "編譯中…（#Include 的 engine/draw/english 會一起打包進 exe）"
+Write-Host "編譯中…（#Include 的 engine/draw/uia 會一起打包進 exe）"
 & $ahk2exe /in (Join-Path $here 'app.ahk') /out $exe /base $base /icon (Join-Path $here 'icon.ico')
 # Ahk2Exe 有時會在回報成功之前就先返回，等檔案真的出現再繼續
 $waited = 0

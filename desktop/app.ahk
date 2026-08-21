@@ -21,6 +21,7 @@
 ; 效能：候選窗的控制項只建立一次，之後只更新內容與位置（避免重建造成閃爍）。
 #Include engine.ahk
 #Include draw.ahk
+#Include uia.ahk
 
 global DICT := ""
 ; 詞庫要載入好幾秒，但熱鍵一開始就生效了 ——
@@ -590,16 +591,24 @@ OpenCandidates(res, src := "typing", ax := -1, ay := -1) {
     ; 定位只在開啟時算一次：插入點會閃爍，重算會讓視窗在游標與滑鼠位置之間跳動
     if (ST == "") {
         ANCW := ActiveWinRect()
+        ; 定位來源由準到不準排列，拿得到就用。
+        ;
+        ; 選取轉換優先問 UIA：它給的是「那段被選取的文字」的矩形，比插入點精確，
+        ; 而且在 Electron／LINE／Chrome 網址列這些自繪 UI 也拿得到 —— 那正是
+        ; GetGUIThreadInfo 失效、以前只能退回視窗置中的場合。
+        ; 打字則先問插入點：那條路便宜、沒有副作用，標準控制項一問就中；
+        ; 問 UIA 會讓 Chromium 系的程式開啟無障礙模式，有效能開銷，能少問就少問。
         if (ax >= 0) {                       ; 呼叫端已指定
             ANCMODE := "point", ANCX := ax, ANCY := ay
-        } else if (CaretPos(&px, &py)) {     ; 有插入點 → 貼在文字行下方（最準）
+        } else if (src == "selection" && UIA_TextRect(&ux, &uy, &uw, &uh)) {
+            ANCMODE := "point", ANCX := ux, ANCY := uy + uh + 4
+        } else if (CaretPos(&px, &py)) {
             ANCMODE := "point", ANCX := px, ANCY := py + 6
+        } else if (UIA_TextRect(&ux, &uy, &uw, &uh)) {
+            ; 打字路徑的後援：沒有真插入點時，UIA 通常仍給得出插入點矩形
+            ANCMODE := "point", ANCX := ux, ANCY := uy + uh + 4
         } else if (src == "selection") {
-            ; 選取轉換現在一律由使用者主動觸發，剛選完文字時滑鼠就停在選取範圍的
-            ; 尾端 —— 那是他視線所在，比「按下滑鼠的位置」新，也比視窗置中可預測。
-            ;
-            ; 自繪 UI（Electron 類的 Claude、LINE，或 Chrome 網址列）拿不到插入點，
-            ; 以前會掉到視窗底部置中，浮窗就出現在跟操作無關的地方，看起來像亂跳。
+            ; 剛選完文字時滑鼠停在選取範圍尾端，比視窗置中可預測
             MouseGetPos(&mx, &my)
             ANCMODE := "point", ANCX := mx, ANCY := my + 24
         } else if (CLICKOK) {                ; 畫布類程式 → 用「你點進文字框的位置」
