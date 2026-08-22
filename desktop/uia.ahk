@@ -75,4 +75,96 @@ UIA_TextRect(&x, &y, &w, &h) {
     if (el)
         ObjRelease(el)
     return ok
-}
+}
+
+; 讀取游標前 n 個字元；拿不到回空字串。
+;
+; 用途：判斷「工具緩衝的那串英文，到底有沒有真的出現在文件裡」。
+; 桌面版攔的是輸入法之前的原始按鍵，所以使用者正常打中文時，緩衝裡同樣是一串
+; 英文字母 —— 光看緩衝無法分辨「打中文」和「打出亂碼」。
+;
+; 原本靠 ImeChineseMode() 判斷，但實測那個查詢在不同程式回報不一致：
+; 記事本回報中文模式（正確），Claude 卻回報非中文模式（錯誤，導致正常打中文時誤跳浮窗）。
+; 直接讀文件內容就沒有這個問題 —— 螢幕上是什麼就是什麼。
+;
+; vtable：IUIAutomationTextRange 3=Clone  12=GetText  14=MoveEndpointByUnit
+; TextPatternRangeEndpoint Start=0；TextUnit Character=0
+UIA_TextBeforeCaret(n) {
+    static uia := ""
+    static broken := false
+    if (broken)
+        return ""
+    if (uia == "") {
+        try uia := ComObject("{ff48dba4-60ef-4201-aa87-54103eef594e}",
+                             "{30cbe57d-d9d0-452a-ab13-7ac5ac4825ee}")
+        catch {
+            broken := true
+            return ""
+        }
+    }
+    el := 0, pat := 0, arr := 0, rng := 0, cl := 0
+    out := ""
+    try {
+        ComCall(8, uia, "Ptr*", &el)
+        if (el) {
+            ComCall(16, el, "Int", 10014, "Ptr*", &pat)
+            if (pat) {
+                ComCall(5, pat, "Ptr*", &arr)
+                if (arr) {
+                    len := 0
+                    ComCall(3, arr, "Int*", &len)
+                    if (len > 0) {
+                        ComCall(4, arr, "Int", 0, "Ptr*", &rng)
+                        if (rng) {
+                            ComCall(3, rng, "Ptr*", &cl)          ; Clone
+                            if (cl) {
+                                moved := 0
+                                ComCall(14, cl, "Int", 0, "Int", 0, "Int", -n, "Int*", &moved)
+                                b := 0
+                                ComCall(12, cl, "Int", -1, "Ptr*", &b)
+                                if (b) {
+                                    out := StrGet(b, "UTF-16")
+                                    DllCall("oleaut32\SysFreeString", "Ptr", b)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (cl)
+        ObjRelease(cl)
+    if (rng)
+        ObjRelease(rng)
+    if (arr)
+        ObjRelease(arr)
+    if (pat)
+        ObjRelease(pat)
+    if (el)
+        ObjRelease(el)
+    return out
+}
+
+; 緩衝的英文有沒有真的落在文件裡？
+;   1  = 有，輸入法沒轉換 → 該偵測
+;   0  = 沒有，螢幕上是別的東西（多半是轉換成中文了）→ 不該出手
+;  -1  = 讀不到，無法判斷 → 呼叫端自行退回舊的判斷方式
+BufferLanded(buf) {
+    n := StrLen(buf)
+    if (n < 2)
+        return -1
+    probe := Min(n, 6)                      ; 比對尾端幾個字就夠，讀太多沒必要
+    seen := UIA_TextBeforeCaret(probe)
+    if (seen == "")
+        return -1
+    ; SubStr 的負數起點本身就代表「從尾端算起」，不必再 +1 ——
+    ; 之前寫成 -probe+1 只取到最後 5 個字，跟讀回來的 6 個字永遠比不中。
+    ;
+    ; 讀回來的長度不保證等於要求的長度（游標靠近開頭時會比較短），
+    ; 所以取兩邊都有的那一段來比。
+    k := Min(probe, StrLen(seen))
+    if (k < 2)
+        return -1
+    return (StrLower(SubStr(seen, -k)) == StrLower(SubStr(buf, -k))) ? 1 : 0
+}
