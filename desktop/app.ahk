@@ -7,8 +7,8 @@
 ;@Ahk2Exe-SetProductName 注音亂碼偵測
 ;@Ahk2Exe-SetCompanyName 注音亂碼偵測
 ;@Ahk2Exe-SetDescription 注音亂碼偵測 — 把打錯的英文亂碼還原成中文
-;@Ahk2Exe-SetVersion 1.0.0.0
-;@Ahk2Exe-SetProductVersion 1.0.0
+;@Ahk2Exe-SetVersion 1.1.0.0
+;@Ahk2Exe-SetProductVersion 1.1.0
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 — MIT License
 ;@Ahk2Exe-SetOrigFilename 注音亂碼偵測.exe
 ;@Ahk2Exe-SetLanguage 0x0404
