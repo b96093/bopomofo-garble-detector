@@ -1,7 +1,7 @@
 // 設定頁邏輯：讀寫 chrome.storage.sync。
 import { SUPPORT_URL } from '../support.js';
 
-const DEFAULTS = { enabled: true, mode: 'conservative' };
+const DEFAULTS = { enabled: true, mode: 'aggressive' };
 
 function $(id) { return document.getElementById(id); }
 
@@ -17,7 +17,7 @@ function save() {
   const mode = document.querySelector('input[name=mode]:checked');
   chrome.storage.sync.set({
     enabled: $('enabled').checked,
-    mode: mode ? mode.value : 'conservative',
+    mode: mode ? mode.value : 'aggressive',
   }, () => {
     $('status').textContent = '已儲存';
     setTimeout(() => { $('status').textContent = ''; }, 1500);

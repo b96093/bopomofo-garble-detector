@@ -7,8 +7,8 @@
 ;@Ahk2Exe-SetProductName 注音亂碼偵測
 ;@Ahk2Exe-SetCompanyName 注音亂碼偵測
 ;@Ahk2Exe-SetDescription 注音亂碼偵測 — 把打錯的英文亂碼還原成中文
-;@Ahk2Exe-SetVersion 1.1.0.0
-;@Ahk2Exe-SetProductVersion 1.1.0
+;@Ahk2Exe-SetVersion 1.1.1.0
+;@Ahk2Exe-SetProductVersion 1.1.1
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 — MIT License
 ;@Ahk2Exe-SetOrigFilename 注音亂碼偵測.exe
 ;@Ahk2Exe-SetLanguage 0x0404
@@ -77,8 +77,8 @@ global DPIF := A_ScreenDPI / 96
 ; 所以預設「在 Chrome 也偵測」，遇到重複的人再從系統列關掉即可。
 global BROWSER_APPS := Map("chrome.exe", true)
 global CHROME_DETECT := true
-global LEVEL := 2                  ; 靈敏度 1(很保守)～5(很積極)，2 是先前一路測試的設定
-global THRESH := 0.8, MINSYL := 2  ; 由 LEVEL 換算而來
+global LEVEL := 4                  ; 靈敏度 1(很保守)～5(很積極)，新安裝的預設
+global THRESH := 0.6, MINSYL := 1  ; 由 LEVEL 換算而來
 global SETGUI := ""
 global WELGUI := ""
 global SETTINGS_FILE := A_ScriptDir "\settings.ini"
@@ -1061,9 +1061,9 @@ LoadSettings() {
     global CHROME_DETECT, PAUSED, LEVEL, HOTKEY_STR
     CHROME_DETECT := (IniRead(SETTINGS_FILE, "settings", "chromeDetect", "1") != "0")
     PAUSED := (IniRead(SETTINGS_FILE, "settings", "enabled", "1") == "0")
-    LEVEL := Integer(IniRead(SETTINGS_FILE, "settings", "level", "2"))
+    LEVEL := Integer(IniRead(SETTINGS_FILE, "settings", "level", "4"))
     if (LEVEL < 1 || LEVEL > 5)
-        LEVEL := 2
+        LEVEL := 4
     ApplyLevel()
     HOTKEY_STR := IniRead(SETTINGS_FILE, "settings", "hotkey", "^!z")
     RegisterConvertHotkey()
@@ -1093,9 +1093,9 @@ LevelDesc(n) {
     switch n {
         case 1: return "很保守：非常確定才跳出通知浮窗，幾乎不會打擾你，但容易漏接。"
         case 3: return "標準：一般情況都會跳出通知浮窗。"
-        case 4: return "積極：連單一個字也會跳出通知浮窗；打英文時偶爾會被打擾。"
+        case 4: return "積極（建議）：連單一個字也會跳出通知浮窗；打英文時偶爾會被打擾。"
         case 5: return "很積極：盡量不漏接，寧可多跳出通知浮窗；打英文時較常被打擾。"
-        default: return "保守（建議）：很有把握才跳出通知浮窗；偶爾會漏接很短的亂碼。"
+        default: return "保守：很有把握才跳出通知浮窗；偶爾會漏接很短的亂碼。"
     }
 }
 

@@ -1,7 +1,7 @@
 // 內容腳本入口。傳統 script，用動態 import 載入 ES 模組（維持零相依、免打包）。
 (async () => {
   const settings = await new Promise((r) =>
-    chrome.storage.sync.get({ enabled: true, mode: 'conservative' }, r));
+    chrome.storage.sync.get({ enabled: true, mode: 'aggressive' }, r));
   if (!settings.enabled) { console.log('[注音亂碼偵測] 已停用'); return; }
 
   const eng = (p) => chrome.runtime.getURL(`src/engine/${p}`);

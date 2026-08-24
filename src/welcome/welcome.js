@@ -24,7 +24,7 @@ function run() {
     nothing('打字後，這裡會顯示偵測到的中文。');
     return;
   }
-  const hit = detectTail(text, dict, { threshold: 0.8, minSyllables: 2 });
+  const hit = detectTail(text, dict, { threshold: 0.6, minSyllables: 1 });
   if (!hit) {
     nothing('這段看起來不是注音亂碼 —— 真正的英文不會被誤判。');
     return;
