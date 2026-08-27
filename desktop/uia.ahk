@@ -152,19 +152,27 @@ UIA_TextBeforeCaret(n) {
 ;  -1  = 讀不到，無法判斷 → 呼叫端自行退回舊的判斷方式
 BufferLanded(buf) {
     n := StrLen(buf)
-    if (n < 2)
+    if (n < 1)
         return -1
-    probe := Min(n, 6)                      ; 比對尾端幾個字就夠，讀太多沒必要
-    seen := UIA_TextBeforeCaret(probe)
-    if (seen == "")
+    seen := UIA_TextBeforeCaret(Min(n, 6))  ; 比對尾端幾個字就夠，讀太多沒必要
+    return TailMatches(buf, seen)
+}
+
+; 緩衝的尾巴，跟螢幕上游標前讀到的尾巴，是不是同一段？
+;   1 = 是（那串英文真的在畫面上）   0 = 不是   -1 = 資訊不足，無法判斷
+;
+; 抽成純函式是為了能直接測。先前把比對邏輯另外抄一份來測，抄的那份跟真正跑的
+; 程式碼對不起來，SubStr 少算一個字才會沒被抓到。
+;
+; SubStr 的負數起點本身就代表「從尾端算起」，不必再 +1。
+; 讀回來的長度不保證等於要求的長度（游標靠近開頭時會比較短），
+; 所以取兩邊都有的那一段來比。
+TailMatches(buf, seen) {
+    n := StrLen(buf)
+    if (n < 1 || seen == "")
         return -1
-    ; SubStr 的負數起點本身就代表「從尾端算起」，不必再 +1 ——
-    ; 之前寫成 -probe+1 只取到最後 5 個字，跟讀回來的 6 個字永遠比不中。
-    ;
-    ; 讀回來的長度不保證等於要求的長度（游標靠近開頭時會比較短），
-    ; 所以取兩邊都有的那一段來比。
-    k := Min(probe, StrLen(seen))
-    if (k < 2)
-        return -1
-    return (StrLower(SubStr(seen, -k)) == StrLower(SubStr(buf, -k))) ? 1 : 0
+    k := Min(Min(n, 6), StrLen(seen))
+    if (k < 1)
+        return -1
+    return (StrLower(SubStr(seen, -k)) == StrLower(SubStr(buf, -k))) ? 1 : 0
 }
