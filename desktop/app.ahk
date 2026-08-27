@@ -7,8 +7,8 @@
 ;@Ahk2Exe-SetProductName 注音亂碼偵測
 ;@Ahk2Exe-SetCompanyName 注音亂碼偵測
 ;@Ahk2Exe-SetDescription 注音亂碼偵測 — 把打錯的英文亂碼還原成中文
-;@Ahk2Exe-SetVersion 1.1.2.0
-;@Ahk2Exe-SetProductVersion 1.1.2
+;@Ahk2Exe-SetVersion 1.1.3.0
+;@Ahk2Exe-SetProductVersion 1.1.3
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 — MIT License
 ;@Ahk2Exe-SetOrigFilename 注音亂碼偵測.exe
 ;@Ahk2Exe-SetLanguage 0x0404
@@ -28,6 +28,7 @@ global DICT := ""
 ; 沒有這個旗標，使用者在載入期間點滑鼠就會拿空詞庫去偵測而崩潰。
 global READY := false
 global BUF := ""          ; 目前累積的輸入（只在記憶體）
+global MISS := 0          ; 連續幾次判定「緩衝沒落在畫面上」，滿 2 次才清空
 global HIT := ""          ; 目前偵測結果 {res, offset}
 global ST := ""           ; 候選窗狀態
 global BUSY := false      ; 執行替換中，暫停監看避免吃到自己送出的按鍵
@@ -349,8 +350,8 @@ ClickAway() {
 }
 
 Reset() {
-    global BUF, HIT, ST, MANUALX, MANUALY, FLIPPED, FLIPDONE
-    BUF := "", HIT := "", ST := ""
+    global BUF, HIT, ST, MISS, MANUALX, MANUALY, FLIPPED, FLIPDONE
+    BUF := "", HIT := "", ST := "", MISS := 0
     MANUALX := -1, MANUALY := -1     ; 拖曳只對當下那個候選窗有效
     FLIPPED := false, FLIPDONE := false
     HidePopup()
@@ -408,7 +409,7 @@ IsExcludedApp() {
 }
 
 Scan() {
-    global HIT, BUF
+    global HIT, BUF, MISS
     if (!READY || PAUSED || BUF == "") {
         HidePopup()
         return
@@ -439,17 +440,33 @@ Scan() {
     ; 改成先看結果：用 UIA 讀游標前的文字，跟緩衝比對。
     ; 螢幕上真的是那串英文才出手，變成中文了就退開 —— 直接觀察，不猜內部狀態。
     ; UIA 讀不到的程式（Google 文件、PowerPoint 等）才退回輸入法查詢。
-    landed := BufferLanded(BUF)
-    if (landed == 0) {
-        BUF := ""
-        HidePopup()
+    ; 讀 UIA 是跨行程呼叫，不是瞬間完成。使用者打字很快時，這段期間又會有新的
+    ; 按鍵進到 BUF —— 螢幕已經前進，手上的緩衝卻還是舊的，尾端一比就對不上。
+    ; 實測打長句時 92 次判斷有 12 次踩到，每一次都是「螢幕比緩衝多一個字」。
+    ; 後果是緩衝被清光、偵測從中途重新開始，使用者看到的是只轉了後半段。
+    ;
+    ; 所以先取快照，判斷完再確認緩衝沒被動過。動過就代表這次判斷已經過期，
+    ; 重排一次即可 —— 去抖動本來就是要等使用者停下來才判斷。
+    snapshot := BUF
+    landed := BufferLanded(snapshot)
+    if (BUF !== snapshot) {
+        SetTimer(Scan, -160)
         return
     }
-    if (landed == -1 && ImeChineseMode() && !GetKeyState("CapsLock", "T")) {
-        BUF := ""
+    ; 清空緩衝是不可逆的，而 landed 只是判斷 —— 螢幕算繪得慢、焦點暫時跑掉都
+    ; 可能讓它答錯。所以要連續兩次都說「沒落在畫面上」才真的動手清。
+    ; 使用者真的在打中文時每一輪都會對不上，第二輪就清掉，感覺不出差別。
+    if (landed == 0 || (landed == -1 && ImeChineseMode() && !GetKeyState("CapsLock", "T"))) {
         HidePopup()
+        MISS += 1
+        if (MISS < 2) {
+            SetTimer(Scan, -160)     ; 再看一次，確認不是一次性的誤判
+            return
+        }
+        BUF := "", MISS := 0
         return
     }
+    MISS := 0
     HIT := DetectTail(BUF, DICT, THRESH, MINSYL)
     if (HIT == "") {
         HidePopup()
