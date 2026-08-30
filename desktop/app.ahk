@@ -1,14 +1,21 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
+; MouseGetPos 在 v2 的預設是 Client 模式 —— 回傳的是相對「前景視窗工作區」的座標。
+; 但 WinGetPos 給的是螢幕座標，兩者相減就會錯位。差距等於前景視窗工作區原點與
+; 螢幕原點的距離：最大化的視窗幾乎為 0（所以 Chrome、Claude 裡看起來正常），
+; 但 Word、LINE 這類有標題列的視窗，Y 會差 30～40px —— 候選窗的標題列因此點不到，
+; 拖曳完全失效。全域改為螢幕座標，讓所有滑鼠座標與視窗座標在同一個基準上。
+CoordMode("Mouse", "Screen")
+
 ; 編譯後 exe 的版本資訊。空白的 metadata 會提高防毒的啟發式可疑度 ——
 ; AHK 編譯檔本來就容易被誤判（直譯器+腳本像加殼、全域鍵盤 hook 像側錄器），
 ; 填齊這些欄位是免費且該做的一步。CompanyName 可改成你的名字或 GitHub 帳號。
 ;@Ahk2Exe-SetProductName 注音亂碼偵測
 ;@Ahk2Exe-SetCompanyName 注音亂碼偵測
 ;@Ahk2Exe-SetDescription 注音亂碼偵測 — 把打錯的英文亂碼還原成中文
-;@Ahk2Exe-SetVersion 1.1.3.0
-;@Ahk2Exe-SetProductVersion 1.1.3
+;@Ahk2Exe-SetVersion 1.1.4.0
+;@Ahk2Exe-SetProductVersion 1.1.4
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 — MIT License
 ;@Ahk2Exe-SetOrigFilename 注音亂碼偵測.exe
 ;@Ahk2Exe-SetLanguage 0x0404
