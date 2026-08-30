@@ -272,11 +272,23 @@ WatchWindow() {
     global LASTWIN, CLICKOK, CANSHOW
     CANSHOW := CanShowOverlay()
     w := WinExist("A")
-    if (w != LASTWIN) {
-        LASTWIN := w
-        CLICKOK := false        ; 換了視窗，舊的點擊位置不再有參考價值
-        Reset()
-    }
+    if (w == LASTWIN)
+        return
+    ; 焦點跑到工具自己的視窗（候選窗、說明頁、設定頁，或腳本主視窗）不算「使用者切走了」。
+    ; 按住候選窗拖曳時，系統會把焦點在本行程的視窗之間挪一下 —— 前景視窗代號因此改變，
+    ; 若當成切換視窗而清空，拖曳會在 400ms 後被打斷、浮窗直接消失。實測只在說明頁與
+    ; 設定頁發生：那裡前景本來就是自己的視窗，別的程式不受影響。
+    ;
+    ; 這裡刻意不更新 LASTWIN —— 留著使用者原本那個視窗，等焦點回去時才不會被誤判成
+    ; 又換了一次而白白清空緩衝。
+    ownPid := DllCall("GetCurrentProcessId", "UInt")
+    newPid := 0
+    try newPid := WinGetPID(w)
+    if (newPid == ownPid)
+        return
+    LASTWIN := w
+    CLICKOK := false        ; 換了視窗，舊的點擊位置不再有參考價值
+    Reset()
 }
 
 ~LButton::MouseDown()
