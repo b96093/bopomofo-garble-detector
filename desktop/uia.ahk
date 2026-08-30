@@ -89,7 +89,8 @@ UIA_TextRect(&x, &y, &w, &h) {
 ;
 ; vtable：IUIAutomationTextRange 3=Clone  12=GetText  14=MoveEndpointByUnit
 ; TextPatternRangeEndpoint Start=0；TextUnit Character=0
-UIA_TextBeforeCaret(n) {
+UIA_TextBeforeCaret(n, &ok) {
+    ok := false
     static uia := ""
     static broken := false
     if (broken)
@@ -124,6 +125,7 @@ UIA_TextBeforeCaret(n) {
                                 ComCall(12, cl, "Int", -1, "Ptr*", &b)
                                 if (b) {
                                     out := StrGet(b, "UTF-16")
+                                    ok := true      ; 呼叫確實走完了 —— 空字串代表游標前真的沒東西
                                     DllCall("oleaut32\SysFreeString", "Ptr", b)
                                 }
                             }
@@ -154,7 +156,16 @@ BufferLanded(buf) {
     n := StrLen(buf)
     if (n < 1)
         return -1
-    seen := UIA_TextBeforeCaret(Min(n, 6))  ; 比對尾端幾個字就夠，讀太多沒必要
+    ok := false
+    seen := UIA_TextBeforeCaret(Min(n, 6), &ok)  ; 比對尾端幾個字就夠，讀太多沒必要
+    ; 呼叫走完了、卻讀到空字串 —— 意思是游標前真的什麼都沒有，那緩衝裡那串按鍵
+    ; 就沒有落在文件上，輸入法還握著它們。這是「沒落地」，不是「讀不到」。
+    ;
+    ; 實測 LINE：組字期間 GetText 成功但回空（Word、Claude 會連注音符號一起給）。
+    ; 先前歸類成「讀不到」而退回輸入法查詢，再遇上 Caps Lock 開著時那條退開條件
+    ; 不成立，正常打中文就會誤跳浮窗。
+    if (ok && seen == "")
+        return 0
     return TailMatches(buf, seen)
 }
 
