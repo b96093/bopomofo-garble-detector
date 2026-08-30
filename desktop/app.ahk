@@ -496,7 +496,20 @@ Scan() {
     ; 清空緩衝是不可逆的，而 landed 只是判斷 —— 螢幕算繪得慢、焦點暫時跑掉都
     ; 可能讓它答錯。所以要連續兩次都說「沒落在畫面上」才真的動手清。
     ; 使用者真的在打中文時每一輪都會對不上，第二輪就清掉，感覺不出差別。
-    if (landed == 0 || (landed == -1 && ImeChineseMode() && !GetKeyState("CapsLock", "T"))) {
+    ;
+    ; 這裡原本還有 && !GetKeyState("CapsLock", "T")。當初加它是因為使用者回報
+    ; 「在記事本打 JI3VU;3T Z04 沒反應」，成因是 ImeChineseMode() 回報錯誤，
+    ; Caps Lock 只是拿來繞過它的替代品。而記事本現在是 UIA 讀得到的程式 ——
+    ; 螢幕上就是那串大寫英文，landed 會是 1，根本走不到這一行。當初那個 bug
+    ; 已經由「直接看螢幕」解掉，這個例外沒有存在的理由了。
+    ;
+    ; 留著反而有害：實測使用者的微軟注音在 Caps Lock 開著時照樣打得出中文
+    ;（緩衝全大寫、UIA 讀到「你說什麼」），這個例外會讓退開條件永遠不成立，
+    ; 在 UIA 讀不到的程式（Google 文件、PowerPoint）正常打中文就會被打斷。
+    ;
+    ; 代價是「中文模式下被 Caps Lock 轉成英文」這種亂碼，在那幾個程式裡會漏接。
+    ; 漏接可以按 Ctrl+Alt+Z 補救，誤跳則是直接打斷正在做對的事的人。
+    if (landed == 0 || (landed == -1 && ImeChineseMode())) {
         HidePopup()
         MISS += 1
         if (MISS < 2) {
