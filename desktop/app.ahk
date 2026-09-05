@@ -339,7 +339,14 @@ MouseDown() {
                     DRAGGING := true
                     SetTimer(DragMove, 8)
                 } else if (hitCell.k == "cand") {
-                    SetTimer(() => Accept(ST.cands[hitCell.i]), -1)
+                    ; 參數在計時器觸發時才求值，而 ST 可能已經被 Reset 清成空字串 ——
+                    ; Accept() 內部雖然有 ST == "" 的防護，但求值發生在呼叫之前，
+                    ; 防護來不及執行，直接跳出「String has no property named cands」。
+                    ; 點擊當下 ST 一定還在（HITS 就是從它畫出來的），所以現在就取值。
+                    if (ST != "" && hitCell.i <= ST.cands.Length) {
+                        chosen := ST.cands[hitCell.i]
+                        SetTimer(() => Accept(chosen), -1)
+                    }
                 } else if (hitCell.k == "char") {
                     SetTimer(() => ToggleChar(hitCell.i), -1)
                 } else if (hitCell.k == "hom") {
