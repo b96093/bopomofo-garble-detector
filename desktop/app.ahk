@@ -50,6 +50,7 @@ Loop 10 {
 #Include engine.ahk
 #Include draw.ahk
 #Include uia.ahk
+#Include report.ahk
 
 global DICT := ""
 ; 詞庫要載入好幾秒，但熱鍵一開始就生效了 ——
@@ -57,6 +58,9 @@ global DICT := ""
 global READY := false
 global BUF := ""          ; 目前累積的輸入（只在記憶體）
 global MISS := 0          ; 連續幾次判定「緩衝沒落在畫面上」，滿 2 次才清空
+; 最近一次偵測的現場，供「回報問題」使用。只記程式名稱與判斷結果，
+; 不記緩衝內容、不記使用者打的任何字、不寫檔案 —— 程式關掉就沒了。
+global LASTAPP := "", LASTREAD := "", LASTVERDICT := ""
 global HIT := ""          ; 目前偵測結果 {res, offset}
 global ST := ""           ; 候選窗狀態
 global BUSY := false      ; 執行替換中，暫停監看避免吃到自己送出的按鍵
@@ -126,6 +130,9 @@ global SUPPORT_URL := "https://b96093.github.io/bopomofo-garble-detector/support
 ; 問題回報管道。本工具刻意不做任何遙測，所以這是唯一會有的回饋來源 ——
 ; 沒有它，使用者遇到問題只會默默解除安裝，而你永遠不會知道。
 global ISSUES_URL := "https://github.com/b96093/bopomofo-garble-detector/issues"
+; 更新檢查刻意不連網：按下按鈕是用「使用者自己的瀏覽器」開這個頁面，
+; 程式本身不發任何網路請求，「零網路請求」這句話因此完全保留。
+global RELEASES_URL := "https://github.com/b96093/bopomofo-garble-detector/releases"
 
 
 ; ---------- 啟動 ----------
@@ -455,6 +462,13 @@ IsExcludedApp() {
     return false
 }
 
+; 記下這一次偵測的現場。只在 Scan 的各個出口呼叫。
+Note(read, verdict) {
+    global LASTAPP, LASTREAD, LASTVERDICT
+    try LASTAPP := WinGetProcessName(WinExist("A"))
+    LASTREAD := read, LASTVERDICT := verdict
+}
+
 Scan() {
     global HIT, BUF, MISS
     if (!READY || PAUSED || BUF == "") {
@@ -462,6 +476,7 @@ Scan() {
         return
     }
     if (IsExcludedApp()) {        ; Chrome 裡交給擴充，避免兩個候選窗同時出現
+        Note("未讀取", "Chrome 交給擴充處理")
         BUF := ""
         HidePopup()
         return
@@ -469,6 +484,7 @@ Scan() {
     ; 全螢幕遊戲等環境畫不出候選窗。若還是偵測，Enter 會被攔截並直接替換文字，
     ; 使用者卻看不到任何候選 —— 寧可完全不作用。
     if (!CanShowOverlay()) {
+        Note("未讀取", "畫不出候選窗，不作用")
         BUF := ""
         HidePopup()
         return
@@ -517,6 +533,7 @@ Scan() {
     ; 代價是「中文模式下被 Caps Lock 轉成英文」這種亂碼，在那幾個程式裡會漏接。
     ; 漏接可以按 Ctrl+Alt+Z 補救，誤跳則是直接打斷正在做對的事的人。
     if (landed == 0 || (landed == -1 && ImeChineseMode())) {
+        Note(ReadDesc(landed), "研判正在打中文，退開")
         HidePopup()
         MISS += 1
         if (MISS < 2) {
@@ -529,9 +546,11 @@ Scan() {
     MISS := 0
     HIT := DetectTail(BUF, DICT, THRESH, MINSYL)
     if (HIT == "") {
+        Note(ReadDesc(landed), "不像亂碼，未跳出")
         HidePopup()
         return
     }
+    Note(ReadDesc(landed), "判定為亂碼，跳出候選窗")
     OpenCandidates(HIT.res)
 }
 
@@ -1391,8 +1410,9 @@ ShowSettings() {
     ; 版本號與回報管道。使用者回報問題時若不知道版本，幾乎無從查起 ——
     ; 這個 exe 光是開發期間就重編了七次。
     g.SetFont("s9")
-    g.Add("Text", "xm y+18 w200 c888888", "注音亂碼偵測　" . AppVersion())
-    g.Add("Button", "x+0 yp-6 w96 h28", "回報問題").OnEvent("Click", (*) => OpenIssues())
+    g.Add("Text", "xm y+18 w150 c888888", "注音亂碼偵測　" . AppVersion())
+    g.Add("Button", "x+0 yp-6 w96 h28", "檢查更新").OnEvent("Click", (*) => Run(RELEASES_URL))
+    g.Add("Button", "x+8 yp w96 h28", "回報問題").OnEvent("Click", (*) => ShowReport())
 
     g.SetFont("s10")
     g.Add("Button", "xm y+16 w96 h30 Default", "儲存").OnEvent("Click", (*) => SaveFromGui(g))
@@ -1439,6 +1459,51 @@ AppVersion() {
 
 OpenIssues() {
     try Run(ISSUES_URL)
+}
+
+; 回報問題：先把要提供的資訊攤開來給使用者過目，再由他決定要不要送出。
+;
+; 不直接寫進剪貼簿有兩個理由。一是與定位一致 —— 一個標榜不蒐集資料的工具
+; 突然說「我幫你把系統資訊複製好了」，即使內容無害也會讓人不安；攤開來反而
+; 建立信任。二是剪貼簿在這個專案有前科（18d1acd 修過自動搶剪貼簿吃掉截圖），
+; 複製只在使用者按下按鈕時發生。
+global REPGUI := ""
+ShowReport() {
+    global REPGUI
+    if (REPGUI != "") {
+        try {
+            REPGUI.Destroy()
+        }
+        REPGUI := ""
+    }
+    info := {version: AppVersion(), os: A_OSVersion, dpi: A_ScreenDPI,
+             level: LEVEL, levelDesc: LevelName(LevelDesc(LEVEL)), chromeDetect: CHROME_DETECT}
+    last := (LASTAPP == "") ? "" : {app: LASTAPP, read: LASTREAD, verdict: LASTVERDICT}
+    text := BuildReport(info, last)
+
+    g := Gui("+AlwaysOnTop", "注音亂碼偵測 — 回報問題")
+    g.BackColor := "FFFFFF"
+    g.MarginX := 18, g.MarginY := 16
+    g.SetFont("s10", "Microsoft JhengHei")
+    g.Add("Text", "w420", "下面這些資訊有助於排查問題。")
+    g.SetFont("s9 c666666")
+    g.Add("Text", "w420 y+4", "不含你打過的任何內容。你可以自己看過再決定要不要送出。")
+    g.SetFont("s9", "Consolas")
+    g.Add("Edit", "w420 h180 y+10 ReadOnly -Wrap +HScroll vBody", text)
+    g.SetFont("s10", "Microsoft JhengHei")
+    g.Add("Button", "w96 h30 y+14", "複製").OnEvent("Click", (*) => CopyReport(text))
+    g.Add("Button", "x+8 yp w150 h30", "前往 GitHub 回報").OnEvent("Click", (*) => OpenIssues())
+    g.Add("Button", "x+8 yp w96 h30", "關閉").OnEvent("Click", (*) => g.Hide())
+    g.OnEvent("Close", (*) => g.Hide())
+    g.OnEvent("Escape", (*) => g.Hide())
+    REPGUI := g
+    g.Show("AutoSize")
+}
+
+; 只有使用者按下「複製」才會動剪貼簿 —— 沒有任何背景操作。
+CopyReport(text) {
+    A_Clipboard := text
+    Tip("已複製，可以貼到 GitHub Issues", 1800)
 }
 
 OpenSupport() {
