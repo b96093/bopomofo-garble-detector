@@ -10,7 +10,6 @@
 | | Chrome 擴充 | 桌面版 |
 | --- | --- | --- |
 | 適用範圍 | Chrome 裡的所有網頁（Facebook、Google…） | **Word、PowerPoint、LINE、記事本等所有 Windows 程式** |
-| 判斷準確度 | 較高（能直接讀輸入框內容） | 一般（攔在輸入法之前，靠輸入法狀態判斷） |
 | 安裝 | **[Chrome 線上應用程式商店](https://chromewebstore.google.com/detail/gjghbjnkbbccdhfiddmceijjkebajilm)** | [下載](https://github.com/b96093/bopomofo-garble-detector/releases)後解壓縮執行 exe |
 | 說明 | [docs/readme-chrome.md](docs/readme-chrome.md) | [desktop/README.md](desktop/README.md) |
 
@@ -25,12 +24,12 @@
 - **事後補救** —— 選取任何一段亂碼即可轉換，不限剛打的字
 - **標點與數字** —— 混在句中的 `？！、，。` 與數字都會原樣保留
 - **打反容錯** —— `ㄐㄣㄧ` 會依注音結構歸位成 `ㄐㄧㄣ`（同注音輸入法行為）
-- **不誤判** —— 真英文、電話號碼、日期都不會觸發
+- **防誤判** —— 電話號碼、日期、IP 位址、常見英文單字都不會觸發
 
 ## 開發
 
 ```bash
-npm test                        # Chrome 版引擎測試（61 項）
+npm test                        # Chrome 版引擎測試（73 項）
 node build/build-dict.js        # 由 build/data/ 原始資料重建詞庫
 node build/build-english-ahk.js # 由 JS 產生桌面版的英文字表
 ```
@@ -40,9 +39,11 @@ powershell -File build\build-chrome.ps1   # 打包 Chrome 擴充
 powershell -File desktop\build.ps1        # 編譯桌面版 exe（需 Ahk2Exe）
 ```
 
-桌面版另有兩個開發工具：
+桌面版另有這些開發工具：
 
-- `desktop/test.ahk` —— 引擎測試（41 項，與 Chrome 版共用黃金測資）
+- `desktop/test.ahk` —— 引擎測試（57 項，與 Chrome 版共用黃金測資）
+- `desktop/test-uia.ahk` —— 判斷「按鍵有沒有真的出現在畫面上」的比對邏輯（13 項）
+- `desktop/test-report.ahk` —— 回報問題視窗的內容產生（16 項）
 - `desktop/preview.ahk` + `preview.py` —— 把候選窗渲染成 PNG，調版面時不必執行程式就能看效果
 - `desktop/check-globals.py` —— 檢查 AHK 的全域變數陷阱（大小寫混用、參數遮蔽）
 
@@ -60,13 +61,14 @@ powershell -File desktop\build.ps1        # 編譯桌面版 exe（需 Ahk2Exe）
 隱私權政策見 [docs/privacy-policy.md](docs/privacy-policy.md)（已發佈於 GitHub Pages）。
 發新版時把新的 zip 上傳到開發者主控台即可，使用者會自動更新。
 
-### 贊助連結
+### 聯絡入口
 
-「支持開發」入口的網址目前留空，**留空時整個入口不會出現**，所以現在發布也不會有死連結。
-申請好收款帳號（建議 [Ko-fi](https://ko-fi.com) —— 免費開通、支援台灣）後，把同一個網址填進這兩處，再各自重新打包即可：
+本工具不收贊助。「聯絡開發者」按鈕指向 [docs/support.md](docs/support.md)，網址設定在兩處，改的時候要一起改：
 
-- `desktop/app.ahk` —— `SUPPORT_URL`（會出現在系統列選單與設定頁）
-- `src/support.js` —— `SUPPORT_URL`（會出現在擴充的設定頁與使用說明頁）
+- `desktop/app.ahk` —— `SUPPORT_URL`（說明視窗與設定頁）
+- `src/support.js` —— `SUPPORT_URL`（擴充的設定頁與使用說明頁）
+
+留空的話整個入口會隱藏，不會出現點了沒反應的連結。
 
 ## 授權與資料來源
 
