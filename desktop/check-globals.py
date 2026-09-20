@@ -72,6 +72,65 @@ for fname in FILES:
                                     % (fname, name, out, g))
         i = j
 
+# 自動執行區的順序陷阱：AHK 的熱鍵在「載入時」就註冊好了，而 Sleep／MsgBox
+# 會讓出訊息迴圈 —— 期間使用者按的鍵會讓 #HotIf 運算式求值。若那時全域變數
+# 還沒被指派，就會跳出「This global variable has not been assigned a value」。
+# v1.1.5 實測發生過：具名 mutex 的重試迴圈寫在全域指派之前，第二個實例一啟動
+# 就爆三個錯誤對話框。
+YIELDING = ("Sleep", "MsgBox", "InputBox", "FileSelect", "DirSelect", "ClipWait", "KeyWait")
+
+app = base / "app.ahk"
+if app.exists():
+    lines = io.open(app, encoding="utf-8").read().lstrip("\ufeff").split("\n")
+
+    # 只取自動執行區會跑到的頂層程式碼：跳過所有函式定義
+    fstart = re.compile(r"^([A-Za-z_]\w*)\(.*\)\s*\{")
+    toplevel, i, n = [], 0, len(lines)
+    while i < n:
+        if fstart.match(lines[i]):
+            depth, j = 0, i
+            while j < n:
+                depth += lines[j].count("{") - lines[j].count("}")
+                j += 1
+                if depth <= 0 and j > i:
+                    break
+            i = j
+            continue
+        toplevel.append((i + 1, lines[i]))
+        i += 1
+
+    first_yield = None
+    for lineno, ln in toplevel:
+        code = ln.split(";")[0]
+        if any(re.search(r"\b" + k + r"\s*\(", code) for k in YIELDING):
+            first_yield = (lineno, code.strip())
+            break
+
+    assigned = {}
+    for lineno, ln in toplevel:
+        m = re.match(r"^global\s+(.+)", ln.split(";")[0])
+        if not m:
+            continue
+        for part in m.group(1).split(","):
+            if ":=" not in part:
+                continue
+            name = part.split(":=")[0].strip()
+            if re.match(r"^[A-Za-z_]\w*$", name):
+                assigned.setdefault(name.lower(), lineno)
+
+    if first_yield:
+        for lineno, ln in toplevel:
+            m = re.match(r"^\s*#HotIf\s+(.+)", ln)
+            if not m:
+                continue
+            for var in re.findall(r"[A-Za-z_]\w*", m.group(1)):
+                at = assigned.get(var.lower())
+                if at is not None and at > first_yield[0]:
+                    problems.append(
+                        "app.ahk: #HotIf 用到的全域 %s 在第 %d 行才指派，但第 %d 行（%s）"
+                        "就會讓出訊息迴圈 —— 使用者在那之前按鍵會跳出「未指派值」錯誤"
+                        % (var, at, first_yield[0], first_yield[1]))
+
 if problems:
     print("發現問題：")
     for p in dict.fromkeys(problems):

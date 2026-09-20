@@ -8,35 +8,14 @@
 ; 拖曳完全失效。全域改為螢幕座標，讓所有滑鼠座標與視窗座標在同一個基準上。
 CoordMode("Mouse", "Screen")
 
-; #SingleInstance Force 只認得「同一個腳本／同一個 exe」。使用者下載新版、解壓到
-; 另一個資料夾、忘了關掉舊的，兩個 exe 就會同時執行 —— 各自畫一個候選窗疊在一起，
-; 而使用者完全看不出原因（實測發生過）。改用具名 mutex，不看路徑。
-;
-; 迴圈重試是必要的：同路徑重開時 #SingleInstance Force 會先終止舊的實例，但舊行程
-; 釋放 mutex 需要一點時間。不等就會把正常的重新啟動誤判成「已經在執行」。
-Loop 10 {
-    hMutex := DllCall("CreateMutex", "Ptr", 0, "Int", 1, "Str", "BopomofoGarbleDetector_SingleInstance", "Ptr")
-    if (A_LastError != 183)          ; ERROR_ALREADY_EXISTS
-        break
-    DllCall("CloseHandle", "Ptr", hMutex)
-    if (A_Index == 10) {
-        MsgBox("注音亂碼偵測已經在執行中。`n`n"
-             . "如果你剛下載新版，請先從系統列圖示（右鍵 → 結束）關掉舊的那個，再重新開啟。`n`n"
-             . "兩個同時執行會跳出兩個候選窗。",
-               "注音亂碼偵測", "Iconi")
-        ExitApp()
-    }
-    Sleep(150)
-}
-
 ; 編譯後 exe 的版本資訊。空白的 metadata 會提高防毒的啟發式可疑度 ——
 ; AHK 編譯檔本來就容易被誤判（直譯器+腳本像加殼、全域鍵盤 hook 像側錄器），
 ; 填齊這些欄位是免費且該做的一步。CompanyName 可改成你的名字或 GitHub 帳號。
 ;@Ahk2Exe-SetProductName 注音亂碼偵測
 ;@Ahk2Exe-SetCompanyName 注音亂碼偵測
 ;@Ahk2Exe-SetDescription 注音亂碼偵測 — 把打錯的英文亂碼還原成中文
-;@Ahk2Exe-SetVersion 1.1.5.0
-;@Ahk2Exe-SetProductVersion 1.1.5
+;@Ahk2Exe-SetVersion 1.1.6.0
+;@Ahk2Exe-SetProductVersion 1.1.6
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 — MIT License
 ;@Ahk2Exe-SetOrigFilename 注音亂碼偵測.exe
 ;@Ahk2Exe-SetLanguage 0x0404
@@ -134,6 +113,32 @@ global ISSUES_URL := "https://github.com/b96093/bopomofo-garble-detector/issues"
 ; 程式本身不發任何網路請求，「零網路請求」這句話因此完全保留。
 global RELEASES_URL := "https://github.com/b96093/bopomofo-garble-detector/releases"
 
+
+; #SingleInstance Force 只認得「同一個腳本／同一個 exe」。使用者下載新版、解壓到
+; 另一個資料夾、忘了關掉舊的，兩個 exe 就會同時執行 —— 各自畫一個候選窗疊在一起，
+; 而使用者完全看不出原因（實測發生過）。改用具名 mutex，不看路徑。
+;
+; 迴圈重試是必要的：同路徑重開時 #SingleInstance Force 會先終止舊的實例，但舊行程
+; 釋放 mutex 需要一點時間。不等就會把正常的重新啟動誤判成「已經在執行」。
+;
+; 這段必須放在所有全域指派「之後」。AHK 的熱鍵在載入時就註冊好了，而下面的
+; Sleep 與 MsgBox 都會讓出訊息迴圈 —— 期間使用者按的每一個鍵都會讓 #HotIf
+; 求值。若 POPUP_ON／ICON_ON／CANSHOW 還沒被指派，就會跳出
+; 「This global variable has not been assigned a value」對話框（v1.1.5 實測）。
+Loop 10 {
+    hMutex := DllCall("CreateMutex", "Ptr", 0, "Int", 1, "Str", "BopomofoGarbleDetector_SingleInstance", "Ptr")
+    if (A_LastError != 183)          ; ERROR_ALREADY_EXISTS
+        break
+    DllCall("CloseHandle", "Ptr", hMutex)
+    if (A_Index == 10) {
+        MsgBox("注音亂碼偵測已經在執行中。`n`n"
+             . "如果你剛下載新版，請先從系統列圖示（右鍵 → 結束）關掉舊的那個，再重新開啟。`n`n"
+             . "兩個同時執行會跳出兩個候選窗。",
+               "注音亂碼偵測", "Iconi")
+        ExitApp()
+    }
+    Sleep(150)
+}
 
 ; ---------- 啟動 ----------
 TraySetIcon(A_ScriptDir "\icon.ico", 1, true)
