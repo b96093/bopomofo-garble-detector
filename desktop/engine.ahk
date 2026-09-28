@@ -429,3 +429,47 @@ DetectTail(input, dict, threshold := 0.8, minSyllables := 2) {
     }
     return ""
 }
+
+; ---------- 整段轉換 ----------
+; 選取一整段筆記時用。Detect 只吃單行（IsRunChar 不收換行，一碰到就整串放棄），
+; 所以這裡按行切開、逐行丟進 Detect，再用原本的換行字元組回去。
+;
+; 不是亂碼的行原樣保留 —— 真實筆記必然中英混雜，忘記切輸入法之前打的那幾行
+; 是中文，不能被動到。空行、縮排也一併保留。
+;
+; 參數 0.5 / 1 / manual 與 CheckSelection 的單行路徑相同：使用者已經明確說
+; 「轉這一段」，再拿打字路徑那套嚴格門檻懷疑他就只是幫倒忙。
+;
+; 回傳 {text, hits, total, preview}；一行都沒命中就回傳空字串。
+DetectBlock(text, dict) {
+    ; 記住原本的換行字元，組回去時不要把 CRLF 換成 LF —— 那會改變使用者的文件
+    eol := InStr(text, "`r`n") ? "`r`n" : "`n"
+    lines := StrSplit(StrReplace(text, "`r`n", "`n"), "`n")
+
+    out := [], hits := 0, preview := ""
+    for ln in lines {
+        body := Trim(ln, " `t")
+        if (body == "") {
+            out.Push(ln)
+            continue
+        }
+        res := Detect(body, dict, 0.5, 1, true)
+        if (res == "") {
+            out.Push(ln)
+            continue
+        }
+        hits += 1
+        if (preview == "")
+            preview := res.candidates[1]
+        ; 只換中間那段，前後的空白（縮排、行尾空格）原樣接回去
+        at := InStr(ln, body)
+        out.Push(SubStr(ln, 1, at - 1) . res.candidates[1] . SubStr(ln, at + StrLen(body)))
+    }
+    if (hits == 0)
+        return ""
+
+    joined := ""
+    for i, s in out
+        joined .= (i > 1 ? eol : "") . s
+    return {text: joined, hits: hits, total: lines.Length, preview: preview}
+}
