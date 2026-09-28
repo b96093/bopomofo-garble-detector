@@ -265,8 +265,17 @@ HotkeyPretty(s) {
 ; fromHotkey=false 代表從系統列點進來 —— 那時焦點已經被系統列奪走，
 ; 必須先切回原本的視窗，Ctrl+C 才會送到正確的地方。
 ConvertSelection(fromHotkey) {
+    global LASTPROBE
     if (!READY || BUSY || PAUSED || POPUP_ON)
         return
+    ; 去抖動必須擋在這一層。快捷鍵按住不放時，Windows 的按鍵自動重複會讓這裡
+    ; 連續觸發；原本擋在 GetSelectedText 裡，它回傳的空字串跟「真的沒選取」
+    ; 無法區分，於是 CheckSelection 會把第一次好不容易跳出來的 icon 收掉，
+    ; 再補一句「看起來不像注音亂碼」。
+    ; 實測 2026-09-28：輕點可以、按住就失敗；移上來之後兩種都正常。
+    if (A_TickCount - LASTPROBE < 300)
+        return
+    LASTPROBE := A_TickCount
     if (!fromHotkey && LASTWIN) {
         try {
             WinActivate("ahk_id " . LASTWIN)
@@ -608,11 +617,8 @@ ClipSeq() {
 ; 那就該老老實實用 ClipboardAll() 完整備份還原，不要因為剪貼簿裡剛好有圖片
 ; 就默默拒絕服務（使用者按了鍵卻什麼都沒發生，只會以為程式壞了）。
 GetSelectedText() {
-    global LASTPROBE
-    ; 只用來去抖動，避免快捷鍵按住不放或連點選單時重複觸發
-    if (A_TickCount - LASTPROBE < 300)
-        return ""
-    LASTPROBE := A_TickCount
+    ; 去抖動在唯一的呼叫者 ConvertSelection 那一層做。這裡不能擋：這個函式的 ""
+    ; 代表「真的沒選取」，去抖動也回傳 "" 就把兩件事混在一起了。
     seq0 := ClipSeq()
     saved := ClipboardAll()          ; 唯讀，不會改變序號
     Send("^c")
@@ -638,9 +644,11 @@ CheckSelection(fromMouse := true) {
     if (!READY || BUSY || PAUSED || POPUP_ON || IsExcludedApp() || !CanShowOverlay())
         return
     SELFROMMOUSE := fromMouse
-    ; raw 保留原始結構（含頭尾的空行），text 是修剪過的版本只拿來做判斷。
+    ; raw 保留原始結構（開頭的空行、每行的縮排），text 是修剪過的版本只拿來做判斷。
     ; 整段替換會覆蓋整個選取範圍 —— 若把修剪過的內容送出去，使用者選取範圍
-    ; 頭尾的空行就會永久消失，兩個段落會被黏在一起。
+    ; 開頭的空行就會永久消失，兩個段落會被黏在一起。
+    ; （尾端換行是例外，由 AcceptBlock 處理：讀選取靠 Ctrl+C，複製回來的尾端換行
+    ;   不一定真的在選取範圍內。）
     raw := NormalizeTyped(GetSelectedText())
     text := Trim(raw, " `t`r`n")
     if (text == "" || StrLen(raw) > BLOCK_MAX) {
@@ -879,8 +887,13 @@ AcceptBlock() {
     BUSY := true
     IH.Stop()
     ; 選取狀態還在，直接送字就會覆蓋掉 —— 與 Accept 的 selection 模式相同，
-    ; 不必退格、完全不動剪貼簿
-    SendText(txt)
+    ; 不必退格、完全不動剪貼簿。
+    ;
+    ; 尾端換行要去掉：程式讀選取內容是靠 Ctrl+C，而記事本（以及多數編輯器）
+    ; 在全選複製時會多給一個結尾換行，那個換行其實不在選取範圍裡。原樣送回去
+    ; 會讓文件尾端多一個空行。實測 2026-09-28：送出不帶尾端換行時，結果與原文
+    ; 完全相同。
+    SendText(RTrim(txt, "`r`n"))
     Sleep(30)
     BUF := "", HIT := ""
     IH.Start()
