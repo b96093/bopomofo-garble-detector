@@ -432,44 +432,50 @@ DetectTail(input, dict, threshold := 0.8, minSyllables := 2) {
 
 ; ---------- 整段轉換 ----------
 ; 選取一整段筆記時用。Detect 只吃單行（IsRunChar 不收換行，一碰到就整串放棄），
-; 所以這裡按行切開、逐行丟進 Detect，再用原本的換行字元組回去。
+; 所以這裡按行切開、逐行丟進 Detect，再原樣接回去。
 ;
 ; 不是亂碼的行原樣保留 —— 真實筆記必然中英混雜，忘記切輸入法之前打的那幾行
-; 是中文，不能被動到。空行、縮排也一併保留。
-;
-; 參數 0.5 / 1 / manual 與 CheckSelection 的單行路徑相同：使用者已經明確說
-; 「轉這一段」，再拿打字路徑那套嚴格門檻懷疑他就只是幫倒忙。
+; 是中文，不能被動到。空行、縮排、行尾空白也一併保留。
 ;
 ; 回傳 {text, hits, total, preview}；一行都沒命中就回傳空字串。
-DetectBlock(text, dict) {
-    ; 記住原本的換行字元，組回去時不要把 CRLF 換成 LF —— 那會改變使用者的文件
-    eol := InStr(text, "`r`n") ? "`r`n" : "`n"
-    lines := StrSplit(StrReplace(text, "`r`n", "`n"), "`n")
+DetectBlock(input, dict) {
+    ; 瀏覽器的 contenteditable 會把空白存成 U+00A0，IsRunChar 會把它當邊界 ——
+    ; 不先正規化，從 Gmail 草稿複製出來的整段會每一行都轉不出來
+    input := NormalizeTyped(input)
+    parts := StrSplit(input, "`n")
 
     out := [], hits := 0, preview := ""
-    for ln in lines {
+    for seg in parts {
+        ; 切在 `n 上，CRLF 的行會在尾端留下一個 `r —— 逐行記住它、組回去時原樣接上。
+        ; 不能用整段共用一個換行字元：混用 CRLF 與 LF 時，那會把沒被要求修改的行
+        ; 的換行字元也一起改掉，整段筆記在版控裡會全部出現在 diff。
+        cr := (SubStr(seg, -1) == "`r")
+        ln := cr ? SubStr(seg, 1, -1) : seg
         body := Trim(ln, " `t")
-        if (body == "") {
-            out.Push(ln)
-            continue
+        conv := ln
+        if (body != "") {
+            ; manual 必須是 false —— 要保留「至少一個字母」與常見英文兩道守門。
+            ; 單行路徑關掉它們是對的：使用者指著那一句說「轉這個」。但整段是逐行
+            ; 獨立判斷，使用者從來沒有指著筆記裡的那行日期。關掉的話 2/4 會變成
+            ; 「鄧」、10:30 會變成「般:3安」、no 會變成「㩙」，而整段路徑不開
+            ; 候選窗，按下 Enter 之前使用者根本看不到。（2026-09-28 實測）
+            res := Detect(body, dict, 0.5, 1, false)
+            if (res != "") {
+                hits += 1
+                if (hits == 1)
+                    preview := res.candidates[1]
+                ; 只換中間那段，前後的空白（縮排、行尾空格）原樣接回去
+                at := InStr(ln, body)
+                conv := SubStr(ln, 1, at - 1) . res.candidates[1] . SubStr(ln, at + StrLen(body))
+            }
         }
-        res := Detect(body, dict, 0.5, 1, true)
-        if (res == "") {
-            out.Push(ln)
-            continue
-        }
-        hits += 1
-        if (preview == "")
-            preview := res.candidates[1]
-        ; 只換中間那段，前後的空白（縮排、行尾空格）原樣接回去
-        at := InStr(ln, body)
-        out.Push(SubStr(ln, 1, at - 1) . res.candidates[1] . SubStr(ln, at + StrLen(body)))
+        out.Push(conv . (cr ? "`r" : ""))
     }
     if (hits == 0)
         return ""
 
     joined := ""
     for i, s in out
-        joined .= (i > 1 ? eol : "") . s
-    return {text: joined, hits: hits, total: lines.Length, preview: preview}
+        joined .= (i > 1 ? "`n" : "") . s
+    return {text: joined, hits: hits, total: parts.Length, preview: preview}
 }
