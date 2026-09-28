@@ -68,6 +68,10 @@ global ANCW := [0, 0, 0, 0]   ; 開窗當下作用中視窗的位置大小（視
 ; 選取轉換用
 global ICON := "", ICONTEXT := "", ICONHINT := "", ICON_ON := false
 global SELRES := ""       ; 選取內容的偵測結果
+; 整段路徑的偵測結果（DetectBlock 回傳的 text/hits/total/preview）。
+; 這行的註解刻意不寫逗號：check-globals.py 會把 global 那一行按逗號切開當變數名，
+; 註解裡的逗號會讓它把 hits、total 當成全域變數而誤報。
+global BLOCKRES := ""
 global SELFROMMOUSE := true   ; 這次選取是滑鼠拖曳還是鍵盤（Ctrl+A）觸發
 global MDX := 0, MDY := 0 ; 滑鼠按下的位置（用來判斷是否為拖曳選取）
 ; 最後一次點擊的位置：在 Canva 這類程式要打字一定得先點進文字框，
@@ -98,6 +102,26 @@ global SETTINGS_FILE := A_ScriptDir "\settings.ini"
 ; 可在 settings.ini 改（下一版做成設定頁的按鍵擷取介面）。
 global HOTKEY_STR := "^!z"
 global HOTKEY_OK := false
+
+; 選取轉換的兩個長度門檻。
+;
+; SINGLE_MAX：候選窗放得下幾個字。BuildLayout 的寬度是 24 + 字數×22（邏輯像素），
+; 上限 DPX(700)，超過就被裁掉而且沒有任何提示。由 desktop/measure-candmax.ahk 量出
+;（2026-09-28：第 29 個字開始觸頂，與 DPI 縮放無關），改動 draw.ahk 的版面常數後
+; 請重跑那支腳本。
+global SINGLE_MAX := 28
+
+; BLOCK_MAX：整段路徑的長度上限。原本這裡是寫死的 120，那是「被動偵測」時代的
+; 遺留 —— 當年每次拖曳、每次雙擊都會呼叫 CheckSelection，寬鬆門檻會讓版本號、
+; IP 亂跳圖示。現在只有快捷鍵與系統列選單會呼叫，使用者已經明確說「轉這一段」。
+; 仍然要有上限：GetSelectedText 走剪貼簿，而 DetectBlock 對每一行都要跑
+; TokenizeResolving 與 ConvertCandidates。
+;
+; desktop/measure-blockmax.ahk 的實測結論（2026-09-28）是 DetectBlock 不是瓶頸 ——
+; 160 行／6079 字元只要 60～80ms，離 300ms 的可接受上限還很遠。所以 4000 不是
+; 效能門檻而是保護值：那是「轉這一段筆記」的合理上界，可以擋住誤按 Ctrl+A
+; 選到整份文件、然後按 Enter 就被整份覆蓋掉的情況。
+global BLOCK_MAX := 4000
 ; 聯絡頁連結：填入後，說明視窗與設定頁才會出現「聯絡開發者」入口。
 ; 留空＝完全不顯示，避免發布時出現點了沒反應的死連結。
 ; 變數名沿用 SUPPORT_URL，與 Chrome 版的 src/support.js 對應。
@@ -251,8 +275,10 @@ ConvertSelection(fromHotkey) {
         }
     }
     CheckSelection(false)
-    ; 選取內容不是亂碼時要說一聲，否則使用者按了沒反應會以為壞了
-    if (SELRES == "")
+    ; 選取內容不是亂碼時要說一聲，否則使用者按了沒反應會以為壞了。
+    ; 兩條路都要看：整段路徑只設 BLOCKRES，只檢查 SELRES 會在 icon 已經跳出來時
+    ; 還多報一句「不是注音亂碼」。
+    if (SELRES == "" && BLOCKRES == "")
         Tip("選取的內容看起來不是注音亂碼", 1600)
 }
 
@@ -608,15 +634,32 @@ GetSelectedText() {
 }
 
 CheckSelection(fromMouse := true) {
-    global SELRES, SELFROMMOUSE
+    global SELRES, SELFROMMOUSE, BLOCKRES
     if (!READY || BUSY || PAUSED || POPUP_ON || IsExcludedApp() || !CanShowOverlay())
         return
     SELFROMMOUSE := fromMouse
-    text := Trim(NormalizeTyped(GetSelectedText()), " `t`r`n")
-    if (text == "" || StrLen(text) > 120) {   ; 太長的選取不是我們的使用情境
+    ; raw 保留原始結構（含頭尾的空行），text 是修剪過的版本只拿來做判斷。
+    ; 整段替換會覆蓋整個選取範圍 —— 若把修剪過的內容送出去，使用者選取範圍
+    ; 頭尾的空行就會永久消失，兩個段落會被黏在一起。
+    raw := NormalizeTyped(GetSelectedText())
+    text := Trim(raw, " `t`r`n")
+    if (text == "" || StrLen(raw) > BLOCK_MAX) {
         HideIcon()
         return
     }
+
+    ; 一句與一段走不同的路：
+    ;   一句 → 候選窗精修（三個候選、逐字換同音字）
+    ;   一段 → icon 顯示行數，按 Enter 直接整段替換
+    ;
+    ; 判斷條件有兩個。含換行是顯而易見的那個；另一個是「候選長到會被版面裁掉」——
+    ; BuildLayout 的寬度上限是 DPX(700)，超過 SINGLE_MAX 個字的候選會被切掉一半，
+    ; 而使用者看不出來。那種長度本來就不該進候選窗。
+    if (InStr(raw, "`n")) {
+        ShowBlockIcon(raw)
+        return
+    }
+
     ; 門檻放寬（單音節也算、跳過常見英文那關）。
     ;
     ; 這裡曾經改成跟打字路徑一樣嚴格，那在「被動偵測」時代是對的 —— 當時每次拖曳、
@@ -628,6 +671,14 @@ CheckSelection(fromMouse := true) {
         HideIcon()
         return
     }
+    if (StrLen(res.candidates[1]) > SINGLE_MAX) {
+        ShowBlockIcon(raw)          ; 太長，候選窗裝不下 —— 改走整段路徑
+        return
+    }
+    ; 與 ShowBlockIcon 清掉 SELRES 對稱：icon 還開著的時候使用者可以再按一次快捷鍵
+    ;（ConvertSelection 只擋 POPUP_ON，不擋 ICON_ON），若上一次走的是整段路徑，
+    ; 殘留的 BLOCKRES 會讓 IconClicked 走去 AcceptBlock，把上一段的文字蓋到這次的選取上。
+    BLOCKRES := ""
     SELRES := res
     ShowIcon(res.candidates[1])
 }
@@ -797,17 +848,61 @@ ShowIcon(preview) {
     ICON_ON := true
 }
 
+; 整段路徑：icon 顯示第一行的預覽與總行數，按 Enter 直接替換，不開候選窗。
+;
+; 為什麼不進候選窗：那個版面是為一句話設計的 —— 三個「整段候選」沒有意義，
+; 逐字同音字盤要攤開幾百個字。而且「整段都是亂碼」的當下沒什麼好挑的，
+; 救回來才是重點。要挑字，事後選那一行再按一次快捷鍵就回到候選窗。
+;
+; 使用者按 Enter 前看不到完整結果，這違背本工具「看得到才動手」的原則。
+; 接受這個代價，是因為替換後 Ctrl+Z 可以復原，不是不可逆的操作。
+ShowBlockIcon(raw) {
+    global BLOCKRES, SELRES
+    r := DetectBlock(raw, DICT)
+    if (r == "") {
+        HideIcon()
+        return
+    }
+    BLOCKRES := r
+    SELRES := ""                      ; 兩條路互斥，避免 IconClicked 走錯邊
+    ShowIcon(Fit(r.preview, 20) . "　還原 " . r.hits . " 行")
+}
+
+AcceptBlock() {
+    global BLOCKRES, BUSY, BUF, HIT
+    if (BLOCKRES == "")
+        return
+    txt := BLOCKRES.text
+    BLOCKRES := ""
+    HideIcon()
+
+    BUSY := true
+    IH.Stop()
+    ; 選取狀態還在，直接送字就會覆蓋掉 —— 與 Accept 的 selection 模式相同，
+    ; 不必退格、完全不動剪貼簿
+    SendText(txt)
+    Sleep(30)
+    BUF := "", HIT := ""
+    IH.Start()
+    BUSY := false
+}
+
 HideIcon() {
-    global ICON_ON, SELRES
+    global ICON_ON, SELRES, BLOCKRES
     if (ICON_ON && ICON != "") {
         try ICON.Hide()
         ICON_ON := false
     }
     SELRES := ""
+    BLOCKRES := ""
 }
 
 IconClicked() {
-    global SELRES
+    global SELRES, BLOCKRES
+    if (BLOCKRES != "") {
+        AcceptBlock()
+        return
+    }
     if (SELRES == "")
         return
     res := SELRES
