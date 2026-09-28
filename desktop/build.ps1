@@ -39,6 +39,10 @@ Copy-Item (Join-Path $here 'dict.txt') $out
 Copy-Item (Join-Path $here 'icon.ico') $out
 Copy-Item (Join-Path $here 'icon-paused.ico') $out   # 暫停時的灰階系統列圖示
 Copy-Item (Join-Path $here 'README.md') $out
+# 一鍵更新：雙擊 cmd 會另開視窗跑 ps1，不需要使用者自己解壓覆蓋。
+# 兩個檔案都會被下一次更新覆蓋掉，所以 cmd 只是個立刻結束的啟動器（見檔內說明）。
+Copy-Item (Join-Path $here 'update.ps1') $out
+Copy-Item (Join-Path $here '更新到最新版.cmd') $out
 Copy-Item (Join-Path $root 'docs\NOTICE.md') $out
 
 # 檔名用 ASCII：GitHub Release 的附件會把非 ASCII 字元換成「-」，
