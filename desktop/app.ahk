@@ -272,7 +272,6 @@ ConvertSelection(fromHotkey) {
     ; 連續觸發；原本擋在 GetSelectedText 裡，它回傳的空字串跟「真的沒選取」
     ; 無法區分，於是 CheckSelection 會把第一次好不容易跳出來的 icon 收掉，
     ; 再補一句「看起來不像注音亂碼」。
-    ; 實測 2026-09-28：輕點可以、按住就失敗；移上來之後兩種都正常。
     if (A_TickCount - LASTPROBE < 300)
         return
     LASTPROBE := A_TickCount
