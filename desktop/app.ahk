@@ -14,8 +14,8 @@ CoordMode("Mouse", "Screen")
 ;@Ahk2Exe-SetProductName 注音亂碼偵測
 ;@Ahk2Exe-SetCompanyName 注音亂碼偵測
 ;@Ahk2Exe-SetDescription 注音亂碼偵測 — 把打錯的英文亂碼還原成中文
-;@Ahk2Exe-SetVersion 1.1.6.0
-;@Ahk2Exe-SetProductVersion 1.1.6
+;@Ahk2Exe-SetVersion 1.1.7.0
+;@Ahk2Exe-SetProductVersion 1.1.7
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 — MIT License
 ;@Ahk2Exe-SetOrigFilename 注音亂碼偵測.exe
 ;@Ahk2Exe-SetLanguage 0x0404
@@ -275,6 +275,23 @@ ConvertSelection(fromHotkey) {
     if (A_TickCount - LASTPROBE < 300)
         return
     LASTPROBE := A_TickCount
+    if (fromHotkey) {
+        ; 快捷鍵的最後一個鍵（Z）會被攔下來，目標程式只看到「修飾鍵按下又放開、
+        ; 中間什麼都沒有」。這在 Windows 有特別的意思：Alt 會打開選單（Windows 11
+        ; 記事本會跳出一排鍵盤提示字母，接著送的 Ctrl+C 被吃掉，誤報「看起來不是
+        ; 注音亂碼」），Ctrl+Shift 會切換輸入法。2026-10-11 使用者實測兩者都會發生，
+        ; 而且單純在快捷鍵前加 $ 改走鍵盤鉤子並不能避免。
+        ;
+        ; 修飾鍵還按著的時候先送一個沒有作用的空按鍵（vkE8，未定義的虛擬鍵），
+        ; 讓系統認為中間按過別的鍵，放開時就不會觸發上述行為。
+        Send("{Blind}{vkE8}")
+        ; 再等使用者放開修飾鍵才讀選取 —— 手還按著時送 Ctrl+C，AHK 得先暫時放開
+        ; 這些鍵，結果不可靠。等待期間，按住不放產生的自動重複會被
+        ; #MaxThreadsPerHotkey（預設 1）擋掉。最多等 3 秒，逾時照常進行。
+        for k in ["Ctrl", "Alt", "Shift", "LWin", "RWin"]
+            KeyWait(k, "T3")
+        Sleep(30)
+    }
     if (!fromHotkey && LASTWIN) {
         try {
             WinActivate("ahk_id " . LASTWIN)
@@ -662,7 +679,10 @@ CheckSelection(fromMouse := true) {
     ; 判斷條件有兩個。含換行是顯而易見的那個；另一個是「候選長到會被版面裁掉」——
     ; BuildLayout 的寬度上限是 DPX(700)，超過 SINGLE_MAX 個字的候選會被切掉一半，
     ; 而使用者看不出來。那種長度本來就不該進候選窗。
-    if (InStr(raw, "`n")) {
+    ; 判斷「是不是多行」要用修剪過的 text：選一整行時通常會連行尾的換行一起選到，
+    ; 用 raw 判斷會把單行誤判成多行，跳過候選窗直接替換（2026-10-11 使用者實測）。
+    ; 替換時仍然交給 raw，讓整段的結構保持原樣。
+    if (InStr(text, "`n")) {
         ShowBlockIcon(raw)
         return
     }
@@ -885,8 +905,12 @@ AcceptBlock() {
 
     BUSY := true
     IH.Stop()
-    ; 選取狀態還在，直接送字就會覆蓋掉 —— 與 Accept 的 selection 模式相同，
-    ; 不必退格、完全不動剪貼簿。
+    ; 選取狀態還在，貼上就會覆蓋掉。
+    ;
+    ; 用貼上而不是 SendText 逐字送出：逐字送出會被記事本記成很多個復原步驟，
+    ; 2026-10-11 實測要按 32 次 Ctrl+Z 才能復原。而「整段路徑跳過候選窗」
+    ; 這個取捨，正是建立在「一次 Ctrl+Z 就能復原」的前提上。
+    ; 貼上會經過剪貼簿，所以先備份、貼完再還原 —— 跟讀取選取內容時的做法相同。
     ;
     ; 尾端換行要去掉一個：程式讀選取內容是靠 Ctrl+C，而記事本（以及多數編輯器）
     ; 在全選複製時會多給一個結尾換行，那個換行其實不在選取範圍裡。原樣送回去
@@ -903,8 +927,13 @@ AcceptBlock() {
         out := SubStr(out, 1, -2)
     else if (SubStr(out, -1) == "`n" || SubStr(out, -1) == "`r")
         out := SubStr(out, 1, -1)
-    SendText(out)
-    Sleep(30)
+    saved := ClipboardAll()
+    A_Clipboard := out
+    if ClipWait(1) {
+        Send("^v")
+        Sleep(200)     ; 等目標程式讀完剪貼簿再還原，太早還原會貼到舊內容
+    }
+    A_Clipboard := saved
     BUF := "", HIT := ""
     IH.Start()
     BUSY := false
