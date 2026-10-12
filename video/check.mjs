@@ -99,7 +99,10 @@ for (const v of versions) {
 
     // Logo 拆成三塊飛入：拼好時要跟原圖逐像素相同（三塊合起來蓋滿、沒有重疊加深），
     // 而且每條裁切邊（不在圖框上的邊）兩側 2px 內都只能是空白 —— 邊切過筆畫的話，
-    // 飛行中那一塊會缺角，或帶著別塊的殘片
+    // 飛行中那一塊會缺角，或帶著別塊的殘片。
+    // 只留片尾那一層比對：移到畫面外的筆記卡會讓 Chrome 改用另一種合成路徑，
+    // multiply 的結果在鉛筆網點上差幾個色階（肉眼看不出），跟裁切是否正確無關
+    await page.evaluate(`[...document.getElementById('stage').children].forEach(el => { if (el.id !== 'endCard') el.style.display = 'none'; })`);
     await page.evaluate('render(28.9)');
     const assembled = decodePng(await page.screenshot());
     const geo = await page.evaluate(`(() => {
@@ -116,14 +119,15 @@ for (const v of versions) {
     })()`);
     const original = decodePng(await page.screenshot());
     await page.evaluate(`document.getElementById('logoRef').remove();
-      ['logoJ', 'logoPen', 'logoA'].forEach(id => { document.getElementById(id).style.visibility = ''; })`);
+      ['logoJ', 'logoPen', 'logoA'].forEach(id => { document.getElementById(id).style.visibility = ''; });
+      [...document.getElementById('stage').children].forEach(el => { el.style.display = ''; })`);
     let diffPx = 0;
     for (let y = 0; y < original.h; y++) for (let x = 0; x < original.w; x++) {
       const a = assembled.at(x, y), b = original.at(x, y);
       if (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2]) diffPx++;
     }
     eq('28.9 秒：三塊 Logo 拼起來與未裁切的原圖逐像素相同（不同的像素數）', diffPx, 0);
-    const bg = original.at(5, 5);
+    const bg = original.at(Math.round(geo.x) + 2, Math.round(geo.y) + 2);   // Logo 底下的顏色（白卡）
     const onBorder = (a, b) => [0, 1].some(i => Math.abs(a[i] - b[i]) < 0.5 && (Math.abs(a[i]) < 0.5 || Math.abs(a[i] - (i ? geo.h : geo.w)) < 0.5));
     const cuts = [];
     geo.polys.forEach((poly, k) => poly.forEach((a, i) => {

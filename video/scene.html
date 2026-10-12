@@ -21,12 +21,18 @@
   --accent: #1A5FB4; --alert: #C2474F;
   --pick: #BCD6F5;   /* 文件裡的反白 */
   --mark: #FFEFA8;   /* 「沒被動到」的螢光筆 */
+  --teal: #6FA8B5; --pink: #EFAFB0; --line: #1E1E1E; --bar: #FFE9A8; --wave: #E5484D; --ok: #5E9A57;
 }
 html, body { margin: 0; background: var(--bg); }
-#stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--bg);
+#stage { position: relative; width: 1080px; height: 1920px; overflow: hidden;
+  background: linear-gradient(160deg, #6FA8B5 0%, #86B9C4 55%, #A6CBD2 100%);
   font-family: "Microsoft JhengHei", sans-serif; color: var(--ink); }
 .abs { position: absolute; }
-.card { background: #fff; border-radius: 22px; box-shadow: 0 10px 40px rgba(0, 0, 0, .07); }
+.card { background: #fff; border: 5px solid var(--line); border-radius: 26px; box-shadow: 14px 14px 0 var(--line); }
+/* 背景的兩顆大圓，隨時間緩慢漂移（週期 30 秒，循環接得上） */
+.blob { border-radius: 50%; }
+#blob1 { left: -260px; top: 1380px; width: 760px; height: 760px; background: var(--pink); opacity: .6; }
+#blob2 { left: 660px; top: -180px; width: 580px; height: 580px; background: #fff; opacity: .2; }
 
 #slide { left: 90px; top: 110px; width: 900px; height: 506px; overflow: hidden; }
 #slideTitle { left: 0; top: 150px; width: 900px; text-align: center; font-size: 64px; font-weight: 700; }
@@ -35,36 +41,48 @@ html, body { margin: 0; background: var(--bg); }
 #clock { right: 36px; top: 24px; font-size: 30px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 #notes { left: 60px; top: 680px; width: 960px; height: 1130px; }
-#notesBar { left: 0; top: 0; width: 960px; height: 72px; border-bottom: 1px solid #ECECEC; }
-#notesName { left: 36px; top: 19px; font-size: 26px; color: var(--faint); }
+#notesBar { left: 0; top: 0; width: 960px; height: 72px; border-bottom: 5px solid var(--line); background: var(--bar);
+  border-radius: 21px 21px 0 0; }
+#notesName { left: 36px; top: 17px; font-size: 28px; font-weight: 700; color: var(--line); }
 #lines { left: 56px; top: 112px; width: 860px; }
-.line { position: relative; height: 74px; font-size: 40px; line-height: 74px; white-space: pre; }
+.line { position: relative; height: 100px; font-size: 50px; line-height: 100px; white-space: pre; }
 .line span { position: absolute; left: 0; top: 0; padding: 0 4px; border-radius: 6px; }
-.caret { display: inline-block; width: 3px; height: 46px; background: var(--ink); vertical-align: -9px; }
+.line span.bad { text-decoration: underline wavy var(--wave) 3px; text-underline-offset: 14px; text-decoration-skip-ink: none; }
+.ok { display: inline-block; width: 46px; height: 46px; margin-left: 16px; border-radius: 50%; background: var(--ok);
+  color: #fff; font-size: 30px; line-height: 46px; text-align: center; font-weight: 700; vertical-align: 4px; font-style: normal; }
+.ring { position: absolute; overflow: visible; pointer-events: none; }
+.caret { display: inline-block; width: 3px; height: 58px; background: var(--ink); vertical-align: -12px; }
 
 #chat { left: 60px; top: 680px; width: 960px; height: 1130px; }
-#chatBar { left: 0; top: 0; width: 960px; height: 110px; border-bottom: 1px solid #ECECEC; }
-#chatAvatar { left: 36px; top: 25px; width: 60px; height: 60px; border-radius: 50%; background: #EFAFB0; }
+#chatBar { left: 0; top: 0; width: 960px; height: 110px; border-bottom: 5px solid var(--line); background: var(--bar);
+  border-radius: 21px 21px 0 0; }
+#chatAvatar { left: 36px; top: 25px; width: 60px; height: 60px; border-radius: 50%; background: #EFAFB0; box-sizing: border-box; border: 4px solid var(--line); }
 #chatName { left: 116px; top: 31px; font-size: 36px; font-weight: 700; }
 .bubble { font-size: 38px; line-height: 54px; padding: 20px 30px; border-radius: 30px; white-space: pre; }
 #inBubble { left: 40px; top: 160px; background: #EEF0F2; }
 #outBubble { right: 40px; top: 290px; background: #D6ECF1; transform-origin: right bottom; }
-#chatInput { left: 30px; top: 990px; width: 900px; height: 110px; border: 2px solid #DCDCDC; border-radius: 28px;
+#chatInput { left: 30px; top: 990px; width: 900px; height: 110px; border: 4px solid var(--line); border-radius: 28px;
   font-size: 40px; line-height: 106px; padding-left: 34px; box-sizing: border-box; white-space: pre; }
 
 .cap { left: 0; width: 1080px; text-align: center; font-weight: 700; }
-#cap1 { top: 210px; font-size: 80px; }
-#cap2 { top: 350px; font-size: 80px; color: var(--alert); }
-#capTop { top: 300px; font-size: 64px; }
+/* 字卡做成貼紙：白底黑框、硬陰影，寬度隨文字 */
+.sticker { left: 0; right: 0; width: fit-content; margin: 0 auto; white-space: nowrap; background: #fff;
+  border: 5px solid var(--line); border-radius: 24px; box-shadow: 10px 10px 0 var(--line); padding: 14px 40px; }
+#cap1 { top: 200px; font-size: 76px; }
+#cap2 { top: 370px; font-size: 76px; color: #fff; background: var(--wave); }
+#capTop { top: 300px; font-size: 60px; }
 
 #keys { left: 0; width: 1080px; display: flex; justify-content: center; gap: 22px; }
 .key { position: relative; height: 104px; min-width: 104px; padding: 0 26px; box-sizing: border-box; border-radius: 20px;
-  background: #fff; border: 2px solid #D8D8D8; box-shadow: 0 6px 0 #D8D8D8; font-size: 40px; line-height: 100px;
-  text-align: center; font-weight: 700; color: #444; }
+  background: #fff; border: 4px solid var(--line); box-shadow: 0 8px 0 var(--line); font-size: 40px; line-height: 96px;
+  text-align: center; font-weight: 700; color: var(--line); }
 
-#endCard { left: 0; top: 0; width: 1080px; height: 1920px; background: var(--bg); }
+#endCard { left: 0; top: 0; width: 1080px; height: 1920px; background: var(--teal); }
+#wordBg { left: 0; top: 0; width: 1080px; height: 1920px; }
 #bigWord { left: 0; top: 760px; width: 1080px; text-align: center; font-size: 170px; font-weight: 700; }
 #bigBar { top: 990px; height: 14px; border-radius: 7px; }
+#logoCard { left: 130px; top: 390px; width: 820px; height: 1060px; box-sizing: border-box; background: #fff;
+  border: 5px solid var(--line); border-radius: 40px; box-shadow: 16px 16px 0 var(--line); }
 .logoPart { left: 260px; top: 470px; width: 560px; height: 540px; mix-blend-mode: multiply; }
 /* Logo 拆成三塊（原圖 3419×3295）：ㄐ 與虛線箭頭在左、鉛筆在中上、A 在右下。
    邊界依原圖像素量出：ㄐ｜鉛筆 走 x=47%→42.7% 的折線（鉛筆左緣最左 43.9%、ㄐ 下段最右 41.9%），
@@ -80,15 +98,17 @@ html, body { margin: 0; background: var(--bg); }
 </head>
 <body>
 <div id="stage">
+  <div id="blob1" class="abs blob"></div>
+  <div id="blob2" class="abs blob"></div>
   <div id="slide" class="abs card">
     <div id="clock" class="abs"></div>
     <div id="slideTitle" class="abs"></div>
     <div id="slideSub" class="abs"></div>
     <div id="slidePage" class="abs"></div>
   </div>
-  <div id="cap1" class="abs cap"></div>
-  <div id="cap2" class="abs cap"></div>
-  <div id="capTop" class="abs cap"></div>
+  <div id="cap1" class="abs cap sticker"></div>
+  <div id="cap2" class="abs cap sticker"></div>
+  <div id="capTop" class="abs cap sticker"></div>
 
   <div id="notes" class="abs card">
     <div id="notesBar" class="abs"><div id="notesName" class="abs"></div></div>
@@ -107,6 +127,8 @@ html, body { margin: 0; background: var(--bg); }
   <div id="keys" class="abs"></div>
 
   <div id="endCard" class="abs">
+    <div id="wordBg" class="abs"></div>
+    <div id="logoCard" class="abs"></div>
     <div id="bigWord" class="abs"></div>
     <div id="bigBar" class="abs"></div>
     <img id="logoJ" class="abs logoPart" src="../assets/logo/logo-square-trim.png" alt="">
@@ -184,15 +206,45 @@ $('notesName').textContent = C.docName;
 $('chatName').textContent = CHAT.name;
 $('inBubble').textContent = CHAT.incoming;
 $('outBubble').textContent = CHAT.zh;
+const SVG = 'http://www.w3.org/2000/svg';
 const LINE_EL = ROWS.map((r) => {
   const div = document.createElement('div');
   div.className = 'line';
   const a = document.createElement('span');
   div.appendChild(a);
-  let b = null;
-  if (r.zh) { b = document.createElement('span'); b.textContent = r.zh; div.appendChild(b); }
   $('lines').appendChild(div);
-  return { a, b };
+  let b = null, ok = null, ring = null;
+  if (r.zh) {
+    a.className = 'bad';                       // 亂碼底下的紅色波浪線，像拼字檢查
+    b = document.createElement('span');
+    b.textContent = r.zh;
+    ok = document.createElement('i');          // 翻成中文後的綠色勾勾（不是文字節點，state() 讀不到它）
+    ok.className = 'ok';
+    ok.textContent = '✓';
+    b.appendChild(ok);
+    div.appendChild(b);
+  }
+  if (r.keep) {
+    // 「沒被動到」的行：手繪感的紅圈，沿著路徑畫出來
+    a.textContent = r.text;
+    const w = a.getBoundingClientRect().width;
+    a.textContent = '';
+    ring = document.createElementNS(SVG, 'svg');
+    ring.setAttribute('class', 'ring');
+    Object.assign(ring.style, { left: '-22px', top: '0px', width: w + 44 + 'px', height: '100px' });
+    const cx = (w + 44) / 2, cy = 50, rx = cx - 4, ry = 44, pts = [];
+    for (let i = 0; i <= 80; i++) {
+      const u = i / 80 * Math.PI * 2 * 1.1 - 2.2;
+      pts.push(`${(cx + rx * Math.cos(u)).toFixed(1)},${(cy + ry * Math.sin(u) + 4 * i / 80).toFixed(1)}`);
+    }
+    const pl = document.createElementNS(SVG, 'polyline');
+    pl.setAttribute('points', pts.join(' '));
+    pl.setAttribute('pathLength', '1');
+    Object.assign(pl.style, { fill: 'none', stroke: 'var(--wave)', strokeWidth: '5', strokeLinecap: 'round', strokeDasharray: '1' });
+    ring.appendChild(pl);
+    div.appendChild(ring);
+  }
+  return { a, b, ok, ring };
 });
 
 // 選取轉換的小浮窗：照 desktop/app.ahk 的 BuildIcon／ShowIcon 重建
@@ -202,8 +254,8 @@ const ICON_SHOWN = fit(fit(ROWS[GARBLE_ROWS[0]].zh, 20) + '　還原 ' + GARBLE_
 {
   const w = Math.max(230, 60 + ICON_SHOWN.length * 20);
   // 邊框用 inset 陰影畫：產品的邊框是 DWM 畫在視窗上的，不會把內容往內推
-  Object.assign($('icon').style, { left: '140px', top: '1420px', width: w * S + 'px', height: 58 * S + 'px',
-    background: '#fff', boxShadow: `inset 0 0 0 ${S}px #DCDCDC`, borderRadius: 8 * S + 'px' });
+  Object.assign($('icon').style, { left: '140px', top: '1610px', width: w * S + 'px', height: 58 * S + 'px',
+    background: '#fff', boxShadow: `inset 0 0 0 ${S}px #DCDCDC, 0 18px 50px rgba(0,0,0,.28)`, borderRadius: 8 * S + 'px' });
   const img = document.createElement('img');
   img.src = '../desktop/icon.ico';
   img.className = 'abs';
@@ -229,7 +281,8 @@ const ICON_SHOWN = fit(fit(ROWS[GARBLE_ROWS[0]].zh, 20) + '　還原 ' + GARBLE_
   Object.assign(el.style, { left: '90px', top: (inputTop - 24 - P.h * S) + 'px', width: P.w * S + 'px', height: P.h * S + 'px' });
   const frame = document.createElement('div');   // 外框：圓角 12、白底、#D8D8D8 細邊
   Object.assign(frame.style, { position: 'absolute', left: 0, top: 0, width: P.w * S + 'px', height: P.h * S + 'px',
-    background: '#fff', border: `${S}px solid #D8D8D8`, borderRadius: 12 * S + 'px', boxSizing: 'border-box' });
+    background: '#fff', border: `${S}px solid #D8D8D8`, borderRadius: 12 * S + 'px', boxSizing: 'border-box',
+    boxShadow: '0 24px 60px rgba(0,0,0,.28)' });   // 柔和陰影只在窗外，讓它從底色浮出來；窗內完全照產品
   el.appendChild(frame);
   const box = (x, y, w, h) => ({ position: 'absolute', left: x * S + 'px', top: y * S + 'px', width: w * S + 'px', height: h * S + 'px' });
   for (const op of P.ops) {
@@ -286,7 +339,7 @@ function drawNotes(tb) {
   const typing = tb >= T.type0 && tb <= T.type2;
   const caretOn = tb < T.select && (typing || Math.floor(tb * 2.5) % 2 === 0);
   ROWS.forEach((r, i) => {
-    const { a, b } = LINE_EL[i];
+    const { a, b, ok, ring } = LINE_EL[i];
     const shown = r.text.slice(0, typed(AT[i], tb));
     a.textContent = shown;
     if (i === cur && caretOn) a.appendChild(caret());
@@ -301,25 +354,39 @@ function drawNotes(tb) {
       a.style.transform = `translateY(${-16 * p}px)`;
       b.style.opacity = String(p);
       b.style.transform = `translateY(${16 * (1 - p)}px)`;
+      const q = easeOutBack(seg(tb, T.flip + k * 0.22 + 0.25, T.flip + k * 0.22 + 0.5));
+      ok.style.transform = `scale(${q})`;
+    }
+    if (ring) {
+      const q = mark ? easeOut(seg(tb, T.mark + 0.1 + (i % 2) * 0.25, T.mark + 0.55 + (i % 2) * 0.25)) : 0;
+      ring.firstChild.style.strokeDashoffset = String(1 - q);
+      ring.style.opacity = q > 0 ? '1' : '0';
     }
   });
 }
 
 const TOP_CAPS = [
+  [11.1, 13.0, '整段選起來，按一下'],
   [13.2, 15.0, '一整段，一次救回來'],
   [15.0, 17.9, '日期、時間，原樣保留'],
   [18.2, 21.0, '下次，打錯當下就提醒你'],
   [21.0, 23.3, '不按 Enter，它不會動你的字'],
 ];
+// 貼紙彈出：從 0.6 倍回彈到 1，帶一點傾斜
+const popIn = (el, t, a, b, tilt) => {
+  const p = easeOutBack(seg(t, a, a + 0.3));
+  el.style.opacity = String(fade(t, a, b, 0.12));
+  el.style.transform = `rotate(${tilt}deg) scale(${t >= a && t < b ? lerp(0.6, 1, p) : 0.6})`;
+};
 function drawCaptions(t) {
-  const o1 = fade(t, T.cap1, T.capEnd), o2 = fade(t, T.cap2, T.capEnd);
   $('cap1').textContent = C.caption1;
-  $('cap1').style.opacity = String(o1);
+  popIn($('cap1'), t, T.cap1, T.capEnd, -2);
   $('cap2').textContent = '全是亂碼。';
-  $('cap2').style.opacity = String(o2);
-  const c = TOP_CAPS.find(([a, b]) => t >= a && t < b);
-  $('capTop').textContent = c ? c[2] : '';
-  $('capTop').style.opacity = c ? String(fade(t, c[0], c[1])) : '0';
+  popIn($('cap2'), t, T.cap2, T.capEnd, 2.5);
+  const k = TOP_CAPS.findIndex(([a, b]) => t >= a && t < b);
+  $('capTop').textContent = k >= 0 ? TOP_CAPS[k][2] : '';
+  if (k >= 0) popIn($('capTop'), t, TOP_CAPS[k][0], TOP_CAPS[k][1], k % 2 ? 1.5 : -1.5);
+  else { $('capTop').style.opacity = '0'; $('capTop').style.transform = 'none'; }
 }
 
 function drawIcon(t) {
@@ -356,8 +423,8 @@ function drawChat(t) {
 // 聊天要按兩次 Enter：候選窗開著時，第一次 Enter 被工具攔下、只替換文字（app.ahk 的 OnEnter → Accept），
 // 第二次才是聊天軟體自己的送出
 const KEYS = [
-  { from: 11.1, to: 12.3, press: [T.keys1], top: 1660, labels: ['Ctrl', 'Alt', 'Z'] },
-  { from: 12.6, to: 13.4, press: [T.enter1], top: 1660, labels: ['Enter'] },
+  { from: 11.1, to: 12.3, press: [T.keys1], top: 470, labels: ['Ctrl', 'Alt', 'Z'] },
+  { from: 12.6, to: 13.4, press: [T.enter1], top: 470, labels: ['Enter'] },
   { from: 22.6, to: 23.8, press: [T.enter2, T.send], top: 450, labels: ['Enter'] },
 ];
 function drawKeys(t) {   // 每格都重建，不留跨格狀態
@@ -369,13 +436,14 @@ function drawKeys(t) {   // 每格都重建，不留跨格狀態
   if (!g) return;
   const down = g.press.some(at => t >= at && t < at + 0.15);
   for (const k of box.children) {
-    k.style.transform = `translateY(${down ? 6 : 0}px)`;
-    k.style.boxShadow = down ? '0 0 0 #D8D8D8' : '0 6px 0 #D8D8D8';
+    k.style.transform = `translateY(${down ? 8 : 0}px)`;
+    k.style.boxShadow = down ? '0 0 0 #1E1E1E' : '0 8px 0 #1E1E1E';
     k.style.background = down ? '#F1F4F8' : '#fff';
   }
 }
 
-const WORDS = [['救得回', '#6FA8B5'], ['改得準', '#1A5FB4'], ['不亂動', '#EFAFB0'], ['到處用', '#7FA36B']];
+// 大字卡：每張一個整面的品牌色，從左邊橫掃進來（字與底線的顏色配合底色）
+const WORDS = [['救得回', '#6FA8B5', '#fff'], ['改得準', '#1A5FB4', '#fff'], ['不亂動', '#EFAFB0', '#1E1E1E'], ['到處用', '#7FA36B', '#fff']];
 function drawEnd(t) {
   // 29.9 秒前淡完：最後一格（29.967）要跟第 0 格一樣看不到片尾，循環才接得上
   const o = t < T.cards - 0.2 ? 0 : t < T.loop ? seg(t, T.cards - 0.2, T.cards) : 1 - seg(t, T.loop, T.loopEnd);
@@ -384,10 +452,18 @@ function drawEnd(t) {
   const k = Math.floor((t - T.cards) / 0.5);
   const w = (t >= T.cards && t < T.logo) ? WORDS[k] : null;
   const pop = w ? easeOut(seg(t, T.cards + k * 0.5, T.cards + k * 0.5 + 0.12)) : 0;
+  const sweep = w ? easeOut(seg(t, T.cards + k * 0.5 - 0.02, T.cards + k * 0.5 + 0.16)) : 0;
+  $('endCard').style.background = (w && k > 0) ? WORDS[k - 1][1] : 'var(--teal)';
+  Object.assign($('wordBg').style, { background: w ? w[1] : 'transparent', clipPath: `inset(0 ${(100 * (1 - sweep)).toFixed(2)}% 0 0)` });
   $('bigWord').textContent = w ? w[0] : '';
+  $('bigWord').style.color = w ? w[2] : '';
   $('bigWord').style.opacity = String(pop);
   $('bigWord').style.transform = `scale(${lerp(0.92, 1, pop)})`;
-  Object.assign($('bigBar').style, { left: '360px', width: '360px', background: w ? w[1] : 'transparent', transform: `scaleX(${pop})` });
+  Object.assign($('bigBar').style, { left: '360px', width: '360px', background: w ? w[2] : 'transparent', transform: `scaleX(${pop})` });
+  // Logo 的白卡：Logo 飛入前先彈出
+  const cp = easeOutBack(seg(t, T.logo - 0.1, T.logo + 0.25));
+  $('logoCard').style.opacity = String(seg(t, T.logo - 0.1, T.logo));
+  $('logoCard').style.transform = `scale(${t >= T.logo - 0.1 ? lerp(0.85, 1, cp) : 0.85})`;
   // Logo：ㄐ 從左、鉛筆從右上、A 從右下飛入
   for (const [id, dx, dy, delay] of [['logoJ', -520, 0, 0], ['logoPen', 520, -420, 0.08], ['logoA', 520, 420, 0.16]]) {
     const p = easeOutBack(seg(t, T.logo + delay, T.logo + delay + 0.7));
@@ -403,6 +479,9 @@ function drawEnd(t) {
 
 window.render = (t) => {
   const tb = t >= T.loop ? 0 : t;     // 最後 0.7 秒，底層回到開頭的樣子，讓結尾淡出後接回第 0 秒
+  const u = tb / 30 * Math.PI * 2;    // 背景圓點漂移；用 tb 才接得回第 0 秒
+  $('blob1').style.transform = `translate(${40 * Math.sin(u)}px, ${-30 * Math.cos(u)}px)`;
+  $('blob2').style.transform = `translate(${-30 * Math.cos(u)}px, ${30 * Math.sin(u)}px)`;
   drawSlide(tb);
   drawNotes(tb);
   drawCaptions(t);
