@@ -13,7 +13,7 @@
     9–11   字卡：整節課的筆記。／全是亂碼。
     11–18  反白 → Ctrl Alt Z → 產品浮窗 → Enter → 逐行翻成中文 → 標出日期與時間
     18–25  聊天：打出亂碼 → 產品候選窗 → 凍結兩秒 → Enter → 送出
-    25–27  四張大字卡；27–29.3 Logo 組合；29.3–30 淡回開頭（無縫循環）
+    25–27  四張大字卡；27–29.3 Logo 組合；29.3–29.9 淡回開頭，29.9–30 與第 0 秒相同（無縫循環）
 -->
 <style>
 :root {
@@ -137,7 +137,7 @@ const T = {
   type0: 1, type1: 2, type2: 8, slideOut: 9.0, cap1: 9.1, cap2: 9.7, capEnd: 11.0,
   select: 11.0, keys1: 11.4, icon: 12.0, enter1: 12.9, flip: 13.1, mark: 15.0,
   toChat: 18.0, chatIn: 18.2, chatType: 19.0, chatTyped: 20.4, popup: 20.6, enter2: 23.0, send: 23.4,
-  cards: 25.0, logo: 27.0, loop: 29.3,
+  cards: 25.0, logo: 27.0, loop: 29.3, loopEnd: 29.9,
 };
 
 // ---------- 筆記內容與打字時間表 ----------
@@ -198,8 +198,9 @@ const LINE_EL = ROWS.map((r) => {
 const ICON_SHOWN = fit(fit(ROWS[GARBLE_ROWS[0]].zh, 20) + '　還原 ' + GARBLE_ROWS.length + ' 行', 32);
 {
   const w = Math.max(230, 60 + ICON_SHOWN.length * 20);
+  // 邊框用 inset 陰影畫：產品的邊框是 DWM 畫在視窗上的，不會把內容往內推
   Object.assign($('icon').style, { left: '140px', top: '1420px', width: w * S + 'px', height: 58 * S + 'px',
-    background: '#fff', border: `${S}px solid #DCDCDC`, borderRadius: 8 * S + 'px', boxSizing: 'border-box' });
+    background: '#fff', boxShadow: `inset 0 0 0 ${S}px #DCDCDC`, borderRadius: 8 * S + 'px' });
   const img = document.createElement('img');
   img.src = '../desktop/icon.ico';
   img.className = 'abs';
@@ -356,17 +357,13 @@ const KEYS = [
   { from: 12.6, to: 13.4, press: [T.enter1], top: 1660, labels: ['Enter'] },
   { from: 22.6, to: 23.8, press: [T.enter2, T.send], top: 450, labels: ['Enter'] },
 ];
-let keysShown = null;
-function drawKeys(t) {
+function drawKeys(t) {   // 每格都重建，不留跨格狀態
   const g = KEYS.find(k => t >= k.from && t < k.to) || null;
   const box = $('keys');
-  if (g !== keysShown) {
-    box.replaceChildren(...(g ? g.labels.map(l => { const d = document.createElement('div'); d.className = 'key'; d.textContent = l; return d; }) : []));
-    keysShown = g;
-  }
-  if (!g) { box.style.opacity = '0'; return; }
-  box.style.top = g.top + 'px';
-  box.style.opacity = String(fade(t, g.from, g.to, 0.15));
+  box.replaceChildren(...(g ? g.labels.map(l => { const d = document.createElement('div'); d.className = 'key'; d.textContent = l; return d; }) : []));
+  box.style.top = (g ? g.top : 0) + 'px';
+  box.style.opacity = g ? String(fade(t, g.from, g.to, 0.15)) : '0';
+  if (!g) return;
   const down = g.press.some(at => t >= at && t < at + 0.15);
   for (const k of box.children) {
     k.style.transform = `translateY(${down ? 6 : 0}px)`;
@@ -377,7 +374,8 @@ function drawKeys(t) {
 
 const WORDS = [['救得回', '#6FA8B5'], ['改得準', '#1A5FB4'], ['不亂動', '#EFAFB0'], ['到處用', '#7FA36B']];
 function drawEnd(t) {
-  const o = t < T.cards - 0.2 ? 0 : t < T.loop ? seg(t, T.cards - 0.2, T.cards) : 1 - seg(t, T.loop, 30);
+  // 29.9 秒前淡完：最後一格（29.967）要跟第 0 格一樣看不到片尾，循環才接得上
+  const o = t < T.cards - 0.2 ? 0 : t < T.loop ? seg(t, T.cards - 0.2, T.cards) : 1 - seg(t, T.loop, T.loopEnd);
   $('endCard').style.opacity = String(o);
   $('endCard').style.visibility = o > 0 ? 'visible' : 'hidden';
   const k = Math.floor((t - T.cards) / 0.5);
