@@ -41,7 +41,7 @@ Get-FileHash "注音亂碼偵測.exe" -Algorithm SHA256
 ```
 
 ```
-（發布時填入）
+654F51DAA169AE33D8E5161AFF35EE0DC63E363F3D13C67409074F6C2A1833FF
 ```
 
 ## 更新方式
