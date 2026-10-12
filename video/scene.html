@@ -168,7 +168,7 @@ window.keyHits = () => [
   ...AT.flat().map(t => ({ t, gain: 0.5 })),
   ...ENTERS.map(t => ({ t, gain: 0.7 })),
   ...CHAT_AT.map(t => ({ t, gain: 0.5 })),
-  { t: T.keys1, gain: 1 }, { t: T.enter1, gain: 1 }, { t: T.enter2, gain: 1 },
+  { t: T.keys1, gain: 1 }, { t: T.enter1, gain: 1 }, { t: T.enter2, gain: 1 }, { t: T.send, gain: 1 },
 ];
 
 const caret = () => { const i = document.createElement('i'); i.className = 'caret'; return i; };
@@ -363,10 +363,12 @@ function drawChat(t) {
   MODEL.sent = t >= T.send ? [CHAT.zh] : [];
 }
 
+// 聊天要按兩次 Enter：候選窗開著時，第一次 Enter 被工具攔下、只替換文字（app.ahk 的 OnEnter → Accept），
+// 第二次才是聊天軟體自己的送出
 const KEYS = [
-  { from: 11.1, to: 12.3, press: T.keys1, top: 1660, labels: ['Ctrl', 'Alt', 'Z'] },
-  { from: 12.6, to: 13.4, press: T.enter1, top: 1660, labels: ['Enter'] },
-  { from: 22.6, to: 23.5, press: T.enter2, top: 450, labels: ['Enter'] },
+  { from: 11.1, to: 12.3, press: [T.keys1], top: 1660, labels: ['Ctrl', 'Alt', 'Z'] },
+  { from: 12.6, to: 13.4, press: [T.enter1], top: 1660, labels: ['Enter'] },
+  { from: 22.6, to: 23.8, press: [T.enter2, T.send], top: 450, labels: ['Enter'] },
 ];
 let keysShown = null;
 function drawKeys(t) {
@@ -379,7 +381,7 @@ function drawKeys(t) {
   if (!g) { box.style.opacity = '0'; MODEL.keys = []; return; }
   box.style.top = g.top + 'px';
   box.style.opacity = String(fade(t, g.from, g.to, 0.15));
-  const down = t >= g.press && t < g.press + 0.15;
+  const down = g.press.some(at => t >= at && t < at + 0.15);
   for (const k of box.children) {
     k.style.transform = `translateY(${down ? 6 : 0}px)`;
     k.style.boxShadow = down ? '0 0 0 #D8D8D8' : '0 6px 0 #D8D8D8';
