@@ -1,6 +1,7 @@
 ﻿#Requires AutoHotkey v2.0
 ; 引擎移植驗證：跑與 Chrome 版相同的黃金測資，結果寫入 test-result.txt
 #Include engine.ahk
+#Include apps.ahk
 
 global PASS := 0, FAIL := 0, RESULTS := ""
 
@@ -152,6 +153,20 @@ Check("整句仍正常", SelDetect("ji394t au04"), "我愛吃面")
 Say("")
 Say("── 對照：打字路徑的嚴格門檻會擋掉短亂碼 ──")
 Check("su3 在嚴格門檻下被擋", First(Detect("su3", dict, 0.8, 2)), "null")
+
+Say("")
+Say("── 取消「在 Chrome 中也偵測」時，哪些視窗要略過 ──")
+; Chrome 擴充讀不到 Google 文件，所以 Google 文件分頁仍由桌面版接手。
+; 標題格式取自實際畫面：「未命名文件 - Google 文件 - Google Chrome」
+Skip(proc, title, chromeDetect) => SkipWindow(proc, title, chromeDetect) ? "略過" : "接手"
+Check("勾選時 Chrome 一般網頁", Skip("chrome.exe", "YouTube - Google Chrome", true), "接手")
+Check("Chrome 一般網頁", Skip("chrome.exe", "YouTube - Google Chrome", false), "略過")
+Check("Google 文件（中文介面）", Skip("chrome.exe", "未命名文件 - Google 文件 - Google Chrome", false), "接手")
+Check("Google 文件（英文介面）", Skip("chrome.exe", "Untitled document - Google Docs - Google Chrome", false), "接手")
+Check("程式名稱大小寫不同", Skip("Chrome.EXE", "未命名文件 - Google 文件 - Google Chrome", false), "接手")
+Check("標題只是提到 Google 文件", Skip("chrome.exe", "如何使用 Google 文件 - 某某部落格 - Google Chrome", false), "略過")
+Check("Chrome 空標題", Skip("chrome.exe", "", false), "略過")
+Check("其他程式", Skip("notepad.exe", "未命名 - 記事本", false), "接手")
 
 Say("")
 Say(Format("結果：{1} 通過 / {2} 失敗", PASS, FAIL))

@@ -14,8 +14,8 @@ CoordMode("Mouse", "Screen")
 ;@Ahk2Exe-SetProductName 注音亂碼偵測
 ;@Ahk2Exe-SetCompanyName 注音亂碼偵測
 ;@Ahk2Exe-SetDescription 注音亂碼偵測 — 把打錯的英文亂碼還原成中文
-;@Ahk2Exe-SetVersion 1.1.7.0
-;@Ahk2Exe-SetProductVersion 1.1.7
+;@Ahk2Exe-SetVersion 1.1.8.0
+;@Ahk2Exe-SetProductVersion 1.1.8
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 — MIT License
 ;@Ahk2Exe-SetOrigFilename 注音亂碼偵測.exe
 ;@Ahk2Exe-SetLanguage 0x0404
@@ -27,6 +27,7 @@ CoordMode("Mouse", "Screen")
 ;
 ; 效能：候選窗的控制項只建立一次，之後只更新內容與位置（避免重建造成閃爍）。
 #Include engine.ahk
+#Include apps.ahk
 #Include draw.ahk
 #Include uia.ahk
 #Include report.ahk
@@ -91,7 +92,7 @@ global DPIF := A_ScreenDPI / 96
 ; 若使用者「同時」裝了 Chrome 擴充，在 Chrome 裡就會跳出兩個候選窗。
 ; 但只裝桌面版的人若預設關閉，Chrome 裡會莫名其妙沒反應且看不出原因 ——
 ; 所以預設「在 Chrome 也偵測」，遇到重複的人再從系統列關掉即可。
-global BROWSER_APPS := Map("chrome.exe", true)
+; 關掉時 Google 文件仍由桌面版處理（擴充讀不到），規則見 apps.ahk 的 SkipWindow。
 global CHROME_DETECT := true
 global LEVEL := 4                  ; 靈敏度 1(很保守)～5(很積極)，新安裝的預設
 global THRESH := 0.6, MINSYL := 1  ; 由 LEVEL 換算而來
@@ -513,7 +514,7 @@ IsExcludedApp() {
     try {
         hwnd := WinExist("A")
         if (hwnd)
-            return BROWSER_APPS.Has(StrLower(WinGetProcessName(hwnd)))
+            return SkipWindow(WinGetProcessName(hwnd), WinGetTitle(hwnd), CHROME_DETECT)
     }
     return false
 }
@@ -1543,6 +1544,7 @@ ShowSettings() {
     g.Add("Checkbox", "xm y+18 vChrome Checked" . (CHROME_DETECT ? 1 : 0), "在 Chrome 中也偵測")
     g.SetFont("s9")
     g.Add("Text", "xm+22 y+2 w400 c888888", "若你另外裝了 Chrome 擴充，請關閉這項，否則會跳出兩個候選窗。")
+    g.Add("Text", "xm+22 y+0 w400 c888888", "Google 文件仍由桌面版處理（擴充讀不到 Google 文件）。")
 
     g.SetFont("s10")
     g.Add("Checkbox", "xm y+18 vAuto Checked" . (IsAutoStart() ? 1 : 0), "開機時自動啟動")
