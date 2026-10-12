@@ -59,6 +59,15 @@ for (const v of versions) {
     eq('8.6 秒：亂碼全部打完', s.notes, typedRows);
     eq('8.6 秒：時鐘', s.clock, '10:48');
     eq('8.6 秒：結束頁', s.slideTitle, C.endPage);
+    eq('8.6 秒：講者說結束語', s.say, C.endPage + '！');
+    eq('0 秒：講者還沒開口', (await at(0)).say, '');
+    s = await at(9.5);
+    eq('9.5 秒：人物與對話泡泡已淡出', [s.people, s.say], [false, '']);
+    // 打字期間，講者依序講出每一行的中文（亂碼行講的是它要還原成的那句）
+    eq('1–9 秒：對話泡泡依序出現每一行的中文', await page.evaluate(`(() => {
+      const said = [];
+      for (let i = 30; i < 270; i++) { render(i / 30); const w = state().say; if (w && said[said.length - 1] !== w) said.push(w); }
+      return said; })()`), [...zhRows, C.endPage + '！']);
     s = await at(12.5);
     eq('12.5 秒：浮窗文字', s.icon, `→ ${C.lines.find(l => l.zh).zh}　還原 ${hits} 行`);
     s = await at(16);

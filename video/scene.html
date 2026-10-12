@@ -34,11 +34,18 @@ html, body { margin: 0; background: var(--bg); }
 #blob1 { left: -260px; top: 1380px; width: 760px; height: 760px; background: var(--pink); opacity: .6; }
 #blob2 { left: 660px; top: -180px; width: 580px; height: 580px; background: #fff; opacity: .2; }
 
-#slide { left: 90px; top: 110px; width: 900px; height: 506px; overflow: hidden; }
-#slideTitle { left: 0; top: 150px; width: 900px; text-align: center; font-size: 64px; font-weight: 700; }
-#slideSub { left: 0; top: 268px; width: 900px; text-align: center; font-size: 34px; color: var(--muted); }
-#slidePage { right: 36px; bottom: 24px; font-size: 26px; color: var(--faint); }
-#clock { right: 36px; top: 24px; font-size: 30px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#slide { left: 340px; top: 50px; width: 680px; height: 400px; overflow: hidden; }
+#slideTitle { left: 0; top: 120px; width: 680px; text-align: center; font-size: 54px; font-weight: 700; }
+#slideSub { left: 0; top: 214px; width: 680px; text-align: center; font-size: 30px; color: var(--muted); }
+#slidePage { right: 30px; bottom: 20px; font-size: 24px; color: var(--faint); }
+#clock { right: 30px; top: 20px; font-size: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* 人物：講者在投影片左邊、打字的人的後腦勺在前景；對話泡泡是講者正在講的那句 */
+#people { left: 0; top: 0; overflow: visible; }
+#say { left: 280px; top: 468px; white-space: nowrap; background: #fff; border: 5px solid var(--line); border-radius: 30px;
+  box-shadow: 8px 8px 0 var(--line); padding: 10px 32px; font-size: 42px; font-weight: 700; transform-origin: 0 50%; }
+#say::before { content: ''; position: absolute; left: -26px; top: 18px; width: 30px; height: 30px; background: #fff;
+  border-left: 5px solid var(--line); border-bottom: 5px solid var(--line); transform: skewY(-35deg) rotate(10deg); }
 
 #notes { left: 60px; top: 680px; width: 960px; height: 1130px; }
 #notesBar { left: 0; top: 0; width: 960px; height: 72px; border-bottom: 5px solid var(--line); background: var(--bar);
@@ -106,6 +113,8 @@ html, body { margin: 0; background: var(--bg); }
     <div id="slideSub" class="abs"></div>
     <div id="slidePage" class="abs"></div>
   </div>
+  <svg id="people" class="abs" width="1080" height="700" viewBox="0 0 1080 700"></svg>
+  <div id="say" class="abs"></div>
   <div id="cap1" class="abs cap sticker"></div>
   <div id="cap2" class="abs cap sticker"></div>
   <div id="capTop" class="abs cap sticker"></div>
@@ -328,6 +337,74 @@ function drawSlide(tb) {
   $('slide').style.opacity = String(1 - seg(tb, T.slideOut, T.slideOut + 0.3));
 }
 
+// ---------- 人物：講者（投影片左邊）與打字的人（前景的後腦勺），全部用 SVG 畫 ----------
+const LOOK = {
+  classroom: { coat: '#2F4B7C', hair: '#B8BEC6', bald: true, glasses: true, tie: null, top: '#EFAFB0', back: '#4A3426' },
+  meeting:   { coat: '#3A3F47', hair: '#2A2A2A', bald: false, glasses: false, tie: '#E5484D', top: '#BCD6F5', back: '#1F1F1F' },
+}[V];
+{
+  const L = LOOK, ink = '#1E1E1E', skin = '#F2C9A5', st = `stroke="${ink}" stroke-width="5" stroke-linejoin="round"`;
+  const limb = (d, color) => `<path d="${d}" fill="none" stroke="${ink}" stroke-width="46" stroke-linecap="round"/>` +
+    `<path d="${d}" fill="none" stroke="${color}" stroke-width="36" stroke-linecap="round"/>`;
+  const hair = L.bald
+    ? `<ellipse cx="106" cy="192" rx="15" ry="30" fill="${L.hair}" ${st}/><ellipse cx="234" cy="192" rx="15" ry="30" fill="${L.hair}" ${st}/>`
+    : `<path d="M104 205 Q100 126 170 124 Q240 126 236 205 Q222 158 170 156 Q118 158 104 205 Z" fill="${L.hair}" ${st}/>`;
+  const glasses = L.glasses
+    ? `<circle cx="148" cy="200" r="18" fill="none" stroke="${ink}" stroke-width="4"/><circle cx="192" cy="200" r="18" fill="none" stroke="${ink}" stroke-width="4"/><path d="M166 200 L174 200" stroke="${ink}" stroke-width="4"/>`
+    : '';
+  $('people').innerHTML = `
+    <g id="lecturer">
+      <g id="lArm">${limb('M110 320 Q78 420 92 520', L.coat)}<circle cx="92" cy="532" r="20" fill="${skin}" ${st}/></g>
+      <rect x="150" y="250" width="40" height="60" fill="${skin}" ${st}/>
+      <path d="M95 310 Q170 285 245 310 L300 700 L40 700 Z" fill="${L.coat}" ${st}/>
+      <path d="M140 298 L170 345 L200 298 Z" fill="#fff" ${st}/>
+      ${L.tie ? `<path d="M164 318 L176 318 L184 420 L170 440 L156 420 Z" fill="${L.tie}" ${st}/>` : ''}
+      <g id="rArm">${limb('M240 320 Q300 300 350 255', L.coat)}<circle cx="358" cy="248" r="20" fill="${skin}" ${st}/></g>
+      <g id="lHead">
+        <circle cx="170" cy="200" r="66" fill="${skin}" ${st}/>${hair}
+        <circle cx="148" cy="200" r="6" fill="${ink}"/><circle cx="192" cy="200" r="6" fill="${ink}"/>${glasses}
+        <ellipse id="mouth" cx="170" cy="238" rx="14" ry="3" fill="#8A3B3B" stroke="${ink}" stroke-width="3"/>
+      </g>
+    </g>
+    <g id="student">
+      <path d="M770 720 Q775 625 900 612 Q1025 625 1030 720 Z" fill="${L.top}" ${st}/>
+      <path d="M845 626 Q900 656 955 626" fill="none" stroke="${ink}" stroke-width="5"/>
+      <g id="sHead">
+        <ellipse cx="823" cy="556" rx="14" ry="22" fill="${skin}" ${st}/><ellipse cx="977" cy="556" rx="14" ry="22" fill="${skin}" ${st}/>
+        <ellipse cx="900" cy="545" rx="78" ry="86" fill="${L.back}" ${st}/>
+        <path d="M868 478 Q888 520 876 566" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="7" stroke-linecap="round"/>
+      </g>
+    </g>`;
+}
+const KEY_TIMES = [...AT.flat(), ...ENTERS].sort((a, b) => a - b);
+// 講者比學生早 0.35 秒開口講這一行
+const SAY_FROM = ROWS.map((_, j) => AT[j][0] - 0.35);
+function drawPeople(tb) {
+  const op = 1 - seg(tb, T.slideOut, T.slideOut + 0.3);
+  $('people').style.opacity = String(op);
+  let j = -1;
+  for (let i = 0; i < ROWS.length; i++) if (tb >= SAY_FROM[i]) j = i;
+  const end = tb >= T.type2;
+  const talk = end ? tb < T.type2 + 0.6 : (j >= 0 && tb < AT[j][AT[j].length - 1] + 0.1);
+  $('mouth').setAttribute('ry', (talk ? 3 + 10 * Math.abs(Math.sin(tb * 14)) : 3).toFixed(2));
+  $('lHead').setAttribute('transform', `translate(0 ${(2 * Math.sin(tb * 5)).toFixed(2)}) rotate(${(2 * Math.sin(tb * 1.7)).toFixed(2)} 170 200)`);
+  const arm = end ? -30 + 16 * Math.sin((tb - T.type2) * 14) : 4 * Math.sin(tb * 2.2) - (talk ? 4 * Math.abs(Math.sin(tb * 3)) : 0);
+  $('rArm').setAttribute('transform', `rotate(${arm.toFixed(2)} 240 320)`);
+  // 打字的人：每按一個鍵，頭往下點一下
+  let last = -1;
+  for (const k of KEY_TIMES) if (k <= tb) last = k;
+  const bob = last >= 0 ? 5 * Math.exp(-(tb - last) / 0.06) : 0;
+  $('sHead').setAttribute('transform', `translate(0 ${bob.toFixed(2)}) rotate(${(1.5 * Math.sin(tb * 0.9)).toFixed(2)} 900 600)`);
+  $('student').setAttribute('transform', `translate(0 ${(0.4 * bob).toFixed(2)})`);
+  // 對話泡泡：講者正在講的那一句（中文）；結束頁講「下課！」／「散會！」
+  const say = end ? C.endPage + '！' : j >= 0 ? (ROWS[j].zh || ROWS[j].text) : '';
+  const from = end ? T.type2 : j >= 0 ? SAY_FROM[j] : 0;
+  const p = easeOutBack(seg(tb, from, from + 0.2));
+  $('say').textContent = say;
+  $('say').style.opacity = say ? String(op) : '0';
+  $('say').style.transform = `scale(${say ? lerp(0.7, 1, p) : 0.7})`;
+}
+
 function drawNotes(tb) {
   const out = easeOut(seg(tb, T.toChat, T.toChat + 0.5));
   $('notes').style.transform = `translateX(${-1100 * out}px)`;
@@ -483,6 +560,7 @@ window.render = (t) => {
   $('blob1').style.transform = `translate(${40 * Math.sin(u)}px, ${-30 * Math.cos(u)}px)`;
   $('blob2').style.transform = `translate(${-30 * Math.cos(u)}px, ${30 * Math.sin(u)}px)`;
   drawSlide(tb);
+  drawPeople(tb);
   drawNotes(tb);
   drawCaptions(t);
   drawChat(t);
@@ -515,6 +593,8 @@ window.state = () => {
     slideTitle: $('slideTitle').textContent,
     notes: visibleSpans.map(ownText),
     marked: visibleSpans.filter(el => css(el).backgroundColor === MARK_RGB).map(ownText),
+    say: seen($('say')) ? $('say').textContent : '',
+    people: seen($('people')),
     icon: seen($('icon')) ? $('iconMain').textContent : '',
     popup: seen($('popup')),
     chatInput: ownText($('chatInput')),
