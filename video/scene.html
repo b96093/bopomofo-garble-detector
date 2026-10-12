@@ -205,6 +205,7 @@ const ICON_SHOWN = fit(fit(ROWS[GARBLE_ROWS[0]].zh, 20) + '　還原 ' + GARBLE_
   img.className = 'abs';
   Object.assign(img.style, { left: 11 * S + 'px', top: 10 * S + 'px', width: 18 * S + 'px', height: 18 * S + 'px' });
   const main = document.createElement('div');
+  main.id = 'iconMain';
   main.className = 'abs';
   main.textContent = '→ ' + ICON_SHOWN;
   Object.assign(main.style, { left: 35 * S + 'px', top: 9 * S + 'px', width: (w - 46) * S + 'px',
@@ -258,8 +259,6 @@ const ICON_SHOWN = fit(fit(ROWS[GARBLE_ROWS[0]].zh, 20) + '　還原 ' + GARBLE_
 }
 
 // ---------- 每一格的繪製 ----------
-let MODEL = {};
-window.state = () => MODEL;
 
 function drawSlide(tb) {
   const pageIdx = tb < 2 ? 0 : tb < 4 ? 1 : tb < 6 ? 2 : tb < 8 ? 3 : -1;
@@ -270,9 +269,6 @@ function drawSlide(tb) {
   const min = tb < T.type1 ? 2 : Math.round(lerp(2, 48, seg(tb, T.type1, T.type2)));
   $('clock').textContent = '10:' + String(min).padStart(2, '0');
   $('slide').style.opacity = String(1 - seg(tb, T.slideOut, T.slideOut + 0.3));
-  MODEL.clock = $('clock').textContent;
-  MODEL.page = $('slidePage').textContent;
-  MODEL.slideTitle = $('slideTitle').textContent;
 }
 
 function drawNotes(tb) {
@@ -285,7 +281,6 @@ function drawNotes(tb) {
   for (let i = 0; i < ROWS.length; i++) if (typed(AT[i], tb) > 0) cur = i;
   const typing = tb >= T.type0 && tb <= T.type2;
   const caretOn = tb < T.select && (typing || Math.floor(tb * 2.5) % 2 === 0);
-  const notes = [], marked = [];
   ROWS.forEach((r, i) => {
     const { a, b } = LINE_EL[i];
     const shown = r.text.slice(0, typed(AT[i], tb));
@@ -293,21 +288,17 @@ function drawNotes(tb) {
     if (i === cur && caretOn) a.appendChild(caret());
     let bg = 'transparent';
     if (sel && shown) bg = 'var(--pick)';
-    if (mark && r.keep) { bg = 'var(--mark)'; marked.push(r.text); }
+    if (mark && r.keep) bg = 'var(--mark)';
     a.style.background = bg;
-    let p = 0;
     if (b) {
       const k = GARBLE_ROWS.indexOf(i);
-      p = easeOut(seg(tb, T.flip + k * 0.22, T.flip + k * 0.22 + 0.3));
+      const p = easeOut(seg(tb, T.flip + k * 0.22, T.flip + k * 0.22 + 0.3));
       a.style.opacity = String(1 - p);
       a.style.transform = `translateY(${-16 * p}px)`;
       b.style.opacity = String(p);
       b.style.transform = `translateY(${16 * (1 - p)}px)`;
     }
-    notes.push(p >= 0.5 ? r.zh : shown);
   });
-  MODEL.notes = notes;
-  MODEL.marked = marked;
 }
 
 const TOP_CAPS = [
@@ -325,7 +316,6 @@ function drawCaptions(t) {
   const c = TOP_CAPS.find(([a, b]) => t >= a && t < b);
   $('capTop').textContent = c ? c[2] : '';
   $('capTop').style.opacity = c ? String(fade(t, c[0], c[1])) : '0';
-  MODEL.captions = [o1 > 0.5 && C.caption1, o2 > 0.5 && '全是亂碼。', c && c[2]].filter(Boolean);
 }
 
 function drawIcon(t) {
@@ -333,7 +323,6 @@ function drawIcon(t) {
   const p = easeOut(seg(t, T.icon, T.icon + 0.15));
   $('icon').style.opacity = on ? String(p) : '0';
   $('icon').style.transform = `translateY(${on ? 10 * (1 - p) : 0}px)`;
-  MODEL.icon = on ? '→ ' + ICON_SHOWN : '';
 }
 
 function drawPopup(t) {
@@ -341,7 +330,6 @@ function drawPopup(t) {
   const p = easeOut(seg(t, T.popup, T.popup + 0.15));
   $('popup').style.opacity = on ? String(p) : '0';
   $('popup').style.transform = `translateY(${on ? 10 * (1 - p) : 0}px)`;
-  MODEL.popup = on;
 }
 
 function drawChat(t) {
@@ -359,8 +347,6 @@ function drawChat(t) {
   const sp = easeOutBack(seg(t, T.send, T.send + 0.25));
   $('outBubble').style.opacity = String(seg(t, T.send, T.send + 0.1));
   $('outBubble').style.transform = `scale(${t >= T.send ? lerp(0.85, 1, sp) : 0.85})`;
-  MODEL.chatInput = input;
-  MODEL.sent = t >= T.send ? [CHAT.zh] : [];
 }
 
 // 聊天要按兩次 Enter：候選窗開著時，第一次 Enter 被工具攔下、只替換文字（app.ahk 的 OnEnter → Accept），
@@ -378,7 +364,7 @@ function drawKeys(t) {
     box.replaceChildren(...(g ? g.labels.map(l => { const d = document.createElement('div'); d.className = 'key'; d.textContent = l; return d; }) : []));
     keysShown = g;
   }
-  if (!g) { box.style.opacity = '0'; MODEL.keys = []; return; }
+  if (!g) { box.style.opacity = '0'; return; }
   box.style.top = g.top + 'px';
   box.style.opacity = String(fade(t, g.from, g.to, 0.15));
   const down = g.press.some(at => t >= at && t < at + 0.15);
@@ -387,7 +373,6 @@ function drawKeys(t) {
     k.style.boxShadow = down ? '0 0 0 #D8D8D8' : '0 6px 0 #D8D8D8';
     k.style.background = down ? '#F1F4F8' : '#fff';
   }
-  MODEL.keys = g.labels;
 }
 
 const WORDS = [['救得回', '#6FA8B5'], ['改得準', '#1A5FB4'], ['不亂動', '#EFAFB0'], ['到處用', '#7FA36B']];
@@ -413,12 +398,9 @@ function drawEnd(t) {
     $(id).style.opacity = String(p);
     $(id).style.transform = `translateY(${24 * (1 - p)}px)`;
   }
-  MODEL.card = w ? w[0] : '';
-  MODEL.logo = t >= T.logo;
 }
 
 window.render = (t) => {
-  MODEL = {};
   const tb = t >= T.loop ? 0 : t;     // 最後 0.7 秒，底層回到開頭的樣子，讓結尾淡出後接回第 0 秒
   drawSlide(tb);
   drawNotes(tb);
@@ -431,6 +413,34 @@ window.render = (t) => {
   return true;
 };
 render(0);
+
+// 這一格「畫面上實際看得到的」狀態，全部從 DOM 讀，給 check.mjs 核對：
+// 畫錯了（字、透明度、底色）就會被抓到，而不是核對一份與畫面平行的資料
+const css = (el) => getComputedStyle(el);
+const seen = (el) => parseFloat(css(el).opacity) > 0.5;
+const ownText = (el) => [...el.childNodes].filter(n => n.nodeType === Node.TEXT_NODE).map(n => n.data).join('');   // 不含游標
+const MARK_RGB = (() => {   // --mark 的計算後顏色，跟 getComputedStyle 回傳的格式一致
+  const probe = document.createElement('div');
+  probe.style.background = 'var(--mark)';
+  document.body.appendChild(probe);
+  const c = css(probe).backgroundColor;
+  probe.remove();
+  return c;
+})();
+window.state = () => {
+  const visibleSpans = LINE_EL.map(({ a, b }) => (b && parseFloat(css(b).opacity) >= 0.5) ? b : a);
+  return {
+    clock: $('clock').textContent,
+    page: $('slidePage').textContent,
+    slideTitle: $('slideTitle').textContent,
+    notes: visibleSpans.map(ownText),
+    marked: visibleSpans.filter(el => css(el).backgroundColor === MARK_RGB).map(ownText),
+    icon: seen($('icon')) ? $('iconMain').textContent : '',
+    popup: seen($('popup')),
+    chatInput: ownText($('chatInput')),
+    sent: seen($('outBubble')) ? [$('outBubble').textContent] : [],
+  };
+};
 
 if (PARAMS.has('play')) {   // 在瀏覽器裡直接預覽：?v=classroom&play
   const t0 = performance.now();

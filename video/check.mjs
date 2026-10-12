@@ -49,6 +49,49 @@ for (const v of versions) {
     eq('29.95 秒：接回開頭（時鐘）', s.clock, '10:02');
     eq('候選窗第一個候選＝聊天要還原的句子',
        await page.evaluate("POPUP.ops.find(o => o.t === 'text' && o.pt === 13).s"), chat.zh);
+
+    // 圖檔路徑錯了，cdp.mjs 的等待會被 onerror 放行，所以在這裡另外確認每張圖都真的有載入
+    eq('所有圖片都載入成功', await page.evaluate('[...document.images].every(i => i.naturalWidth > 0)'), true);
+
+    // 段落交界：該消失的東西要真的消失
+    const look = (t, expr) => page.evaluate(`(render(${t}), ${expr})`);
+    const opacity = (id) => `parseFloat(getComputedStyle(document.getElementById('${id}')).opacity)`;
+    eq('12.5 秒：浮窗看得到', await look(12.5, `${opacity('icon')} > 0.5`), true);
+    eq('12.95 秒：按 Enter 後浮窗消失', await look(12.95, `${opacity('icon')} > 0.5`), false);
+    eq('23.05 秒：按 Enter 後候選窗消失', (await at(23.05)).popup, false);
+    eq('29.95 秒：聊天藏起來', await look(29.95, "getComputedStyle(document.getElementById('chat')).visibility"), 'hidden');
+    eq('29.95 秒：候選窗、浮窗透明度 0', await look(29.95, `[${opacity('popup')}, ${opacity('icon')}]`), [0, 0]);
+    eq('29.95 秒：片尾已淡出（< 0.05）', await look(29.95, `${opacity('endCard')} < 0.05`), true);
+
+    eq('26.0 秒：大字卡是「不亂動」', await look(26.0, "document.getElementById('bigWord').textContent"), '不亂動');
+    eq('27.0 秒：大字卡已清空', await look(27.0, "document.getElementById('bigWord').textContent"), '');
+
+    eq('候選窗每一段文字都有畫出來（缺少的列在這裡）', await page.evaluate(`
+      POPUP.ops.filter(o => o.t === 'text')
+        .filter(o => ![...document.querySelectorAll('#popup div')].some(d => d.textContent === o.s))
+        .map(o => o.s)`), []);
+
+    eq('打字聲的時間都在 [0, 30) 之內（超出的列在這裡）',
+       await page.evaluate('keyHits().filter(h => !(h.t >= 0 && h.t < 30)).map(h => h.t)'), []);
+
+    // 同一個 t 永遠畫出同一格：900 格依序畫一次、再用固定種子打亂順序畫一次，逐格比對
+    const diffs = await page.evaluate(`(() => {
+      const els = () => [...document.querySelectorAll('#stage [id], #lines span, #keys .key')];
+      const sig = () => els().map(el => {
+        const c = getComputedStyle(el);
+        return [el.id, c.opacity, c.transform, c.visibility, c.top, c.backgroundColor, el.textContent].join('|');
+      }).join('\\n');
+      const N = 900, first = [];
+      for (let i = 0; i < N; i++) { render(i / 30); first[i] = sig(); }
+      const order = [...Array(N).keys()];
+      let seed = 20261012;
+      const rnd = () => (seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296;
+      for (let i = N - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+      const bad = [];
+      for (const i of order) { render(i / 30); if (sig() !== first[i]) bad.push(i); }
+      return bad.sort((a, b) => a - b).slice(0, 20);
+    })()`);
+    eq('900 格依序與打亂順序畫出來完全相同（不同的格數列在這裡，最多 20 格）', diffs, []);
   } finally {
     await page.close();
   }
