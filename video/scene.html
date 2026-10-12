@@ -435,7 +435,8 @@ function drawNotes(tb) {
       ok.style.transform = `scale(${q})`;
     }
     if (ring) {
-      const q = mark ? easeOut(seg(tb, T.mark + 0.1 + (i % 2) * 0.25, T.mark + 0.55 + (i % 2) * 0.25)) : 0;
+      const d = 0.25 * ROWS.slice(0, i).filter(r => r.keep).length;   // 由上往下一個接一個畫
+      const q = mark ? easeOut(seg(tb, T.mark + 0.1 + d, T.mark + 0.55 + d)) : 0;
       ring.firstChild.style.strokeDashoffset = String(1 - q);
       ring.style.opacity = q > 0 ? '1' : '0';
     }
