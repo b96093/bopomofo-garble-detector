@@ -52,10 +52,15 @@ async function connect(url) {
   return { send, events, close };
 }
 
-export async function openPage(htmlPath, query = '') {
+// size：視窗與截圖尺寸。宣傳片 1080×1920（預設），版本比較影片 1080×1080。
+export async function openPage(htmlPath, query = '', size = { width: 1080, height: 1920 }) {
+  const { width, height } = size;
   const profile = mkdtempSync(join(tmpdir(), 'bgd-video-'));
+  // --allow-file-access-from-files：從 file:// 開的頁面要 import 擴充的 ES module（src/content/*.js），
+  // 不加會被當成跨來源擋下。只用在這個暫存 profile 的無頭 Chrome。
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
-    '--hide-scrollbars', '--force-device-scale-factor=1', '--window-size=1080,1920', 'about:blank'],
+    '--hide-scrollbars', '--allow-file-access-from-files', '--force-device-scale-factor=1',
+    `--window-size=${width},${height}`, 'about:blank'],
     { stdio: 'ignore' });
   let spawnError = null;
   const exited = new Promise(r => {
@@ -111,7 +116,7 @@ export async function openPage(htmlPath, query = '') {
     page = await connect(target.webSocketDebuggerUrl);
     const { send, events } = page;
     await send('Page.enable');
-    await send('Emulation.setDeviceMetricsOverride', { width: 1080, height: 1920, deviceScaleFactor: 1, mobile: false });
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
     const nav = await send('Page.navigate', { url: pathToFileURL(htmlPath).href + query });
     if (nav.errorText) throw new Error(`開不了頁面 ${htmlPath}：${nav.errorText}`);
     for (let i = 0; i < 100 && !events.some(e => e.method === 'Page.loadEventFired'); i++) await sleep(100);
@@ -127,7 +132,7 @@ export async function openPage(htmlPath, query = '') {
     await evaluate('Promise.all([...document.images].map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => true)');
 
     const screenshot = async () => Buffer.from((await send('Page.captureScreenshot',
-      { format: 'png', clip: { x: 0, y: 0, width: 1080, height: 1920, scale: 1 } })).data, 'base64');
+      { format: 'png', clip: { x: 0, y: 0, width, height, scale: 1 } })).data, 'base64');
     return { evaluate, screenshot, close: cleanup };
   } catch (e) {
     await cleanup();

@@ -1,5 +1,5 @@
-// 輸出影片：node video/render.mjs classroom|meeting
-// 只輸出幾張靜態畫面檢查：node video/render.mjs classroom --stills 1,5,9,12.5
+// 輸出影片：node video/render.mjs classroom|meeting|compare
+// 只輸出幾張靜態畫面檢查：node video/render.mjs compare --stills 1,5,9,12.5
 import { openPage } from './cdp.mjs';
 import { keyTrack } from './sfx.mjs';
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
@@ -10,12 +10,19 @@ import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
+// 每支影片：哪一頁、網址參數、尺寸、長度、成品名稱（在頁面裡求值的運算式）
+const TARGETS = {
+  classroom: { page: 'scene.html', query: '?v=classroom', width: 1080, height: 1920, seconds: 30, name: 'CONTENT.classroom.name' },
+  meeting:   { page: 'scene.html', query: '?v=meeting',   width: 1080, height: 1920, seconds: 30, name: 'CONTENT.meeting.name' },
+  compare:   { page: 'compare.html', query: '',           width: 1080, height: 1080, seconds: 90, name: "'版本比較'" },
+};
 const usage = () => {
-  console.error('用法：node video/render.mjs classroom|meeting [--stills 1,5,9]');
+  console.error('用法：node video/render.mjs classroom|meeting|compare [--stills 1,5,9]');
   process.exit(2);
 };
 const v = process.argv[2];
-if (!['classroom', 'meeting'].includes(v)) usage();
+const target = TARGETS[v];
+if (!target) usage();
 const si = process.argv.indexOf('--stills');
 let stills = null;
 if (si > 0) {
@@ -24,7 +31,7 @@ if (si > 0) {
   stills = arg.split(',').map(s => (s.trim() === '' ? NaN : Number(s)));
   if (stills.some(t => !Number.isFinite(t))) usage();
 }
-// 輸出影片才需要 ffmpeg：開 Chrome、錄影格之前先找，找不到就別白錄 900 格
+// 輸出影片才需要 ffmpeg：開 Chrome、錄影格之前先找，找不到就別白錄
 let ffmpeg = null;
 if (!stills) {
   try { ffmpeg = execFileSync('where.exe', ['ffmpeg'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/)[0].trim(); }
@@ -37,9 +44,9 @@ if (!stills) {
 const out = join(root, 'dist', 'video');
 mkdirSync(out, { recursive: true });
 
-const page = await openPage(join(here, 'scene.html'), `?v=${v}`);
+const page = await openPage(join(here, target.page), target.query, { width: target.width, height: target.height });
 try {
-  const name = await page.evaluate(`CONTENT.${v}.name`);
+  const name = await page.evaluate(target.name);
   if (stills) {
     const dir = join(out, `stills-${name}`);
     mkdirSync(dir, { recursive: true });
@@ -49,7 +56,7 @@ try {
     }
     console.log('靜態畫面：', dir);
   } else {
-    const FPS = 30, N = 30 * FPS;
+    const FPS = 30, N = target.seconds * FPS;
     const frames = mkdtempSync(join(tmpdir(), 'bgd-frames-'));
     try {
       for (let i = 0; i < N; i++) {
@@ -58,7 +65,7 @@ try {
         if (i % 90 === 0) console.log(`  ${i}/${N}`);
       }
       const wav = join(frames, 'keys.wav');
-      writeFileSync(wav, keyTrack(await page.evaluate('keyHits()')));
+      writeFileSync(wav, keyTrack(await page.evaluate('keyHits()'), target.seconds));
       const mp4 = join(out, `注音亂碼偵測-${name}.mp4`);
       const r = spawnSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error',
         '-framerate', String(FPS), '-i', join(frames, '%04d.png'), '-i', wav,
