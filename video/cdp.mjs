@@ -14,6 +14,7 @@ export async function openPage(htmlPath, query = '', port = 9333) {
   const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
     '--hide-scrollbars', '--force-device-scale-factor=1', '--window-size=1080,1920', 'about:blank'],
     { stdio: 'ignore' });
+  const exited = new Promise(r => chrome.once('exit', r));
   let target;
   for (let i = 0; i < 75 && !target; i++) {
     try { target = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(t => t.type === 'page'); }
@@ -52,10 +53,14 @@ export async function openPage(htmlPath, query = '', port = 9333) {
 
   const screenshot = async () => Buffer.from((await send('Page.captureScreenshot',
     { format: 'png', clip: { x: 0, y: 0, width: 1080, height: 1920, scale: 1 } })).data, 'base64');
-  const close = () => {
+  // 先等 Chrome 真的結束、放開檔案，再刪暫存的 profile 資料夾。
+  // 直接 kill 之後馬上刪會失敗（Chrome 還握著檔案），每開一次頁面就在 %TEMP% 留下一個資料夾。
+  const close = async () => {
     try { ws.close(); } catch {}
     chrome.kill();
-    try { rmSync(profile, { recursive: true, force: true }); } catch { /* Chrome 還沒放開檔案也無妨，那是暫存資料夾 */ }
+    await Promise.race([exited, sleep(5000)]);
+    try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); }
+    catch (e) { console.warn('暫存資料夾刪不掉（不影響成品）：', profile, e.message); }
   };
   return { evaluate, screenshot, close };
 }
