@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>注音亂碼偵測 — 宣傳影片</title>
+<!--
+  所有畫面都由 render(t) 依時間 t（秒）畫出：同一個 t 永遠畫出同一格，
+  逐格錄影不會掉格。state() 回傳該格的邏輯狀態，給 check.mjs 核對。
+  網址參數：?v=classroom 或 ?v=meeting 選版本；加上 &play 可在瀏覽器裡直接播放預覽。
+
+  時間軸（秒）—— 對應設計文件 docs/superpowers/specs/2026-10-11-宣傳影片-design.md
+    0–9    投影片在上、筆記在下；1–2 打出標題，2–8 打出整頁亂碼，時鐘快轉，8 換結束頁
+    9–11   字卡：整節課的筆記。／全是亂碼。
+    11–18  反白 → Ctrl Alt Z → 產品浮窗 → Enter → 逐行翻成中文 → 標出日期與時間
+    18–25  聊天：打出亂碼 → 產品候選窗 → 凍結兩秒 → Enter → 送出
+    25–27  四張大字卡；27–29.3 Logo 組合；29.3–30 淡回開頭（無縫循環）
+-->
+<style>
+:root {
+  --bg: #F7F6F3; --ink: #1E1E1E; --muted: #707070; --faint: #909090;
+  --accent: #1A5FB4; --alert: #C2474F;
+  --pick: #BCD6F5;   /* 文件裡的反白 */
+  --mark: #FFEFA8;   /* 「沒被動到」的螢光筆 */
+}
+html, body { margin: 0; background: var(--bg); }
+#stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--bg);
+  font-family: "Microsoft JhengHei", sans-serif; color: var(--ink); }
+.abs { position: absolute; }
+.card { background: #fff; border-radius: 22px; box-shadow: 0 10px 40px rgba(0, 0, 0, .07); }
+
+#slide { left: 90px; top: 110px; width: 900px; height: 506px; overflow: hidden; }
+#slideTitle { left: 0; top: 150px; width: 900px; text-align: center; font-size: 64px; font-weight: 700; }
+#slideSub { left: 0; top: 268px; width: 900px; text-align: center; font-size: 34px; color: var(--muted); }
+#slidePage { right: 36px; bottom: 24px; font-size: 26px; color: var(--faint); }
+#clock { right: 36px; top: 24px; font-size: 30px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+#notes { left: 60px; top: 680px; width: 960px; height: 1130px; }
+#notesBar { left: 0; top: 0; width: 960px; height: 72px; border-bottom: 1px solid #ECECEC; }
+#notesName { left: 36px; top: 19px; font-size: 26px; color: var(--faint); }
+#lines { left: 56px; top: 112px; width: 860px; }
+.line { position: relative; height: 74px; font-size: 40px; line-height: 74px; white-space: pre; }
+.line span { position: absolute; left: 0; top: 0; padding: 0 4px; border-radius: 6px; }
+.caret { display: inline-block; width: 3px; height: 46px; background: var(--ink); vertical-align: -9px; }
+
+#chat { left: 60px; top: 680px; width: 960px; height: 1130px; }
+#chatBar { left: 0; top: 0; width: 960px; height: 110px; border-bottom: 1px solid #ECECEC; }
+#chatAvatar { left: 36px; top: 25px; width: 60px; height: 60px; border-radius: 50%; background: #EFAFB0; }
+#chatName { left: 116px; top: 31px; font-size: 36px; font-weight: 700; }
+.bubble { font-size: 38px; line-height: 54px; padding: 20px 30px; border-radius: 30px; white-space: pre; }
+#inBubble { left: 40px; top: 160px; background: #EEF0F2; }
+#outBubble { right: 40px; top: 290px; background: #D6ECF1; transform-origin: right bottom; }
+#chatInput { left: 30px; top: 990px; width: 900px; height: 110px; border: 2px solid #DCDCDC; border-radius: 28px;
+  font-size: 40px; line-height: 106px; padding-left: 34px; box-sizing: border-box; white-space: pre; }
+
+.cap { left: 0; width: 1080px; text-align: center; font-weight: 700; }
+#cap1 { top: 210px; font-size: 80px; }
+#cap2 { top: 350px; font-size: 80px; color: var(--alert); }
+#capTop { top: 300px; font-size: 64px; }
+
+#keys { left: 0; width: 1080px; display: flex; justify-content: center; gap: 22px; }
+.key { position: relative; height: 104px; min-width: 104px; padding: 0 26px; box-sizing: border-box; border-radius: 20px;
+  background: #fff; border: 2px solid #D8D8D8; box-shadow: 0 6px 0 #D8D8D8; font-size: 40px; line-height: 100px;
+  text-align: center; font-weight: 700; color: #444; }
+
+#endCard { left: 0; top: 0; width: 1080px; height: 1920px; background: var(--bg); }
+#bigWord { left: 0; top: 760px; width: 1080px; text-align: center; font-size: 170px; font-weight: 700; }
+#bigBar { top: 990px; height: 14px; border-radius: 7px; }
+.logoPart { left: 260px; top: 470px; width: 560px; height: 540px; mix-blend-mode: multiply; }
+/* Logo 拆成三塊（原圖 3419×3295）：ㄐ 與虛線箭頭在左、鉛筆在中上、A 在右下 */
+#logoJ   { clip-path: polygon(0 0, 42.1% 0, 42.1% 90%, 44.5% 90%, 44.5% 100%, 0 100%); }
+#logoPen { clip-path: polygon(42.1% 0, 100% 0, 100% 68.6%, 58.5% 68.6%, 58.5% 100%, 44.5% 100%, 44.5% 90%, 42.1% 90%); }
+#logoA   { clip-path: polygon(58.5% 68.6%, 100% 68.6%, 100% 100%, 58.5% 100%); }
+#title { top: 1110px; font-size: 84px; }
+#tagline { top: 1240px; font-size: 46px; font-weight: 400; color: var(--muted); }
+#url { top: 1330px; font-size: 32px; font-weight: 400; color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="slide" class="abs card">
+    <div id="clock" class="abs"></div>
+    <div id="slideTitle" class="abs"></div>
+    <div id="slideSub" class="abs"></div>
+    <div id="slidePage" class="abs"></div>
+  </div>
+  <div id="cap1" class="abs cap"></div>
+  <div id="cap2" class="abs cap"></div>
+  <div id="capTop" class="abs cap"></div>
+
+  <div id="notes" class="abs card">
+    <div id="notesBar" class="abs"><div id="notesName" class="abs"></div></div>
+    <div id="lines" class="abs"></div>
+  </div>
+
+  <div id="chat" class="abs card">
+    <div id="chatBar" class="abs"><div id="chatAvatar" class="abs"></div><div id="chatName" class="abs"></div></div>
+    <div id="inBubble" class="abs bubble"></div>
+    <div id="outBubble" class="abs bubble"></div>
+    <div id="chatInput" class="abs"></div>
+  </div>
+
+  <div id="icon" class="abs"></div>
+  <div id="popup" class="abs"></div>
+  <div id="keys" class="abs"></div>
+
+  <div id="endCard" class="abs">
+    <div id="bigWord" class="abs"></div>
+    <div id="bigBar" class="abs"></div>
+    <img id="logoJ" class="abs logoPart" src="../assets/logo/logo-square-trim.png" alt="">
+    <img id="logoPen" class="abs logoPart" src="../assets/logo/logo-square-trim.png" alt="">
+    <img id="logoA" class="abs logoPart" src="../assets/logo/logo-square-trim.png" alt="">
+    <div id="title" class="abs cap">注音亂碼偵測</div>
+    <div id="tagline" class="abs cap">忘了切輸入法，不用重打。</div>
+    <div id="url" class="abs cap">b96093.github.io/bopomofo-garble-detector</div>
+  </div>
+</div>
+<script src="content.js"></script>
+<script src="popup.js"></script>
+<script>
+'use strict';
+const PARAMS = new URLSearchParams(location.search);
+const V = PARAMS.get('v') || 'classroom';
+const C = window.CONTENT[V];
+const CHAT = window.CONTENT.chat;
+const P = window.POPUP;
+const $ = (id) => document.getElementById(id);
+
+// ---------- 時間工具 ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+const easeOutBack = (p) => { const c = 1.70158; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
+const lerp = (a, b, p) => a + (b - a) * p;
+const fade = (t, a, b, f = 0.2) => Math.min(seg(t, a, a + f), 1 - seg(t, b - f, b));   // a 開始淡入、b 淡出完畢
+
+const T = {
+  type0: 1, type1: 2, type2: 8, slideOut: 9.0, cap1: 9.1, cap2: 9.7, capEnd: 11.0,
+  select: 11.0, keys1: 11.4, icon: 12.0, enter1: 12.9, flip: 13.1, mark: 15.0,
+  toChat: 18.0, chatIn: 18.2, chatType: 19.0, chatTyped: 20.4, popup: 20.6, enter2: 23.0, send: 23.4,
+  cards: 25.0, logo: 27.0, loop: 29.3,
+};
+
+// ---------- 筆記內容與打字時間表 ----------
+const ROWS = [{ text: C.header }, ...C.lines.map(l => l.keep ? { text: l.keep, keep: true } : { text: l.garble, zh: l.zh })];
+const GARBLE_ROWS = ROWS.map((r, i) => (r.zh ? i : -1)).filter(i => i >= 0);
+const AT = ROWS.map(() => []);      // 每一行每個字出現的時間
+const ENTERS = [];
+{
+  const head = ROWS[0].text;
+  for (let i = 0; i < head.length; i++) AT[0].push(T.type0 + (i + 1) / head.length * 0.9);
+  // 標題之後的每一行平均分配在 2–8 秒，換行的 Enter 也算一個按鍵
+  const total = ROWS.slice(1).reduce((s, r) => s + r.text.length + 1, 0);
+  let k = 0;
+  for (let j = 1; j < ROWS.length; j++) {
+    k += 1;
+    ENTERS.push(T.type1 + k / total * (T.type2 - T.type1));
+    for (let i = 0; i < ROWS[j].text.length; i++) {
+      k += 1;
+      AT[j].push(T.type1 + k / total * (T.type2 - T.type1));
+    }
+  }
+}
+const CHAT_AT = [...CHAT.garble].map((_, i) => T.chatType + (i + 1) / CHAT.garble.length * (T.chatTyped - T.chatType));
+const typed = (ats, t) => { let n = 0; while (n < ats.length && ats[n] <= t) n++; return n; };
+
+// 給 render.mjs 合成打字聲
+window.keyHits = () => [
+  ...AT.flat().map(t => ({ t, gain: 0.5 })),
+  ...ENTERS.map(t => ({ t, gain: 0.7 })),
+  ...CHAT_AT.map(t => ({ t, gain: 0.5 })),
+  { t: T.keys1, gain: 1 }, { t: T.enter1, gain: 1 }, { t: T.enter2, gain: 1 },
+];
+
+const caret = () => { const i = document.createElement('i'); i.className = 'caret'; return i; };
+const fit = (s, n) => (n < 4 || s.length <= n) ? s : s.slice(0, n - 1) + '…';   // 同 app.ahk 的 Fit()
+const argb = (v) => `rgba(${(v >>> 16) & 255},${(v >>> 8) & 255},${v & 255},${((v >>> 24) & 255) / 255})`;
+const S = 2.2;   // 產品介面的放大倍率（產品以 100% 縮放的邏輯像素為準）
+
+// ---------- 一次性建立的元素 ----------
+$('notesName').textContent = C.docName;
+$('chatName').textContent = CHAT.name;
+$('inBubble').textContent = CHAT.incoming;
+$('outBubble').textContent = CHAT.zh;
+const LINE_EL = ROWS.map((r) => {
+  const div = document.createElement('div');
+  div.className = 'line';
+  const a = document.createElement('span');
+  div.appendChild(a);
+  let b = null;
+  if (r.zh) { b = document.createElement('span'); b.textContent = r.zh; div.appendChild(b); }
+  $('lines').appendChild(div);
+  return { a, b };
+});
+
+// 選取轉換的小浮窗：照 desktop/app.ahk 的 BuildIcon／ShowIcon 重建
+//   白底、Win11 圓角、#DCDCDC 邊；圖示 (11,10) 18×18；主文字 (35,9) 11pt #1E1E1E；
+//   提示 (35,33) 9pt #1A5FB4「↵ 轉中文或編輯」；寬 = Max(230, 60 + 字數×20)、高 58
+const ICON_SHOWN = fit(fit(ROWS[GARBLE_ROWS[0]].zh, 20) + '　還原 ' + GARBLE_ROWS.length + ' 行', 32);
+{
+  const w = Math.max(230, 60 + ICON_SHOWN.length * 20);
+  Object.assign($('icon').style, { left: '140px', top: '1420px', width: w * S + 'px', height: 58 * S + 'px',
+    background: '#fff', border: `${S}px solid #DCDCDC`, borderRadius: 8 * S + 'px', boxSizing: 'border-box' });
+  const img = document.createElement('img');
+  img.src = '../desktop/icon.ico';
+  img.className = 'abs';
+  Object.assign(img.style, { left: 11 * S + 'px', top: 10 * S + 'px', width: 18 * S + 'px', height: 18 * S + 'px' });
+  const main = document.createElement('div');
+  main.className = 'abs';
+  main.textContent = '→ ' + ICON_SHOWN;
+  Object.assign(main.style, { left: 35 * S + 'px', top: 9 * S + 'px', width: (w - 46) * S + 'px',
+    fontSize: 11 * 96 / 72 * S + 'px', color: '#1E1E1E', whiteSpace: 'nowrap' });
+  const hint = document.createElement('div');
+  hint.className = 'abs';
+  hint.textContent = '↵ 轉中文或編輯';
+  Object.assign(hint.style, { left: 35 * S + 'px', top: 33 * S + 'px', width: (w - 46) * S + 'px',
+    fontSize: 9 * 96 / 72 * S + 'px', color: '#1A5FB4', whiteSpace: 'nowrap' });
+  $('icon').append(img, main, hint);
+}
+
+// 候選窗：照 popup.js（產品 BuildLayout 的實際輸出）與 draw.ahk 的 RenderLayered 畫
+{
+  const el = $('popup');
+  const inputTop = 680 + 990;     // 聊天輸入框的上緣：候選窗開在它上方
+  Object.assign(el.style, { left: '90px', top: (inputTop - 24 - P.h * S) + 'px', width: P.w * S + 'px', height: P.h * S + 'px' });
+  const frame = document.createElement('div');   // 外框：圓角 12、白底、#D8D8D8 細邊
+  Object.assign(frame.style, { position: 'absolute', left: 0, top: 0, width: P.w * S + 'px', height: P.h * S + 'px',
+    background: '#fff', border: `${S}px solid #D8D8D8`, borderRadius: 12 * S + 'px', boxSizing: 'border-box' });
+  el.appendChild(frame);
+  const box = (x, y, w, h) => ({ position: 'absolute', left: x * S + 'px', top: y * S + 'px', width: w * S + 'px', height: h * S + 'px' });
+  for (const op of P.ops) {
+    if (op.t === 'box') {
+      const d = document.createElement('div');
+      Object.assign(d.style, box(op.x, op.y, op.w, op.h), { background: argb(op.fill), borderRadius: op.r * S + 'px',
+        boxSizing: 'border-box', border: op.border ? `${S}px solid ${argb(op.border)}` : 'none' });
+      el.appendChild(d);
+    } else if (op.t === 'text') {
+      // DrawStr：字級 pt × 96 ÷ 72；水平 0 左、1 中、2 右；垂直置中
+      const d = document.createElement('div');
+      Object.assign(d.style, box(op.x, op.y, op.w, op.h), { display: 'flex', alignItems: 'center',
+        justifyContent: ['flex-start', 'center', 'flex-end'][op.a], fontSize: op.pt * 96 / 72 * S + 'px',
+        fontWeight: op.b ? 700 : 400, color: argb(op.c), whiteSpace: 'nowrap' });
+      d.textContent = op.s;
+      el.appendChild(d);
+    } else if (op.t === 'logo') {
+      const d = document.createElement('img');
+      d.src = '../desktop/icon.ico';
+      Object.assign(d.style, box(op.x, op.y, op.s, op.s));
+      el.appendChild(d);
+    } else if (op.t === 'grip') {
+      // DrawGrip：2 欄 3 列小圓點，直徑 3、間距 4
+      for (let cx = 0; cx < 2; cx++) for (let cy = 0; cy < 3; cy++) {
+        const dot = document.createElement('div');
+        Object.assign(dot.style, box(op.x + cx * 4, op.y + cy * 4, 3, 3), { borderRadius: '50%', background: argb(op.c) });
+        el.appendChild(dot);
+      }
+    }
+  }
+}
+
+// ---------- 每一格的繪製 ----------
+let MODEL = {};
+window.state = () => MODEL;
+
+function drawSlide(tb) {
+  const pageIdx = tb < 2 ? 0 : tb < 4 ? 1 : tb < 6 ? 2 : tb < 8 ? 3 : -1;
+  const end = pageIdx < 0;
+  $('slideTitle').textContent = end ? C.endPage : C.slideTitle;
+  $('slideSub').textContent = end ? '' : C.slidePages[pageIdx];
+  $('slidePage').textContent = end ? '' : String(7 + pageIdx);
+  const min = tb < T.type1 ? 2 : Math.round(lerp(2, 48, seg(tb, T.type1, T.type2)));
+  $('clock').textContent = '10:' + String(min).padStart(2, '0');
+  $('slide').style.opacity = String(1 - seg(tb, T.slideOut, T.slideOut + 0.3));
+  MODEL.clock = $('clock').textContent;
+  MODEL.page = $('slidePage').textContent;
+  MODEL.slideTitle = $('slideTitle').textContent;
+}
+
+function drawNotes(tb) {
+  const out = easeOut(seg(tb, T.toChat, T.toChat + 0.5));
+  $('notes').style.transform = `translateX(${-1100 * out}px)`;
+  $('notes').style.opacity = String(1 - out);
+  const sel = tb >= T.select && tb < T.enter1 + 0.05;
+  const mark = tb >= T.mark && tb < T.toChat;
+  let cur = 0;
+  for (let i = 0; i < ROWS.length; i++) if (typed(AT[i], tb) > 0) cur = i;
+  const typing = tb >= T.type0 && tb <= T.type2;
+  const caretOn = tb < T.select && (typing || Math.floor(tb * 2.5) % 2 === 0);
+  const notes = [], marked = [];
+  ROWS.forEach((r, i) => {
+    const { a, b } = LINE_EL[i];
+    const shown = r.text.slice(0, typed(AT[i], tb));
+    a.textContent = shown;
+    if (i === cur && caretOn) a.appendChild(caret());
+    let bg = 'transparent';
+    if (sel && shown) bg = 'var(--pick)';
+    if (mark && r.keep) { bg = 'var(--mark)'; marked.push(r.text); }
+    a.style.background = bg;
+    let p = 0;
+    if (b) {
+      const k = GARBLE_ROWS.indexOf(i);
+      p = easeOut(seg(tb, T.flip + k * 0.22, T.flip + k * 0.22 + 0.3));
+      a.style.opacity = String(1 - p);
+      a.style.transform = `translateY(${-16 * p}px)`;
+      b.style.opacity = String(p);
+      b.style.transform = `translateY(${16 * (1 - p)}px)`;
+    }
+    notes.push(p >= 0.5 ? r.zh : shown);
+  });
+  MODEL.notes = notes;
+  MODEL.marked = marked;
+}
+
+const TOP_CAPS = [
+  [13.2, 15.0, '一整段，一次救回來'],
+  [15.0, 17.9, '日期、時間，原樣保留'],
+  [18.2, 21.0, '下次，打錯當下就提醒你'],
+  [21.0, 23.3, '不按 Enter，它不會動你的字'],
+];
+function drawCaptions(t) {
+  const o1 = fade(t, T.cap1, T.capEnd), o2 = fade(t, T.cap2, T.capEnd);
+  $('cap1').textContent = C.caption1;
+  $('cap1').style.opacity = String(o1);
+  $('cap2').textContent = '全是亂碼。';
+  $('cap2').style.opacity = String(o2);
+  const c = TOP_CAPS.find(([a, b]) => t >= a && t < b);
+  $('capTop').textContent = c ? c[2] : '';
+  $('capTop').style.opacity = c ? String(fade(t, c[0], c[1])) : '0';
+  MODEL.captions = [o1 > 0.5 && C.caption1, o2 > 0.5 && '全是亂碼。', c && c[2]].filter(Boolean);
+}
+
+function drawIcon(t) {
+  const on = t >= T.icon && t < T.enter1;
+  const p = easeOut(seg(t, T.icon, T.icon + 0.15));
+  $('icon').style.opacity = on ? String(p) : '0';
+  $('icon').style.transform = `translateY(${on ? 10 * (1 - p) : 0}px)`;
+  MODEL.icon = on ? '→ ' + ICON_SHOWN : '';
+}
+
+function drawPopup(t) {
+  const on = t >= T.popup && t < T.enter2;
+  const p = easeOut(seg(t, T.popup, T.popup + 0.15));
+  $('popup').style.opacity = on ? String(p) : '0';
+  $('popup').style.transform = `translateY(${on ? 10 * (1 - p) : 0}px)`;
+  MODEL.popup = on;
+}
+
+function drawChat(t) {
+  const p = easeOut(seg(t, T.chatIn, T.chatIn + 0.5));
+  $('chat').style.visibility = (t >= T.chatIn && t < T.loop) ? 'visible' : 'hidden';
+  $('chat').style.transform = `translateX(${1100 * (1 - p)}px)`;
+  let input;
+  if (t >= T.send) input = '';
+  else if (t >= T.enter2 + 0.05) input = CHAT.zh;          // 按下 Enter：亂碼一次換成中文
+  else input = CHAT.garble.slice(0, typed(CHAT_AT, t));
+  const inp = $('chatInput');
+  inp.textContent = input;
+  const typingChat = t >= T.chatType && t <= T.chatTyped;
+  if (t >= T.chatIn && (typingChat || Math.floor(t * 2.5) % 2 === 0)) inp.appendChild(caret());
+  const sp = easeOutBack(seg(t, T.send, T.send + 0.25));
+  $('outBubble').style.opacity = String(seg(t, T.send, T.send + 0.1));
+  $('outBubble').style.transform = `scale(${t >= T.send ? lerp(0.85, 1, sp) : 0.85})`;
+  MODEL.chatInput = input;
+  MODEL.sent = t >= T.send ? [CHAT.zh] : [];
+}
+
+const KEYS = [
+  { from: 11.1, to: 12.3, press: T.keys1, top: 1660, labels: ['Ctrl', 'Alt', 'Z'] },
+  { from: 12.6, to: 13.4, press: T.enter1, top: 1660, labels: ['Enter'] },
+  { from: 22.6, to: 23.5, press: T.enter2, top: 450, labels: ['Enter'] },
+];
+let keysShown = null;
+function drawKeys(t) {
+  const g = KEYS.find(k => t >= k.from && t < k.to) || null;
+  const box = $('keys');
+  if (g !== keysShown) {
+    box.replaceChildren(...(g ? g.labels.map(l => { const d = document.createElement('div'); d.className = 'key'; d.textContent = l; return d; }) : []));
+    keysShown = g;
+  }
+  if (!g) { box.style.opacity = '0'; MODEL.keys = []; return; }
+  box.style.top = g.top + 'px';
+  box.style.opacity = String(fade(t, g.from, g.to, 0.15));
+  const down = t >= g.press && t < g.press + 0.15;
+  for (const k of box.children) {
+    k.style.transform = `translateY(${down ? 6 : 0}px)`;
+    k.style.boxShadow = down ? '0 0 0 #D8D8D8' : '0 6px 0 #D8D8D8';
+    k.style.background = down ? '#F1F4F8' : '#fff';
+  }
+  MODEL.keys = g.labels;
+}
+
+const WORDS = [['救得回', '#6FA8B5'], ['改得準', '#1A5FB4'], ['不亂動', '#EFAFB0'], ['到處用', '#7FA36B']];
+function drawEnd(t) {
+  const o = t < T.cards - 0.2 ? 0 : t < T.loop ? seg(t, T.cards - 0.2, T.cards) : 1 - seg(t, T.loop, 30);
+  $('endCard').style.opacity = String(o);
+  $('endCard').style.visibility = o > 0 ? 'visible' : 'hidden';
+  const k = Math.floor((t - T.cards) / 0.5);
+  const w = (t >= T.cards && t < T.logo) ? WORDS[k] : null;
+  const pop = w ? easeOut(seg(t, T.cards + k * 0.5, T.cards + k * 0.5 + 0.12)) : 0;
+  $('bigWord').textContent = w ? w[0] : '';
+  $('bigWord').style.opacity = String(pop);
+  $('bigWord').style.transform = `scale(${lerp(0.92, 1, pop)})`;
+  Object.assign($('bigBar').style, { left: '360px', width: '360px', background: w ? w[1] : 'transparent', transform: `scaleX(${pop})` });
+  // Logo：ㄐ 從左、鉛筆從右上、A 從右下飛入
+  for (const [id, dx, dy, delay] of [['logoJ', -520, 0, 0], ['logoPen', 520, -420, 0.08], ['logoA', 520, 420, 0.16]]) {
+    const p = easeOutBack(seg(t, T.logo + delay, T.logo + delay + 0.7));
+    $(id).style.opacity = String(seg(t, T.logo + delay, T.logo + delay + 0.2));
+    $(id).style.transform = `translate(${dx * (1 - p)}px, ${dy * (1 - p)}px)`;
+  }
+  for (const [id, at] of [['title', 27.9], ['tagline', 28.2], ['url', 28.5]]) {
+    const p = easeOut(seg(t, at, at + 0.35));
+    $(id).style.opacity = String(p);
+    $(id).style.transform = `translateY(${24 * (1 - p)}px)`;
+  }
+  MODEL.card = w ? w[0] : '';
+  MODEL.logo = t >= T.logo;
+}
+
+window.render = (t) => {
+  MODEL = {};
+  const tb = t >= T.loop ? 0 : t;     // 最後 0.7 秒，底層回到開頭的樣子，讓結尾淡出後接回第 0 秒
+  drawSlide(tb);
+  drawNotes(tb);
+  drawCaptions(t);
+  drawChat(t);
+  drawIcon(t);
+  drawPopup(t);
+  drawKeys(t);
+  drawEnd(t);
+  return true;
+};
+render(0);
+
+if (PARAMS.has('play')) {   // 在瀏覽器裡直接預覽：?v=classroom&play
+  const t0 = performance.now();
+  const tick = () => { render(((performance.now() - t0) / 1000) % 30); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>
