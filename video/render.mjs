@@ -10,13 +10,30 @@ import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
-const v = process.argv[2];
-if (!['classroom', 'meeting'].includes(v)) {
+const usage = () => {
   console.error('用法：node video/render.mjs classroom|meeting [--stills 1,5,9]');
   process.exit(2);
-}
+};
+const v = process.argv[2];
+if (!['classroom', 'meeting'].includes(v)) usage();
 const si = process.argv.indexOf('--stills');
-const stills = si > 0 ? process.argv[si + 1].split(',').map(Number) : null;
+let stills = null;
+if (si > 0) {
+  const arg = process.argv[si + 1];
+  if (!arg) usage();
+  stills = arg.split(',').map(s => (s.trim() === '' ? NaN : Number(s)));
+  if (stills.some(t => !Number.isFinite(t))) usage();
+}
+// 輸出影片才需要 ffmpeg：開 Chrome、錄影格之前先找，找不到就別白錄 900 格
+let ffmpeg = null;
+if (!stills) {
+  try { ffmpeg = execFileSync('where.exe', ['ffmpeg'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/)[0].trim(); }
+  catch { /* where.exe 找不到時離開碼非 0 */ }
+  if (!ffmpeg) {
+    console.error('找不到 ffmpeg，請先安裝並加入 PATH');
+    process.exit(1);
+  }
+}
 const out = join(root, 'dist', 'video');
 mkdirSync(out, { recursive: true });
 
@@ -34,22 +51,24 @@ try {
   } else {
     const FPS = 30, N = 30 * FPS;
     const frames = mkdtempSync(join(tmpdir(), 'bgd-frames-'));
-    for (let i = 0; i < N; i++) {
-      await page.evaluate(`render(${i / FPS})`);
-      writeFileSync(join(frames, String(i).padStart(4, '0') + '.png'), await page.screenshot());
-      if (i % 90 === 0) console.log(`  ${i}/${N}`);
+    try {
+      for (let i = 0; i < N; i++) {
+        await page.evaluate(`render(${i / FPS})`);
+        writeFileSync(join(frames, String(i).padStart(4, '0') + '.png'), await page.screenshot());
+        if (i % 90 === 0) console.log(`  ${i}/${N}`);
+      }
+      const wav = join(frames, 'keys.wav');
+      writeFileSync(wav, keyTrack(await page.evaluate('keyHits()')));
+      const mp4 = join(out, `注音亂碼偵測-${name}.mp4`);
+      const r = spawnSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error',
+        '-framerate', String(FPS), '-i', join(frames, '%04d.png'), '-i', wav,
+        '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', mp4], { stdio: 'inherit' });
+      if (r.status !== 0) throw new Error('ffmpeg 失敗' + (r.error ? '：' + r.error.message : ''));
+      console.log('完成：', mp4);
+    } finally {
+      rmSync(frames, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
-    const wav = join(frames, 'keys.wav');
-    writeFileSync(wav, keyTrack(await page.evaluate('keyHits()')));
-    const ffmpeg = execFileSync('where.exe', ['ffmpeg'], { encoding: 'utf8' }).split(/\r?\n/)[0].trim();
-    const mp4 = join(out, `注音亂碼偵測-${name}.mp4`);
-    const r = spawnSync(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error',
-      '-framerate', String(FPS), '-i', join(frames, '%04d.png'), '-i', wav,
-      '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', mp4], { stdio: 'inherit' });
-    rmSync(frames, { recursive: true, force: true });
-    if (r.status !== 0) throw new Error('ffmpeg 失敗');
-    console.log('完成：', mp4);
   }
 } finally {
   await page.close();
