@@ -169,6 +169,16 @@ Check("Chrome 空標題", Skip("chrome.exe", "", false), "略過")
 Check("其他程式", Skip("notepad.exe", "未命名 - 記事本", false), "接手")
 
 Say("")
+Say("── Google 文件：UIA 讀到的不是游標前的文字，不能拿來判斷 ──")
+; 實測（2026-10-12）：游標停在打好的亂碼後面，UIA 讀回的卻是「文件分頁」側欄的
+; 「你為文件新增的標題會顯示在這裡。」—— 跟緩衝一比對不上，就被當成正在打中文而退開。
+Docs(title) => IsGoogleDocs(title) ? "是" : "否"
+Check("Google 文件（中文介面）", Docs("未命名文件 - Google 文件 - Google Chrome"), "是")
+Check("Google 文件（英文介面）", Docs("Untitled document - Google Docs - Google Chrome"), "是")
+Check("只是提到 Google 文件", Docs("如何使用 Google 文件 - 某某部落格 - Google Chrome"), "否")
+Check("記事本", Docs("未命名 - 記事本"), "否")
+
+Say("")
 Say(Format("結果：{1} 通過 / {2} 失敗", PASS, FAIL))
 Dump()
 ExitApp(FAIL > 0 ? 1 : 0)

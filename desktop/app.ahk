@@ -568,7 +568,12 @@ Scan() {
     ; 所以先取快照，判斷完再確認緩衝沒被動過。動過就代表這次判斷已經過期，
     ; 重排一次即可 —— 去抖動本來就是要等使用者停下來才判斷。
     snapshot := BUF
-    landed := BufferLanded(snapshot)
+    ; Google 文件給 UIA 的內容跟游標對不起來（實測讀到的是「文件分頁」側欄的提示字），
+    ; 拿來比對只會誤判成「正在打中文」而退開。當成讀不到，交給輸入法模式判斷。
+    try docs := IsGoogleDocs(WinGetTitle("A"))
+    catch
+        docs := false
+    landed := docs ? -1 : BufferLanded(snapshot)
     if (BUF !== snapshot) {
         SetTimer(Scan, -160)
         return
