@@ -13,8 +13,8 @@ const eq = (name, got, want) => {
 };
 
 const versions = ['classroom', 'meeting'];
-for (const [i, v] of versions.entries()) {
-  const page = await openPage(scene, `?v=${v}`, 9333 + i);
+for (const v of versions) {
+  const page = await openPage(scene, `?v=${v}`);
   try {
     const C = await page.evaluate(`CONTENT.${v}`);
     const chat = await page.evaluate('CONTENT.chat');
