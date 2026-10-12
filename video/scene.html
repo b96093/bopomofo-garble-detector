@@ -66,10 +66,13 @@ html, body { margin: 0; background: var(--bg); }
 #bigWord { left: 0; top: 760px; width: 1080px; text-align: center; font-size: 170px; font-weight: 700; }
 #bigBar { top: 990px; height: 14px; border-radius: 7px; }
 .logoPart { left: 260px; top: 470px; width: 560px; height: 540px; mix-blend-mode: multiply; }
-/* Logo 拆成三塊（原圖 3419×3295）：ㄐ 與虛線箭頭在左、鉛筆在中上、A 在右下 */
-#logoJ   { clip-path: polygon(0 0, 42.1% 0, 42.1% 90%, 44.5% 90%, 44.5% 100%, 0 100%); }
-#logoPen { clip-path: polygon(42.1% 0, 100% 0, 100% 68.6%, 58.5% 68.6%, 58.5% 100%, 44.5% 100%, 44.5% 90%, 42.1% 90%); }
-#logoA   { clip-path: polygon(58.5% 68.6%, 100% 68.6%, 100% 100%, 58.5% 100%); }
+/* Logo 拆成三塊（原圖 3419×3295）：ㄐ 與虛線箭頭在左、鉛筆在中上、A 在右下。
+   邊界依原圖像素量出：ㄐ｜鉛筆 走 x=47%→42.7% 的折線（鉛筆左緣最左 43.9%、ㄐ 下段最右 41.9%），
+   筆尖底 94.3% 與箭頭頂 96.1% 之間用 y=95.2% 橫切；鉛筆｜A 沿筆身右緣與 A 左緣中間的斜線
+   （過 73.1%,71.4% 與 52.9%,93.2%）。三塊互不重疊、合起來蓋住所有非白像素。 */
+#logoJ   { clip-path: polygon(0 0, 47% 0, 47% 58%, 42.7% 68%, 42.7% 95.2%, 51% 95.2%, 46.6% 100%, 0 100%); }
+#logoPen { clip-path: polygon(47% 0, 100% 0, 100% 69%, 75.3% 69%, 51% 95.2%, 42.7% 95.2%, 42.7% 68%, 47% 58%); }
+#logoA   { clip-path: polygon(75.3% 69%, 100% 69%, 100% 100%, 46.6% 100%); }
 #title { top: 1110px; font-size: 84px; }
 #tagline { top: 1240px; font-size: 46px; font-weight: 400; color: var(--muted); }
 #url { top: 1330px; font-size: 32px; font-weight: 400; color: var(--accent); }

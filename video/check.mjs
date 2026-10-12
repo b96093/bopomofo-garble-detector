@@ -3,6 +3,32 @@
 import { openPage } from './cdp.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { inflateSync } from 'node:zlib';
+
+// 解開 Chrome 截圖的 PNG（8 位元、RGB/RGBA、不交錯），回傳 { w, h, at(x, y) → [r, g, b] }
+function decodePng(buf) {
+  let p = 8, w, h, ch;
+  const idat = [];
+  while (p < buf.length) {
+    const len = buf.readUInt32BE(p), type = buf.toString('ascii', p + 4, p + 8), d = buf.subarray(p + 8, p + 8 + len);
+    if (type === 'IHDR') {
+      w = d.readUInt32BE(0); h = d.readUInt32BE(4);
+      if (d[8] !== 8 || d[12] !== 0 || ![2, 6].includes(d[9])) throw new Error('不支援的 PNG 格式');
+      ch = d[9] === 6 ? 4 : 3;
+    } else if (type === 'IDAT') idat.push(d);
+    p += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(idat)), stride = w * ch, px = new Uint8Array(h * stride);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)], src = y * (stride + 1) + 1, o = y * stride;
+    for (let i = 0; i < stride; i++) {
+      const a = i >= ch ? px[o + i - ch] : 0, b = y ? px[o + i - stride] : 0, c = (y && i >= ch) ? px[o + i - stride - ch] : 0;
+      const pa = Math.abs(b - c), pb = Math.abs(a - c), pc = Math.abs(a + b - 2 * c);
+      px[o + i] = (raw[src + i] + [0, a, b, (a + b) >> 1, (pa <= pb && pa <= pc) ? a : pb <= pc ? b : c][f]) & 255;
+    }
+  }
+  return { w, h, at: (x, y) => [...px.subarray((y * w + x) * ch, (y * w + x) * ch + 3)] };
+}
 
 const scene = join(dirname(fileURLToPath(import.meta.url)), 'scene.html');
 let pass = 0, fail = 0;
@@ -70,6 +96,48 @@ for (const v of versions) {
       POPUP.ops.filter(o => o.t === 'text')
         .filter(o => ![...document.querySelectorAll('#popup div')].some(d => d.textContent === o.s))
         .map(o => o.s)`), []);
+
+    // Logo 拆成三塊飛入：拼好時要跟原圖逐像素相同（三塊合起來蓋滿、沒有重疊加深），
+    // 而且每條裁切邊（不在圖框上的邊）兩側 2px 內都只能是空白 —— 邊切過筆畫的話，
+    // 飛行中那一塊會缺角，或帶著別塊的殘片
+    await page.evaluate('render(28.9)');
+    const assembled = decodePng(await page.screenshot());
+    const geo = await page.evaluate(`(() => {
+      const parts = ['logoJ', 'logoPen', 'logoA'].map(id => document.getElementById(id));
+      const r = parts[0].getBoundingClientRect();
+      const polys = parts.map(el => getComputedStyle(el).clipPath.replace(/^polygon\\(|\\)$/g, '').split(',')
+        .map(pt => pt.trim().split(/\\s+/).map((v, i) => v.endsWith('%') ? parseFloat(v) / 100 * (i ? r.height : r.width) : parseFloat(v))));
+      const ref = parts[0].cloneNode();
+      ref.id = 'logoRef';
+      ref.style.clipPath = 'none';
+      parts.forEach(el => { el.style.visibility = 'hidden'; });
+      parts[0].after(ref);
+      return { x: r.left, y: r.top, w: r.width, h: r.height, polys };
+    })()`);
+    const original = decodePng(await page.screenshot());
+    await page.evaluate(`document.getElementById('logoRef').remove();
+      ['logoJ', 'logoPen', 'logoA'].forEach(id => { document.getElementById(id).style.visibility = ''; })`);
+    let diffPx = 0;
+    for (let y = 0; y < original.h; y++) for (let x = 0; x < original.w; x++) {
+      const a = assembled.at(x, y), b = original.at(x, y);
+      if (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2]) diffPx++;
+    }
+    eq('28.9 秒：三塊 Logo 拼起來與未裁切的原圖逐像素相同（不同的像素數）', diffPx, 0);
+    const bg = original.at(5, 5);
+    const onBorder = (a, b) => [0, 1].some(i => Math.abs(a[i] - b[i]) < 0.5 && (Math.abs(a[i]) < 0.5 || Math.abs(a[i] - (i ? geo.h : geo.w)) < 0.5));
+    const cuts = [];
+    geo.polys.forEach((poly, k) => poly.forEach((a, i) => {
+      const b = poly[(i + 1) % poly.length];
+      if (onBorder(a, b)) return;
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]), nx = -(b[1] - a[1]) / len, ny = (b[0] - a[0]) / len;
+      let bad = 0;
+      for (let s = 0; s <= len; s++) for (let o = -2; o <= 2; o++) {
+        const x = Math.round(geo.x + a[0] + (b[0] - a[0]) * s / len + nx * o), y = Math.round(geo.y + a[1] + (b[1] - a[1]) * s / len + ny * o);
+        if (original.at(x, y).some((c, j) => Math.abs(c - bg[j]) > 2)) bad++;
+      }
+      if (bad) cuts.push(`${['ㄐ', '鉛筆', 'A'][k]} 第 ${i + 1} 條邊：${bad} 點有筆畫`);
+    }));
+    eq('Logo 每條裁切邊都只經過空白（切到筆畫的邊列在這裡）', cuts, []);
 
     eq('打字聲的時間都在 [0, 30) 之內（超出的列在這裡）',
        await page.evaluate('keyHits().filter(h => !(h.t >= 0 && h.t < 30)).map(h => h.t)'), []);
