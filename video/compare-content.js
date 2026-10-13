@@ -30,6 +30,7 @@ window.COMPARE = {
   // 21:00 留言（Facebook）：Chrome 版被動選取（detect，與打字同一組門檻）
   post: { tab: 'facebook.com', app: 'Facebook', actions: ['讚', '留言', '分享'],
     author: '阿哲', text: '週末去吃了這家拉麵，超好吃！', zh: '下次一起去', garble: 'vu84h4u fu3fm4' },
+  endTitle: '注音亂碼偵測',
   summary: {
     head: ['', 'Chrome 版', '桌面版'],
     rows: [

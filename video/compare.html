@@ -152,6 +152,13 @@ html, body { margin: 0; background: var(--teal); }
   border-radius: 16px; padding: 14px 20px; }
 #sumTm { margin-top: 14px; font-size: 20px; color: var(--muted); }
 
+/* 片尾：本工具的 Logo（同宣傳片的白卡） */
+#endLogo { left: 0; top: 0; width: 1080px; height: 1080px; z-index: 45;
+  background: linear-gradient(160deg, #6FA8B5 0%, #86B9C4 55%, #A6CBD2 100%); }
+#endCard { left: 200px; top: 190px; width: 680px; height: 700px; box-sizing: border-box; background: #fff;
+  border: 5px solid var(--line); border-radius: 40px; box-shadow: 16px 16px 0 var(--line); }
+#endImg { left: 110px; top: 60px; width: 450px; mix-blend-mode: multiply; }
+#endTitle { left: 0; top: 540px; width: 670px; text-align: center; font-size: 66px; font-weight: 700; }
 #fade { left: 0; top: 0; width: 1080px; height: 1080px; background: var(--teal); z-index: 50; pointer-events: none; }
 </style>
 </head>
@@ -228,6 +235,10 @@ html, body { margin: 0; background: var(--teal); }
   <svg id="cursor" class="abs" viewBox="0 0 34 46"><path d="M3 3 L3 38 L12 30 L18 43 L24 40 L18 28 L30 28 Z"
     fill="#fff" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round"/></svg>
   <div id="sum" class="abs card"></div>
+  <div id="endLogo" class="abs"><div id="endCard" class="abs">
+    <img id="endImg" class="abs" src="../assets/logo/logo-square-trim.png" alt="">
+    <div id="endTitle" class="abs"></div>
+  </div></div>
   <div id="fade" class="abs"></div>
 </div>
 <script src="content.js"></script>
@@ -253,7 +264,8 @@ const fade = (t, a, b, f = 0.2) => Math.min(seg(t, a, a + f), 1 - seg(t, b - f, 
 const inR = (t, a, b) => t >= a && t < b;
 
 // ---------- 時間軸：每一站的開始時間＋相對偏移（秒）。check-compare.mjs 從 window.TL 讀 ----------
-const TIMES = { s: [5, 11, 17, 23.6, 31.2], sum: 37.8, out: 51.8, end: 54 };
+// 總結卡只停 6 秒（想細看的人可以自己暫停），接著是本工具的 Logo
+const TIMES = { s: [5, 11, 17, 23.6, 31.2], sum: 37.8, logo: 44, out: 48.6, end: 50 };
 const [S1, S2, S3, S4, S5] = TIMES.s;
 const TL = {
   TIMES,
@@ -301,7 +313,7 @@ const CAPS = [
   [S3 + 0.4, S4, K.captions[2]],
   [S4 + 0.4, S5, K.captions[3]],
   [S5 + 0.4, TIMES.sum, K.captions[4]],
-  [TIMES.sum + 0.4, TIMES.out, K.captions[5]],
+  [TIMES.sum + 0.4, TIMES.logo, K.captions[5]],
 ];
 window.CAPS = CAPS;
 const popIn = (el, t, a, b, tilt) => {
@@ -644,6 +656,12 @@ HITS.push({ t: BLOCK.keys, gain: 1 }, { t: BLOCK.enter, gain: 1 }, { t: POST.cli
   $('sum').innerHTML = rows.map((r, i) => `<div class="row${i ? '' : ' head'}">${r.map(c => `<div>${c}</div>`).join('')}</div>`).join('')
     + `<div id="sumTip">${K.summary.tip}</div><div id="sumTm">${K.summary.tm}</div>`;
 }
+$('endTitle').textContent = K.endTitle;
+function drawEndLogo(t) {
+  const p = easeOutBack(seg(t, TIMES.logo, TIMES.logo + 0.4));
+  $('endLogo').style.opacity = String(seg(t, TIMES.logo, TIMES.logo + 0.25));
+  $('endCard').style.transform = `scale(${t >= TIMES.logo ? lerp(0.8, 1, p) : 0.8})`;
+}
 function drawSummary(t) {
   const p = easeOutBack(seg(t, TIMES.sum, TIMES.sum + 0.35));
   $('sum').style.opacity = String(seg(t, TIMES.sum, TIMES.sum + 0.15));
@@ -664,6 +682,7 @@ window.render = (t) => {
   drawDocs(t);
   drawChromeUI(t, mail || post);
   drawSummary(t);
+  drawEndLogo(t);
   $('fade').style.opacity = String(seg(t, TIMES.out, TIMES.end - 0.1));
   return true;
 };
@@ -697,6 +716,8 @@ window.state = () => ({
   summary: seen($('sum')) ? [...$('sum').querySelectorAll('.row')].map(r => [...r.children].map(c => c.textContent)) : [],
   tip: seen($('sum')) ? $('sumTip').textContent : '',
   tm: seen($('sum')) ? $('sumTm').textContent : '',
+  endLogo: seen($('endLogo')),
+  endTitle: seen($('endLogo')) ? $('endTitle').textContent : '',
   mail: ownText($('mailText')),
   chat: ownText($('chatIn')),
   docs: ownText($('docsText')),

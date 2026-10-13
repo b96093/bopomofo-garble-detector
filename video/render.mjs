@@ -14,7 +14,7 @@ const root = join(here, '..');
 const TARGETS = {
   classroom: { page: 'scene.html', query: '?v=classroom', width: 1080, height: 1920, seconds: 30, name: 'CONTENT.classroom.name' },
   meeting:   { page: 'scene.html', query: '?v=meeting',   width: 1080, height: 1920, seconds: 30, name: 'CONTENT.meeting.name' },
-  compare:   { page: 'compare.html', query: '',           width: 1080, height: 1080, seconds: 54, name: "'版本比較'" },
+  compare:   { page: 'compare.html', query: '',           width: 1080, height: 1080, seconds: 50, name: "'版本比較'" },
 };
 const usage = () => {
   console.error('用法：node video/render.mjs classroom|meeting|compare [--stills 1,5,9]');

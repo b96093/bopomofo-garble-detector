@@ -43,6 +43,13 @@ try {
   eq('總結：表格', s.summary, [K.summary.head, ...K.summary.rows]);
   eq('總結：設定提醒', s.tip, K.summary.tip);
   eq('總結：商標聲明', s.tm, K.summary.tm);
+  eq('總結卡停留 6 秒左右（觀眾可自行暫停細看）', +(T.logo - T.sum).toFixed(2), 6.2);
+
+  s = await at(T.logo + 1);
+  eq('片尾：本工具的 Logo 與名稱', [s.endLogo, s.endTitle], [true, K.endTitle]);
+  eq('片尾：總結卡的字卡已收起', s.caption, '');
+  s = await at(T.logo - 0.5);
+  eq('片尾 Logo 出現前看不到', s.endLogo, false);
 
   for (const [i, sN] of T.s.entries()) {
     s = await at(sN + 2);
