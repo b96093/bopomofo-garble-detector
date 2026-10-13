@@ -75,6 +75,33 @@ try {
   eq('桌面版 Google 文件候選窗的第一個候選＝要還原的句子',
      await page.evaluate("POPUP_DOCS.ops.find(o => o.t === 'text' && o.pt === 13).s"), K.docs.zh);
 
+  const M = await page.evaluate('CONTENT.meeting');
+  const zhRows = [M.header, ...M.lines.map(l => l.keep ?? l.zh)];
+  const typedRows = [M.header, ...M.lines.map(l => l.keep ?? l.garble)];
+  // 第 3 站：整段還原 —— 只有桌面版
+  s = await at(S3 + 1);
+  eq('整段：一開始整頁是亂碼', s.doc, typedRows);
+  s = await at(S3 + 4.5);
+  eq('整段：桌面版浮窗文字', s.icon, `→ ${M.lines.find(l => l.zh).zh}　還原 ${M.lines.filter(l => l.zh).length} 行`);
+  eq('整段：Chrome 版標「沒有這個功能」', s.tag, K.tags.none);
+  eq('整段：只有桌面版的燈亮', [s.lampC, s.lampD], [false, true]);
+  s = await at(S3 + 9);
+  eq('整段：按 Enter 後整頁換成中文', s.doc, zhRows);
+  eq('整段：浮窗已關閉', s.icon, '');
+
+  // 第 5 站：留言 —— 選取後浮出按鈕 → 候選窗 → Enter
+  s = await at(S5 + 1);
+  eq('留言：留言框裡是亂碼、還沒選取', [s.post, s.selected, s.chromeHint], [K.post.garble, '', '']);
+  s = await at(S5 + 3.2);
+  eq('留言：整段選起來', s.selected, K.post.garble);
+  eq('留言：浮出 Chrome 版的小按鈕（預覽中文）', s.chromeHint, K.post.zh);
+  eq('留言：只有 Chrome 版的燈亮', [s.lampC, s.lampD], [true, false]);
+  s = await at(S5 + 6);
+  eq('留言：點了按鈕 → 開出候選窗、按鈕消失', [s.chromePopup, s.chromeHint], [K.post.zh, '']);
+  eq('留言：還沒按 Enter，留言框仍是亂碼', s.post, K.post.garble);
+  s = await at(S5 + 8.5);
+  eq('留言：按 Enter 後換成中文', [s.post, s.chromePopup, s.selected], [K.post.zh, '', '']);
+
   // 字卡至少停留到讀得完：每秒 6 個字
   eq('每張字卡的停留時間都夠讀完（不夠的列在這裡）', await page.evaluate(`
     CAPS.filter(([a, b, text]) => b - a < [...text].length / 6).map(([a, b, text]) => text)`), []);

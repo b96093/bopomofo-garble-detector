@@ -78,6 +78,24 @@ html, body { margin: 0; background: var(--teal); }
 #docsPage { left: 120px; top: 40px; width: 740px; height: 700px; background: #fff; border: 3px solid #D0D4D9; }
 #docsTitle { left: 60px; top: 50px; font-size: 40px; font-weight: 700; }
 #docsText { left: 60px; top: 140px; font-size: 36px; white-space: pre; }
+/* 第 3 站：整段會議紀錄（同宣傳片的做法） */
+#docLines { left: 50px; top: 96px; }
+.line { position: relative; height: 56px; font-size: 36px; line-height: 56px; white-space: pre; }
+.line span { position: absolute; left: 0; top: 0; padding: 0 4px; border-radius: 6px; }
+.line span.bad { text-decoration: underline wavy var(--wave) 3px; text-underline-offset: 10px; text-decoration-skip-ink: none; }
+#keys { display: flex; justify-content: center; gap: 18px; }
+.key { position: relative; height: 90px; min-width: 90px; padding: 0 22px; box-sizing: border-box; border-radius: 18px;
+  background: #fff; border: 4px solid var(--line); box-shadow: 0 7px 0 var(--line); font-size: 36px; line-height: 82px;
+  text-align: center; font-weight: 700; }
+/* 第 5 站：留言 */
+#postCard { left: 40px; top: 90px; width: 890px; }
+#postAuthor { left: 64px; top: 0; font-size: 30px; font-weight: 700; }
+#postText { left: 0; top: 56px; font-size: 32px; }
+#cmt { left: 40px; top: 200px; width: 890px; height: 90px; box-sizing: border-box; border: 4px solid var(--line);
+  border-radius: 18px; font-size: 36px; line-height: 82px; padding-left: 24px; white-space: pre; }
+#cmtSel { background: var(--pick); }
+/* 游標要蓋在擴充元件上面（見 module script 裡把游標搬到 <html> 最後的那段） */
+#cursor { left: 0; top: 0; width: 34px; height: 46px; z-index: 2147483647; }
 
 /* 總結卡 */
 #sum { left: 50px; top: 270px; width: 980px; height: 770px; box-sizing: border-box; padding: 40px 36px; }
@@ -113,7 +131,10 @@ html, body { margin: 0; background: var(--teal); }
     <div id="chatInBubble" class="abs bubble"></div>
     <div id="chatIn" class="abs"></div>
   </div>
-  <div id="w3" class="abs card win"></div>
+  <div id="w3" class="abs card win">
+    <div class="wbar"><span id="docApp"></span></div>
+    <div id="docLines" class="abs"></div>
+  </div>
   <div id="w4" class="abs card win">
     <div class="wbar"><i class="dots"></i><span id="docsTab" class="addr"></span></div>
     <div id="docsDesk" class="abs"><div id="docsPage" class="abs">
@@ -121,10 +142,22 @@ html, body { margin: 0; background: var(--teal); }
       <div id="docsText" class="abs"></div>
     </div></div>
   </div>
-  <div id="w5" class="abs card win"></div>
+  <div id="w5" class="abs card win">
+    <div class="wbar"><i class="dots"></i><span id="postTab" class="addr"></span></div>
+    <div id="postCard" class="abs">
+      <i class="avatar abs" style="left:0;top:0"></i>
+      <div id="postAuthor" class="abs"></div>
+      <div id="postText" class="abs"></div>
+    </div>
+    <div id="cmt" class="abs"><span id="cmtPre"></span><span id="cmtSel"></span><span id="cmtPost"></span></div>
+  </div>
 
   <div id="dpopChat" class="abs"></div>
   <div id="dpopDocs" class="abs"></div>
+  <div id="icon" class="abs"></div>
+  <div id="keys" class="abs"></div>
+  <svg id="cursor" class="abs" viewBox="0 0 34 46"><path d="M3 3 L3 38 L12 30 L18 43 L24 40 L18 28 L30 28 Z"
+    fill="#fff" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round"/></svg>
   <div id="sum" class="abs card"></div>
   <div id="fade" class="abs"></div>
 </div>
@@ -358,6 +391,156 @@ function drawDocs(t) {
   showDesktopPopup($('dpopDocs'), t, AT.docsPopup, ENTER.docs, left, top);
 }
 
+// ---------- 第 3 站：整段會議紀錄 —— 桌面版選取轉換的整段路徑 ----------
+const M = window.CONTENT.meeting;
+const ROWS = [{ text: M.header }, ...M.lines.map(l => l.keep ? { text: l.keep } : { text: l.garble, zh: l.zh })];
+const GARBLE_ROWS = ROWS.map((r, i) => (r.zh ? i : -1)).filter(i => i >= 0);
+const LINE_EL = ROWS.map((r) => {
+  const div = document.createElement('div');
+  div.className = 'line';
+  const a = document.createElement('span');
+  a.textContent = r.text;
+  if (r.zh) a.className = 'bad';
+  div.appendChild(a);
+  let b = null;
+  if (r.zh) { b = document.createElement('span'); b.textContent = r.zh; div.appendChild(b); }
+  $('docLines').appendChild(div);
+  return { a, b };
+});
+$('docApp').textContent = K.docApp;
+const BLOCK = { select: S3 + 1.5, keys: S3 + 2.4, enter: S3 + 6.4, flip: S3 + 6.6 };
+// 選取轉換的小浮窗：照 desktop/app.ahk 的 BuildIcon／ShowIcon 重建（同 scene.html）
+//   白底、#DCDCDC 邊；圖示 (11,10) 18×18；主文字 (35,9) 11pt；提示 (35,33) 9pt #1A5FB4；寬 = Max(230, 60 + 字數×20)、高 58
+const fit = (s, n) => (n < 4 || s.length <= n) ? s : s.slice(0, n - 1) + '…';   // 同 app.ahk 的 Fit()
+const ICON_SHOWN = fit(fit(ROWS[GARBLE_ROWS[0]].zh, 20) + '　還原 ' + GARBLE_ROWS.length + ' 行', 32);
+const ICON_POS = { left: 90, top: 840 };   // 會議紀錄最後一行的下緣約在 819
+{
+  const w = Math.max(230, 60 + ICON_SHOWN.length * 20);
+  Object.assign($('icon').style, { left: ICON_POS.left + 'px', top: ICON_POS.top + 'px', width: w * S + 'px', height: 58 * S + 'px',
+    background: '#fff', boxShadow: `inset 0 0 0 ${S}px #DCDCDC, 0 18px 50px rgba(0,0,0,.28)`, borderRadius: 8 * S + 'px' });
+  const img = document.createElement('img');
+  img.src = '../desktop/icon.ico';
+  img.className = 'abs';
+  Object.assign(img.style, { left: 11 * S + 'px', top: 10 * S + 'px', width: 18 * S + 'px', height: 18 * S + 'px' });
+  const main = document.createElement('div');
+  main.id = 'iconMain';
+  main.className = 'abs';
+  main.textContent = '→ ' + ICON_SHOWN;
+  Object.assign(main.style, { left: 35 * S + 'px', top: 9 * S + 'px', width: (w - 46) * S + 'px',
+    fontSize: 11 * 96 / 72 * S + 'px', color: '#1E1E1E', whiteSpace: 'nowrap' });
+  const hint = document.createElement('div');
+  hint.className = 'abs';
+  hint.textContent = '↵ 轉中文或編輯';
+  Object.assign(hint.style, { left: 35 * S + 'px', top: 33 * S + 'px', width: (w - 46) * S + 'px',
+    fontSize: 9 * 96 / 72 * S + 'px', color: '#1A5FB4', whiteSpace: 'nowrap' });
+  $('icon').append(img, main, hint);
+}
+// 按鍵提示：每格都重建，不留跨格狀態
+const KEYS = [
+  { from: S3 + 1.8, to: S3 + 3.2, press: [BLOCK.keys], left: 90, top: 840, width: 700, labels: ['Ctrl', 'Alt', 'Z'] },
+  { from: S3 + 5.8, to: S3 + 6.8, press: [BLOCK.enter], left: 760, top: 839, width: 220, labels: ['Enter'] },
+];
+function drawKeys(t) {
+  const g = KEYS.find(k => inR(t, k.from, k.to)) || null;
+  const box = $('keys');
+  box.replaceChildren(...(g ? g.labels.map(l => { const d = document.createElement('div'); d.className = 'key'; d.textContent = l; return d; }) : []));
+  Object.assign(box.style, g ? { left: g.left + 'px', top: g.top + 'px', width: g.width + 'px' } : { left: '0px', top: '0px', width: '0px' });
+  box.style.opacity = g ? String(fade(t, g.from, g.to, 0.15)) : '0';
+  if (!g) return;
+  const down = g.press.some(at => t >= at && t < at + 0.15);
+  for (const k of box.children) {
+    k.style.transform = `translateY(${down ? 7 : 0}px)`;
+    k.style.boxShadow = down ? '0 0 0 #1E1E1E' : '0 7px 0 #1E1E1E';
+  }
+}
+function drawBlock(t) {
+  const sel = inR(t, BLOCK.select, BLOCK.enter + 0.05);
+  ROWS.forEach((r, i) => {
+    const { a, b } = LINE_EL[i];
+    a.style.background = sel ? 'var(--pick)' : 'transparent';
+    if (b) {
+      const k = GARBLE_ROWS.indexOf(i);
+      const p = easeOut(seg(t, BLOCK.flip + k * 0.22, BLOCK.flip + k * 0.22 + 0.3));
+      a.style.opacity = String(1 - p);
+      a.style.transform = `translateY(${-14 * p}px)`;
+      b.style.opacity = String(p);
+      b.style.transform = `translateY(${14 * (1 - p)}px)`;
+    }
+  });
+  const on = inR(t, AT.blockIcon, BLOCK.enter);
+  const p = easeOut(seg(t, AT.blockIcon, AT.blockIcon + 0.15));
+  $('icon').style.opacity = on ? String(p) : '0';
+  $('icon').style.transform = `translateY(${on ? 10 * (1 - p) : 0}px)`;
+  drawKeys(t);
+}
+
+// ---------- 第 5 站：留言 —— 選取 → 小按鈕 → 候選窗 → Enter ----------
+const POST = { cursorIn: S5 + 1.0, drag0: S5 + 1.6, drag1: S5 + 2.6, move0: S5 + 3.6, move1: S5 + 4.4,
+  click: S5 + 4.6, enter: S5 + 7.4 };
+$('postTab').textContent = K.post.tab;
+$('postAuthor').textContent = K.post.author;
+$('postText').textContent = K.post.text;
+// 游標要蓋在擴充元件上面：候選窗的宿主是 z-index 2147483647、接在 <html> 最後，
+// 所以把游標也搬到 <html> 最後（同樣的 z-index，DOM 順序在後的會畫在上面）
+document.documentElement.appendChild($('cursor'));
+// 小按鈕的中心（游標要移過去點）。初始化時把第 5 站擺好量一次，之後每格都用這個固定值 ——
+// 不能在 render 裡量了留著用，那會留下跨格狀態
+let chintCenter = null;
+{
+  const keepW5 = $('w5').style.cssText;
+  $('w5').style.visibility = 'visible';
+  $('w5').style.transform = 'none';
+  $('cmtPre').textContent = K.post.garble;
+  chint.show($('cmt').getBoundingClientRect(), POST_RES.candidates[0], () => {});
+  CH_HOST.style.transform = `scale(${CS})`;
+  const r = CH_HOST.getBoundingClientRect();
+  chintCenter = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  chint.hide();
+  $('w5').style.cssText = keepW5;
+}
+// 量出「留言框裡第 n 個字」的螢幕位置（游標拖曳的路徑）
+function cmtX(n) {
+  const r = document.createRange();
+  const node = $('cmtPre').firstChild || $('cmtSel').firstChild;
+  const box = $('cmt').getBoundingClientRect();
+  if (!node) return box.left + 28;
+  r.setStart(node, Math.min(n, node.length));
+  r.setEnd(node, Math.min(n, node.length));
+  return r.getBoundingClientRect().left;
+}
+function drawPost(t) {
+  const g = K.post.garble;
+  const done = t >= POST.enter + 0.05;
+  const n = done ? 0 : Math.round(g.length * easeOut(seg(t, POST.drag0, POST.drag1)));
+  const selOn = !done && t >= POST.drag0;
+  // 先把全部字放進 cmtPre 量位置，再依選取拆成三段
+  $('cmtPre').textContent = done ? K.post.zh : g;
+  $('cmtSel').textContent = '';
+  $('cmtPost').textContent = '';
+  const box = $('cmt').getBoundingClientRect();
+  const y = box.top + box.height / 2 + 4;
+  const x0 = cmtX(0), xn = cmtX(n);
+  if (selOn && n > 0) { $('cmtPre').textContent = ''; $('cmtSel').textContent = g.slice(0, n); $('cmtPost').textContent = g.slice(n); }
+  // 擴充的 selectionRect：選取在 textarea 裡時，用的是整個輸入框的矩形
+  const rect = box;
+  // 游標：從右下移進來 → 拖曳選取 → 移到小按鈕 → 點一下 → 淡出
+  let cx = 980, cy = 1000;
+  if (t >= POST.cursorIn) { const p = easeOut(seg(t, POST.cursorIn, POST.drag0)); cx = lerp(980, x0, p); cy = lerp(1000, y, p); }
+  if (t >= POST.drag0) { cx = selOn ? xn : x0; cy = y; }
+  if (t >= POST.drag1 && chintCenter) {
+    const p = easeOut(seg(t, POST.move0, POST.move1));
+    cx = lerp(xn, chintCenter.x, p); cy = lerp(y, chintCenter.y, p);
+  }
+  const press = inR(t, POST.click, POST.click + 0.12);
+  Object.assign($('cursor').style, { left: cx + 'px', top: cy + 'px',
+    opacity: String(t >= POST.cursorIn ? 1 - seg(t, POST.click + 0.6, POST.click + 1.0) : 0),
+    transform: `scale(${press ? 0.85 : 1})` });
+  if (inR(t, AT.postHint, POST.click)) return { hint: true, res: POST_RES, rect };
+  if (inR(t, POST.click, POST.enter)) return { popup: true, res: POST_RES, rect };
+  return null;
+}
+HITS.push({ t: BLOCK.keys, gain: 1 }, { t: BLOCK.enter, gain: 1 }, { t: POST.click, gain: 0.6 }, { t: POST.enter, gain: 1 });
+
 // ---------- 總結卡 ----------
 {
   const rows = [K.summary.head, ...K.summary.rows];
@@ -378,10 +561,11 @@ window.render = (t) => {
   drawCaptions(t);
   drawClock(t);
   drawWindows(t);
-  const chrome = drawMail(t);
+  const mail = drawMail(t), post = drawPost(t);
   drawChat(t);
+  drawBlock(t);
   drawDocs(t);
-  drawChromeUI(t, chrome);
+  drawChromeUI(t, mail || post);
   drawSummary(t);
   $('fade').style.opacity = String(seg(t, TIMES.out, TIMES.end - 0.1));
   return true;
@@ -405,6 +589,7 @@ OVERFLOW.push(
   { name: '桌面版候選窗（聊天）', el: $('dpopChat'), shown: () => seen($('dpopChat')) },
   { name: '桌面版候選窗（Google 文件）', el: $('dpopDocs'), shown: () => seen($('dpopDocs')) },
 );
+OVERFLOW.push({ name: '桌面版整段浮窗', el: $('icon'), shown: () => seen($('icon')) });
 window.state = () => ({
   lampC: css($('lampC').firstChild).backgroundColor === LAMP_RGB,
   lampD: css($('lampD').firstChild).backgroundColor === LAMP_RGB,
@@ -417,6 +602,10 @@ window.state = () => ({
   mail: ownText($('mailText')),
   chat: ownText($('chatIn')),
   docs: ownText($('docsText')),
+  doc: LINE_EL.map(({ a, b }) => (b && parseFloat(css(b).opacity) >= 0.5 ? b : a).textContent),
+  icon: seen($('icon')) ? $('iconMain').textContent : '',
+  post: $('cmtPre').textContent + $('cmtSel').textContent + $('cmtPost').textContent,
+  selected: $('cmtSel').textContent,
   chromePopup: CP_HOST.style.display === 'block' ? (CP_HOST.shadowRoot.querySelector('.item .z')?.textContent ?? '') : '',
   chromeHint: CH_HOST.style.display === 'block' ? (CH_HOST.shadowRoot.querySelector('.zh')?.textContent ?? '') : '',
   desktopPopup: seen($('dpopChat')) ? 'chat' : seen($('dpopDocs')) ? 'docs' : '',
