@@ -15,9 +15,23 @@ title: 注音亂碼偵測
 
 | | Chrome 擴充 | 桌面版 |
 | --- | --- | --- |
-| 適用範圍 | Chrome 裡的所有網頁 | Word、PowerPoint、LINE、記事本等所有 Windows 程式 |
+| 適用範圍 | Chrome 裡的所有網頁 | Word、PowerPoint、LINE、記事本等所有 Windows 程式，以及 Google 文件 |
+
+<div>
+<video src="assets/version-compare.mp4" poster="assets/version-compare.jpg"
+       controls muted autoplay loop playsinline preload="metadata"
+       style="width:100%;max-width:540px;display:block;margin:1em 0">
+  你的瀏覽器無法播放影片，可以<a href="assets/version-compare.mp4">直接下載</a>（2.7 MB）。
+</video>
+</div>
+
+**建議兩個都裝**：網頁交給 Chrome 擴充，其他程式與 Google 文件交給桌面版。
+兩個都裝時，請在桌面版設定取消勾選「在 Chrome 中也偵測」，否則網頁上會跳出兩個候選窗。
 
 ## 安裝
+
+> **兩個版本都要裝在電腦上。** 手機版的 Chrome 不支援擴充功能，桌面版只能在 Windows 執行。
+> 如果你是用手機看到這一頁，請改用電腦開啟。
 
 - **Chrome 擴充** —— [Chrome 線上應用程式商店](https://chromewebstore.google.com/detail/gjghbjnkbbccdhfiddmceijjkebajilm)
 - **Windows 桌面版** —— [下載與安裝說明](install)（執行時會跳出 Windows 警告，那一頁有說明怎麼過）

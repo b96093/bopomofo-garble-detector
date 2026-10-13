@@ -6,6 +6,8 @@
 | `smartscreen.png` | `install.md` | 同上，**點過「其他資訊」展開後**，重點是「仍要執行」按鈕 |
 | `welcome-window.png` | `install.md` | 成功啟動後跳出的使用說明視窗 |
 | `settings.png` | `install.md` | 設定視窗，重點是「偵測靈敏度」滑桿（預設在 4） |
+| `version-compare.mp4` | `index.md` | 版本比較說明影片（50 秒）。由 `node video/render.mjs compare` 產生後複製過來；影片內容改了要重新複製 |
+| `version-compare.jpg` | `index.md` | 上面那支影片的封面（第 8.5 秒那一格），影片載入前顯示 |
 
 ## 初始畫面那張怎麼拍到的
 
