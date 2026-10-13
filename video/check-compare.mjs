@@ -42,6 +42,39 @@ try {
     eq(`第 ${i + 1} 站：字卡`, s.caption, K.captions[i]);
   }
 
+  const CHAT = await page.evaluate('CONTENT.chat');
+  // 第 1 站：回信 —— Chrome 版
+  s = await at(S1 + 3.0);
+  eq('回信：打字中、候選窗還沒出現', [s.mail.length > 0 && s.mail.length < K.mail.garble.length, s.chromePopup], [true, '']);
+  s = await at(S1 + 5);
+  eq('回信：Chrome 版候選窗的第一個候選', s.chromePopup, K.mail.zh);
+  eq('回信：輸入框仍是亂碼（不按 Enter 不會動）', s.mail, K.mail.garble);
+  eq('回信：只有 Chrome 版的燈亮', [s.lampC, s.lampD], [true, false]);
+  s = await at(S1 + 7.5);
+  eq('回信：按 Enter 後換成中文、候選窗關閉', [s.mail, s.chromePopup], [K.mail.zh, '']);
+
+  // 第 2 站：聊天 —— 桌面版
+  s = await at(S2 + 5);
+  eq('聊天：桌面版候選窗', s.desktopPopup, 'chat');
+  eq('聊天：輸入框是亂碼', s.chat, CHAT.garble);
+  eq('聊天：只有桌面版的燈亮', [s.lampC, s.lampD], [false, true]);
+  s = await at(S2 + 7.5);
+  eq('聊天：按 Enter 後換成中文', [s.chat, s.desktopPopup], [CHAT.zh, '']);
+
+  // 第 4 站：Google 文件 —— Chrome 版讀不到，桌面版接手
+  s = await at(S4 + 3.0);
+  eq('Google 文件：打字中，兩盞燈都暗', [s.lampC, s.lampD, s.desktopPopup, s.chromePopup], [false, false, '', '']);
+  eq('Google 文件：Chrome 版的燈閃（亮）', (await at(S4 + 3.7)).lampC, true);
+  eq('Google 文件：Chrome 版的燈閃（暗）', (await at(S4 + 4.0)).lampC, false);
+  s = await at(S4 + 6);
+  eq('Google 文件：標「讀不到」', s.tag, K.tags.cant);
+  eq('Google 文件：桌面版接手', [s.lampC, s.lampD, s.desktopPopup, s.chromePopup], [false, true, 'docs', '']);
+  eq('Google 文件：文件裡仍是亂碼', s.docs, K.docs.garble);
+  s = await at(S4 + 10);
+  eq('Google 文件：按 Enter 後換成中文', [s.docs, s.desktopPopup], [K.docs.zh, '']);
+  eq('桌面版 Google 文件候選窗的第一個候選＝要還原的句子',
+     await page.evaluate("POPUP_DOCS.ops.find(o => o.t === 'text' && o.pt === 13).s"), K.docs.zh);
+
   // 字卡至少停留到讀得完：每秒 6 個字
   eq('每張字卡的停留時間都夠讀完（不夠的列在這裡）', await page.evaluate(`
     CAPS.filter(([a, b, text]) => b - a < [...text].length / 6).map(([a, b, text]) => text)`), []);

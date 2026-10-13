@@ -64,6 +64,21 @@ html, body { margin: 0; background: var(--teal); }
   font-size: 24px; font-weight: 400; color: var(--muted); }
 .caret { display: inline-block; width: 3px; height: 44px; background: var(--ink); vertical-align: -9px; }
 
+/* 第 1 站：回信 */
+.mailSubj { left: 40px; top: 96px; font-size: 30px; color: var(--muted); }
+.mailBody { left: 40px; font-size: 40px; white-space: pre; }
+/* 第 2 站：聊天（同宣傳片） */
+.avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--pink); border: 4px solid var(--line); box-sizing: border-box; }
+.bubble { font-size: 36px; line-height: 50px; padding: 18px 28px; border-radius: 28px; white-space: pre; }
+#chatInBubble { left: 40px; top: 110px; background: #EEF0F2; }
+#chatIn { left: 30px; top: 640px; width: 910px; height: 100px; box-sizing: border-box; border: 4px solid var(--line);
+  border-radius: 26px; font-size: 38px; line-height: 92px; padding-left: 30px; white-space: pre; }
+/* 第 4 站：Google 文件（通用的線上文件樣式） */
+#docsDesk { left: 0; top: 68px; width: 100%; height: 702px; background: #EEF1F4; }
+#docsPage { left: 120px; top: 40px; width: 740px; height: 700px; background: #fff; border: 3px solid #D0D4D9; }
+#docsTitle { left: 60px; top: 50px; font-size: 40px; font-weight: 700; }
+#docsText { left: 60px; top: 140px; font-size: 36px; white-space: pre; }
+
 /* 總結卡 */
 #sum { left: 50px; top: 270px; width: 980px; height: 770px; box-sizing: border-box; padding: 40px 36px; }
 .row { display: grid; grid-template-columns: 210px 300px 1fr; gap: 0 20px; padding: 18px 0; border-bottom: 3px solid #E6E6E6;
@@ -87,12 +102,29 @@ html, body { margin: 0; background: var(--teal); }
   <div id="title" class="abs sticker"></div>
   <div id="clock" class="abs"></div>
 
-  <div id="w1" class="abs card win"></div>
-  <div id="w2" class="abs card win"></div>
+  <div id="w1" class="abs card win">
+    <div class="wbar"><i class="dots"></i><span id="mailTab" class="addr"></span></div>
+    <div id="mailSubj" class="abs mailSubj"></div>
+    <div id="mailGreet" class="abs mailBody" style="top:170px"></div>
+    <div id="mailText" class="abs mailBody" style="top:240px"></div>
+  </div>
+  <div id="w2" class="abs card win">
+    <div class="wbar"><i class="avatar"></i><span id="chatName"></span></div>
+    <div id="chatInBubble" class="abs bubble"></div>
+    <div id="chatIn" class="abs"></div>
+  </div>
   <div id="w3" class="abs card win"></div>
-  <div id="w4" class="abs card win"></div>
+  <div id="w4" class="abs card win">
+    <div class="wbar"><i class="dots"></i><span id="docsTab" class="addr"></span></div>
+    <div id="docsDesk" class="abs"><div id="docsPage" class="abs">
+      <div id="docsTitle" class="abs"></div>
+      <div id="docsText" class="abs"></div>
+    </div></div>
+  </div>
   <div id="w5" class="abs card win"></div>
 
+  <div id="dpopChat" class="abs"></div>
+  <div id="dpopDocs" class="abs"></div>
   <div id="sum" class="abs card"></div>
   <div id="fade" class="abs"></div>
 </div>
@@ -101,6 +133,11 @@ html, body { margin: 0; background: var(--teal); }
 <script src="popup.js"></script>
 <script src="compare-popup-docs.js"></script>
 <script type="module">
+// 擴充本身的元件與引擎：Chrome 版的介面與候選跟真的一樣
+import { createPopup } from '../src/content/popup.js';
+import { createHint } from '../src/content/hint.js';
+import { loadDict } from '../src/engine/dict.js';
+import { detect, detectTail } from '../src/engine/detect.js';
 const K = window.COMPARE;
 const $ = (id) => document.getElementById(id);
 
@@ -185,6 +222,142 @@ function drawWindows(t) {
   });
 }
 
+const OPTS = { threshold: 0.6, minSyllables: 1 };   // 擴充的預設「積極」（src/content/content.js）
+const dict = loadDict();
+const MAIL_RES = detectTail(K.mail.garble, dict, OPTS).res;
+const POST_RES = detect(K.post.garble, dict, OPTS);
+const homsOf = (res) => (k) => { const sy = res.syllables[k]; return sy ? (dict.get(sy) || []).map(([w]) => w) : []; };
+const CS = 1.6;   // Chrome 版元件的放大倍率（1.7 時回信的候選窗會超出右緣約 6px）
+const cpopup = createPopup();
+const CP_HOST = document.documentElement.lastElementChild;   // createPopup 把宿主元素接在 <html> 最後
+const chint = createHint();
+const CH_HOST = document.documentElement.lastElementChild;
+for (const h of [CP_HOST, CH_HOST]) h.style.transformOrigin = '0 0';
+// 每一格依時間決定 Chrome 版元件要不要出現、出現在哪；show() 每次都依參數重畫，不留跨格狀態
+function drawChromeUI(t, which) {
+  if (which && which.popup) {
+    cpopup.show(which.rect, { candidates: which.res.candidates, homophonesFor: homsOf(which.res), onCommit: () => {} });
+    CP_HOST.style.transform = `scale(${CS})`;
+  } else cpopup.hide();
+  if (which && which.hint) {
+    chint.show(which.rect, which.res.candidates[0], () => {});
+    CH_HOST.style.transform = `scale(${CS})`;
+  } else chint.hide();
+}
+
+// ---------- 桌面版候選窗：照 popup.js（產品 BuildLayout 的實際輸出）畫，同 scene.html ----------
+const S = 1.8;   // 桌面版介面的放大倍率（產品以 100% 縮放的邏輯像素為準）
+const argb = (v) => `rgba(${(v >>> 16) & 255},${(v >>> 8) & 255},${v & 255},${((v >>> 24) & 255) / 255})`;
+function buildDesktopPopup(el, P) {
+  Object.assign(el.style, { width: P.w * S + 'px', height: P.h * S + 'px' });
+  const frame = document.createElement('div');
+  Object.assign(frame.style, { position: 'absolute', left: 0, top: 0, width: P.w * S + 'px', height: P.h * S + 'px',
+    background: '#fff', border: `${S}px solid #D8D8D8`, borderRadius: 12 * S + 'px', boxSizing: 'border-box',
+    boxShadow: '0 24px 60px rgba(0,0,0,.28)' });   // 柔和陰影只在窗外；窗內完全照產品
+  el.appendChild(frame);
+  const box = (x, y, w, h) => ({ position: 'absolute', left: x * S + 'px', top: y * S + 'px', width: w * S + 'px', height: h * S + 'px' });
+  for (const op of P.ops) {
+    if (op.t === 'box') {
+      const d = document.createElement('div');
+      Object.assign(d.style, box(op.x, op.y, op.w, op.h), { background: argb(op.fill), borderRadius: op.r * S + 'px',
+        boxSizing: 'border-box', border: op.border ? `${S}px solid ${argb(op.border)}` : 'none' });
+      el.appendChild(d);
+    } else if (op.t === 'text') {
+      const d = document.createElement('div');
+      Object.assign(d.style, box(op.x, op.y, op.w, op.h), { display: 'flex', alignItems: 'center',
+        justifyContent: ['flex-start', 'center', 'flex-end'][op.a], fontSize: op.pt * 96 / 72 * S + 'px',
+        fontWeight: op.b ? 700 : 400, color: argb(op.c), whiteSpace: 'nowrap' });
+      d.textContent = op.s;
+      el.appendChild(d);
+    } else if (op.t === 'logo') {
+      const d = document.createElement('img');
+      d.src = '../desktop/icon.ico';
+      Object.assign(d.style, box(op.x, op.y, op.s, op.s));
+      el.appendChild(d);
+    } else if (op.t === 'grip') {
+      for (let cx = 0; cx < 2; cx++) for (let cy = 0; cy < 3; cy++) {
+        const dot = document.createElement('div');
+        Object.assign(dot.style, box(op.x + cx * 4, op.y + cy * 4, 3, 3), { borderRadius: '50%', background: argb(op.c) });
+        el.appendChild(dot);
+      }
+    }
+  }
+}
+buildDesktopPopup($('dpopChat'), window.POPUP);
+buildDesktopPopup($('dpopDocs'), window.POPUP_DOCS);
+function showDesktopPopup(el, t, from, to, left, top) {
+  const on = inR(t, from, to);
+  const p = easeOut(seg(t, from, from + 0.15));
+  el.style.left = left + 'px';
+  el.style.top = top + 'px';
+  el.style.opacity = on ? String(p) : '0';
+  el.style.transform = `translateY(${on ? 10 * (1 - p) : 0}px)`;
+}
+
+// ---------- 打字聲（Task 4、5 補上各站的按鍵） ----------
+const HITS = [];
+window.keyHits = () => HITS.slice();
+
+// ---------- 打字 ----------
+const typeAt = (text, a, b) => [...text].map((_, i) => a + (i + 1) / text.length * (b - a));
+const typed = (ats, t) => { let n = 0; while (n < ats.length && ats[n] <= t) n++; return n; };
+const caret = () => { const i = document.createElement('i'); i.className = 'caret'; return i; };
+const ownText = (el) => [...el.childNodes].filter(n => n.nodeType === Node.TEXT_NODE).map(n => n.data).join('');
+// 文字 + 游標（游標在打字時恆亮、停下來後閃爍）；回傳游標元素，用來定位候選窗
+function setTyping(el, text, t, typing, caretOn) {
+  el.textContent = text;
+  if (!caretOn) return null;
+  const c = caret();
+  c.style.opacity = (typing || Math.floor(t * 2.5) % 2 === 0) ? '1' : '0';
+  el.appendChild(c);
+  return c;
+}
+const CHAT = window.CONTENT.chat;
+const MAIL_AT = typeAt(K.mail.garble, S1 + 1.0, S1 + 3.6);
+const CHAT_AT = typeAt(CHAT.garble, S2 + 1.0, S2 + 3.2);
+const DOCS_AT = typeAt(K.docs.garble, S4 + 1.0, S4 + 3.4);
+const ENTER = { mail: S1 + 6.6, chat: S2 + 6.6, docs: S4 + 9.0 };
+HITS.push(...[...MAIL_AT, ...CHAT_AT, ...DOCS_AT].map(t => ({ t, gain: 0.5 })),
+  ...Object.values(ENTER).map(t => ({ t, gain: 1 })));
+
+$('mailTab').textContent = K.mail.tab;
+$('mailSubj').textContent = K.mail.subject;
+$('mailGreet').textContent = K.mail.greet;
+$('chatName').textContent = CHAT.name;
+$('chatInBubble').textContent = CHAT.incoming;
+$('docsTab').textContent = K.docs.tab;
+$('docsTitle').textContent = K.docs.title;
+
+function drawMail(t) {
+  const done = t >= ENTER.mail + 0.05;
+  const c = setTyping($('mailText'), done ? K.mail.zh : K.mail.garble.slice(0, typed(MAIL_AT, t)), t,
+    inR(t, S1 + 1.0, S1 + 3.6), inR(t, S1 + 0.6, S2));
+  // 擴充的 caretRect：候選窗開在游標下方
+  if (c && inR(t, AT.mailPopup, ENTER.mail)) return { popup: true, res: MAIL_RES, rect: c.getBoundingClientRect() };
+  return null;
+}
+// 這一站只演到第一次 Enter 把亂碼換成中文（產品裡第二次 Enter 才是聊天軟體的送出，這裡不演）
+function drawChat(t) {
+  const text = t >= ENTER.chat + 0.05 ? CHAT.zh : CHAT.garble.slice(0, typed(CHAT_AT, t));
+  setTyping($('chatIn'), text, t, inR(t, S2 + 1.0, S2 + 3.2), inR(t, S2 + 0.6, S3));
+  // 候選窗開在輸入框上方（同宣傳片）
+  const inputTop = 270 + 5 + 640;
+  showDesktopPopup($('dpopChat'), t, AT.chatPopup, ENTER.chat, 80, inputTop - 24 - window.POPUP.h * S);
+}
+function drawDocs(t) {
+  const done = t >= ENTER.docs + 0.05;
+  const c = setTyping($('docsText'), done ? K.docs.zh : K.docs.garble.slice(0, typed(DOCS_AT, t)), t,
+    inR(t, S4 + 1.0, S4 + 3.4), inR(t, S4 + 0.6, S5));
+  // 桌面版候選窗開在游標下方，靠右時往左收進畫面
+  let left = 80, top = 600;
+  if (c) {
+    const r = c.getBoundingClientRect();
+    left = Math.min(Math.max(20, r.left), 1080 - 20 - window.POPUP_DOCS.w * S);
+    top = r.bottom + 12;
+  }
+  showDesktopPopup($('dpopDocs'), t, AT.docsPopup, ENTER.docs, left, top);
+}
+
 // ---------- 總結卡 ----------
 {
   const rows = [K.summary.head, ...K.summary.rows];
@@ -197,10 +370,6 @@ function drawSummary(t) {
   $('sum').style.transform = `scale(${t >= TIMES.sum ? lerp(0.85, 1, p) : 0.85})`;
 }
 
-// ---------- 打字聲（Task 4、5 補上各站的按鍵） ----------
-const HITS = [];
-window.keyHits = () => HITS.slice();
-
 window.render = (t) => {
   const u = t / TIMES.end * Math.PI * 2;
   $('blob1').style.transform = `translate(${40 * Math.sin(u)}px, ${-30 * Math.cos(u)}px)`;
@@ -209,6 +378,10 @@ window.render = (t) => {
   drawCaptions(t);
   drawClock(t);
   drawWindows(t);
+  const chrome = drawMail(t);
+  drawChat(t);
+  drawDocs(t);
+  drawChromeUI(t, chrome);
   drawSummary(t);
   $('fade').style.opacity = String(seg(t, TIMES.out, TIMES.end - 0.1));
   return true;
@@ -226,6 +399,12 @@ const LAMP_RGB = (() => {
   return c;
 })();
 const OVERFLOW = [];   // Task 4、5 登記會彈出的元素：{ name, el, shown: () => bool }
+OVERFLOW.push(
+  { name: 'Chrome 候選窗', el: CP_HOST, shown: () => CP_HOST.style.display === 'block' },
+  { name: 'Chrome 小按鈕', el: CH_HOST, shown: () => CH_HOST.style.display === 'block' },
+  { name: '桌面版候選窗（聊天）', el: $('dpopChat'), shown: () => seen($('dpopChat')) },
+  { name: '桌面版候選窗（Google 文件）', el: $('dpopDocs'), shown: () => seen($('dpopDocs')) },
+);
 window.state = () => ({
   lampC: css($('lampC').firstChild).backgroundColor === LAMP_RGB,
   lampD: css($('lampD').firstChild).backgroundColor === LAMP_RGB,
@@ -235,6 +414,12 @@ window.state = () => ({
   clock: seen($('clock')) ? $('clock').textContent : '',
   summary: seen($('sum')) ? [...$('sum').querySelectorAll('.row')].map(r => [...r.children].map(c => c.textContent)) : [],
   tip: seen($('sum')) ? $('sumTip').textContent : '',
+  mail: ownText($('mailText')),
+  chat: ownText($('chatIn')),
+  docs: ownText($('docsText')),
+  chromePopup: CP_HOST.style.display === 'block' ? (CP_HOST.shadowRoot.querySelector('.item .z')?.textContent ?? '') : '',
+  chromeHint: CH_HOST.style.display === 'block' ? (CH_HOST.shadowRoot.querySelector('.zh')?.textContent ?? '') : '',
+  desktopPopup: seen($('dpopChat')) ? 'chat' : seen($('dpopDocs')) ? 'docs' : '',
   overflow: OVERFLOW.filter(o => o.shown()).filter(o => {
     const r = o.el.getBoundingClientRect();
     return r.left < 0 || r.top < 0 || r.right > 1080 || r.bottom > 1080;
