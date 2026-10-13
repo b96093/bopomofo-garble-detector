@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>注音亂碼偵測 — 版本比較</title>
+<!--
+  版本比較說明影片：1080×1080、30fps、90 秒。設計：docs/superpowers/specs/2026-10-12-版本比較影片-design.md
+  render(t) 依時間 t（秒）畫出每一格，同一個 t 永遠畫出同一格；state() 從 DOM 讀出畫面狀態給 check-compare.mjs。
+  Chrome 版的候選窗與小按鈕直接 import 擴充本身的 src/content/popup.js、hint.js，候選來自擴充引擎 detect
+  的實際輸出（需用 --allow-file-access-from-files 開啟，見 cdp.mjs）。桌面版候選窗照產品 BuildLayout 匯出的
+  popup.js、compare-popup-docs.js 畫。網址加 ?play 可在瀏覽器裡直接播放預覽。
+
+  時間軸（秒）
+    0–6     標題；兩盞燈依序閃一下；字卡說明燈的意思
+    6–18    09:00 回信（瀏覽器）→ Chrome 版
+    18–30   10:30 聊天 → 桌面版
+    30–44   14:00 整段會議紀錄 → 桌面版（Chrome 版：沒有這個功能）
+    44–58   16:00 Google 文件 → Chrome 版讀不到，桌面版接手
+    58–70   21:00 留言：選取 → 小按鈕 → 候選窗 → Chrome 版
+    70–88   總結卡，兩盞燈都亮
+    88–90   淡出
+-->
+<style>
+:root {
+  --ink: #1E1E1E; --muted: #707070; --line: #1E1E1E; --bar: #FFE9A8; --teal: #6FA8B5; --pink: #EFAFB0;
+  --wave: #E5484D; --pick: #BCD6F5; --lamp: #FFC83D; --off: #D5D5D5;
+}
+html, body { margin: 0; background: var(--teal); }
+#stage { position: relative; width: 1080px; height: 1080px; overflow: hidden;
+  font-family: "Microsoft JhengHei", sans-serif; color: var(--ink);
+  background: linear-gradient(160deg, #6FA8B5 0%, #86B9C4 55%, #A6CBD2 100%); }
+.abs { position: absolute; }
+.blob { border-radius: 50%; }
+#blob1 { left: -220px; top: 760px; width: 600px; height: 600px; background: var(--pink); opacity: .55; }
+#blob2 { left: 720px; top: -160px; width: 460px; height: 460px; background: #fff; opacity: .2; }
+.card { background: #fff; border: 5px solid var(--line); border-radius: 26px; box-shadow: 12px 12px 0 var(--line); }
+.sticker { left: 0; right: 0; width: fit-content; max-width: 980px; margin: 0 auto; background: #fff; text-align: center;
+  border: 5px solid var(--line); border-radius: 22px; box-shadow: 8px 8px 0 var(--line); padding: 10px 30px; font-weight: 700; }
+
+/* 兩盞燈：亮的那盞＝現在是這一版在幫你 */
+.lamp { top: 26px; width: 330px; height: 80px; box-sizing: border-box; display: flex; align-items: center; gap: 18px;
+  padding: 0 26px; font-size: 34px; font-weight: 700; background: #fff; border: 5px solid var(--line);
+  border-radius: 40px; box-shadow: 6px 6px 0 var(--line); }
+#lampC { left: 150px; }
+#lampD { left: 600px; }
+.bulb { width: 38px; height: 38px; border-radius: 50%; border: 4px solid var(--line); background: var(--off); flex: none; }
+.bulb.on { background: var(--lamp); box-shadow: 0 0 0 8px rgba(255, 200, 61, .35), 0 0 30px rgba(255, 200, 61, .9); }
+#tagC { left: 330px; top: 84px; font-size: 26px; font-weight: 700; color: #fff; background: var(--wave); white-space: nowrap;
+  border: 4px solid var(--line); border-radius: 14px; padding: 2px 14px; transform: rotate(4deg); }
+
+#caption { top: 150px; font-size: 40px; line-height: 1.35; }
+#title { top: 470px; font-size: 60px; }
+#clock { left: 24px; top: 236px; font-size: 34px; font-weight: 700; background: var(--ink); color: #fff;
+  border-radius: 14px; padding: 4px 18px; font-variant-numeric: tabular-nums; transform: rotate(-4deg); z-index: 5; }
+
+/* 每一站的視窗 */
+.win { left: 50px; top: 270px; width: 980px; height: 770px; overflow: hidden; }
+.wbar { position: absolute; left: 0; top: 0; width: 100%; height: 68px; box-sizing: border-box; background: var(--bar);
+  border-bottom: 5px solid var(--line); border-radius: 21px 21px 0 0; display: flex; align-items: center; gap: 18px;
+  padding: 0 24px; font-size: 28px; font-weight: 700; }
+.dots { width: 74px; height: 18px; flex: none;
+  background: radial-gradient(circle 8px at 9px 9px, #fff 7px, var(--line) 8px, transparent 9px) 0 0 / 28px 18px repeat-x; }
+.addr { flex: 1; background: #fff; border: 4px solid var(--line); border-radius: 20px; padding: 2px 20px;
+  font-size: 24px; font-weight: 400; color: var(--muted); }
+.caret { display: inline-block; width: 3px; height: 44px; background: var(--ink); vertical-align: -9px; }
+
+/* 總結卡 */
+#sum { left: 50px; top: 270px; width: 980px; height: 770px; box-sizing: border-box; padding: 40px 36px; }
+.row { display: grid; grid-template-columns: 210px 300px 1fr; gap: 0 20px; padding: 18px 0; border-bottom: 3px solid #E6E6E6;
+  font-size: 30px; line-height: 1.35; align-items: center; }
+.row.head { font-weight: 700; border-bottom: 5px solid var(--line); }
+.row div:first-child { font-weight: 700; }
+#sumTip { margin-top: 26px; font-size: 27px; line-height: 1.45; background: var(--bar); border: 4px solid var(--line);
+  border-radius: 16px; padding: 14px 20px; }
+
+#fade { left: 0; top: 0; width: 1080px; height: 1080px; background: var(--teal); z-index: 50; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="blob1" class="abs blob"></div>
+  <div id="blob2" class="abs blob"></div>
+  <div id="lampC" class="abs lamp"><i class="bulb"></i>Chrome 版</div>
+  <div id="lampD" class="abs lamp"><i class="bulb"></i>桌面版</div>
+  <div id="tagC" class="abs"></div>
+  <div id="caption" class="abs sticker"></div>
+  <div id="title" class="abs sticker"></div>
+  <div id="clock" class="abs"></div>
+
+  <div id="w1" class="abs card win"></div>
+  <div id="w2" class="abs card win"></div>
+  <div id="w3" class="abs card win"></div>
+  <div id="w4" class="abs card win"></div>
+  <div id="w5" class="abs card win"></div>
+
+  <div id="sum" class="abs card"></div>
+  <div id="fade" class="abs"></div>
+</div>
+<script src="content.js"></script>
+<script src="compare-content.js"></script>
+<script src="popup.js"></script>
+<script src="compare-popup-docs.js"></script>
+<script type="module">
+const K = window.COMPARE;
+const $ = (id) => document.getElementById(id);
+
+// ---------- 時間工具（同 scene.html） ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+const easeOutBack = (p) => { const c = 1.70158; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
+const lerp = (a, b, p) => a + (b - a) * p;
+const fade = (t, a, b, f = 0.2) => Math.min(seg(t, a, a + f), 1 - seg(t, b - f, b));
+const inR = (t, a, b) => t >= a && t < b;
+
+const TIMES = { s: [6, 18, 30, 44, 58], sum: 70, out: 88, end: 90 };
+window.TIMES = TIMES;
+const [S1, S2, S3, S4, S5] = TIMES.s;
+const STATION_END = [S2, S3, S4, S5, TIMES.sum];
+
+// ---------- 燈 ----------
+// 各站「產品出手」的時間點；Task 4、5 會用到同一組常數
+const AT = {
+  mailPopup: S1 + 3.8, chatPopup: S2 + 3.4, blockIcon: S3 + 3.2,
+  blink0: S4 + 3.6, blink1: S4 + 4.8, docsPopup: S4 + 5.4, postHint: S5 + 2.9,
+};
+function lampOn(which, t) {
+  if (which === 'C') {
+    if (inR(t, 2.0, 2.6)) return true;
+    if (inR(t, AT.blink0, AT.blink1)) return Math.floor((t - AT.blink0) / 0.3) % 2 === 0;   // 試著幫忙，閃兩下
+    return inR(t, AT.mailPopup, S2) || inR(t, AT.postHint, TIMES.sum) || t >= TIMES.sum;
+  }
+  if (inR(t, 2.8, 3.4)) return true;
+  return inR(t, AT.chatPopup, S3) || inR(t, AT.blockIcon, S4) || inR(t, AT.docsPopup, S5) || t >= TIMES.sum;
+}
+function drawLamps(t) {
+  $('lampC').firstChild.className = 'bulb' + (lampOn('C', t) ? ' on' : '');
+  $('lampD').firstChild.className = 'bulb' + (lampOn('D', t) ? ' on' : '');
+  const tag = inR(t, AT.blockIcon, S4) ? K.tags.none : inR(t, AT.blink1, S5) ? K.tags.cant : '';
+  $('tagC').textContent = tag;
+  $('tagC').style.opacity = tag ? '1' : '0';
+}
+
+// ---------- 字卡 ----------
+const CAPS = [
+  [3.6, S1, K.legend],
+  [S1 + 0.4, S2, K.captions[0]],
+  [S2 + 0.4, S3, K.captions[1]],
+  [S3 + 0.4, S4, K.captions[2]],
+  [S4 + 0.4, S5, K.captions[3]],
+  [S5 + 0.4, TIMES.sum, K.captions[4]],
+  [TIMES.sum + 0.4, TIMES.out, K.captions[5]],
+];
+window.CAPS = CAPS;
+const popIn = (el, t, a, b, tilt) => {
+  const p = easeOutBack(seg(t, a, a + 0.3));
+  el.style.opacity = String(fade(t, a, b, 0.12));
+  el.style.transform = `rotate(${tilt}deg) scale(${inR(t, a, b) ? lerp(0.6, 1, p) : 0.6})`;
+};
+function drawCaptions(t) {
+  const k = CAPS.findIndex(([a, b]) => inR(t, a, b));
+  $('caption').textContent = k >= 0 ? CAPS[k][2] : '';
+  if (k >= 0) popIn($('caption'), t, CAPS[k][0], CAPS[k][1], k % 2 ? 1.2 : -1.2);
+  else { $('caption').style.opacity = '0'; $('caption').style.transform = 'none'; }
+  $('title').textContent = K.title;
+  popIn($('title'), t, 0.3, 3.4, -1.5);
+}
+
+// ---------- 時鐘與視窗進出 ----------
+function stationOf(t) { return TIMES.s.findIndex((s, i) => inR(t, s, STATION_END[i])); }
+function drawClock(t) {
+  const i = stationOf(t);
+  $('clock').textContent = i >= 0 ? K.clocks[i] : '';
+  $('clock').style.opacity = i >= 0 ? String(seg(t, TIMES.s[i] + 0.2, TIMES.s[i] + 0.5)) : '0';
+}
+// 第 i 站：s 起滑入、下一站開始時滑出
+function drawWindows(t) {
+  TIMES.s.forEach((s, i) => {
+    const e = STATION_END[i];
+    const pin = easeOut(seg(t, s, s + 0.5)), pout = easeOut(seg(t, e, e + 0.5));
+    const el = $('w' + (i + 1));
+    const on = inR(t, s, e + 0.5);
+    el.style.visibility = on ? 'visible' : 'hidden';
+    el.style.transform = `translateX(${1100 * (1 - pin) - 1100 * pout}px)`;
+  });
+}
+
+// ---------- 總結卡 ----------
+{
+  const rows = [K.summary.head, ...K.summary.rows];
+  $('sum').innerHTML = rows.map((r, i) => `<div class="row${i ? '' : ' head'}">${r.map(c => `<div>${c}</div>`).join('')}</div>`).join('')
+    + `<div id="sumTip">${K.summary.tip}</div>`;
+}
+function drawSummary(t) {
+  const p = easeOutBack(seg(t, TIMES.sum, TIMES.sum + 0.35));
+  $('sum').style.opacity = String(seg(t, TIMES.sum, TIMES.sum + 0.15));
+  $('sum').style.transform = `scale(${t >= TIMES.sum ? lerp(0.85, 1, p) : 0.85})`;
+}
+
+// ---------- 打字聲（Task 4、5 補上各站的按鍵） ----------
+const HITS = [];
+window.keyHits = () => HITS.slice();
+
+window.render = (t) => {
+  const u = t / TIMES.end * Math.PI * 2;
+  $('blob1').style.transform = `translate(${40 * Math.sin(u)}px, ${-30 * Math.cos(u)}px)`;
+  $('blob2').style.transform = `translate(${-30 * Math.cos(u)}px, ${30 * Math.sin(u)}px)`;
+  drawLamps(t);
+  drawCaptions(t);
+  drawClock(t);
+  drawWindows(t);
+  drawSummary(t);
+  $('fade').style.opacity = String(seg(t, TIMES.out, TIMES.end - 0.1));
+  return true;
+};
+
+// ---------- 畫面上實際看得到的狀態（全部從 DOM 讀） ----------
+const css = (el) => getComputedStyle(el);
+const seen = (el) => parseFloat(css(el).opacity) > 0.5 && css(el).visibility !== 'hidden';
+const LAMP_RGB = (() => {
+  const probe = document.createElement('i');
+  probe.className = 'bulb on';
+  document.body.appendChild(probe);
+  const c = css(probe).backgroundColor;
+  probe.remove();
+  return c;
+})();
+const OVERFLOW = [];   // Task 4、5 登記會彈出的元素：{ name, el, shown: () => bool }
+window.state = () => ({
+  lampC: css($('lampC').firstChild).backgroundColor === LAMP_RGB,
+  lampD: css($('lampD').firstChild).backgroundColor === LAMP_RGB,
+  tag: seen($('tagC')) ? $('tagC').textContent : '',
+  caption: seen($('caption')) ? $('caption').textContent : '',
+  title: seen($('title')) ? $('title').textContent : '',
+  clock: seen($('clock')) ? $('clock').textContent : '',
+  summary: seen($('sum')) ? [...$('sum').querySelectorAll('.row')].map(r => [...r.children].map(c => c.textContent)) : [],
+  tip: seen($('sum')) ? $('sumTip').textContent : '',
+  overflow: OVERFLOW.filter(o => o.shown()).filter(o => {
+    const r = o.el.getBoundingClientRect();
+    return r.left < 0 || r.top < 0 || r.right > 1080 || r.bottom > 1080;
+  }).map(o => o.name),
+});
+
+render(0);
+if (new URLSearchParams(location.search).has('play')) {
+  const t0 = performance.now();
+  const tick = () => { render(((performance.now() - t0) / 1000) % TIMES.end); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>
