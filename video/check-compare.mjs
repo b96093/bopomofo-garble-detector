@@ -42,6 +42,7 @@ try {
   eq('總結：字卡', s.caption, K.captions[5]);
   eq('總結：表格', s.summary, [K.summary.head, ...K.summary.rows]);
   eq('總結：設定提醒', s.tip, K.summary.tip);
+  eq('總結：商標聲明', s.tm, K.summary.tm);
 
   for (const [i, sN] of T.s.entries()) {
     s = await at(sN + 2);

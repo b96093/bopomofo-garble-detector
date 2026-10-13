@@ -64,35 +64,80 @@ html, body { margin: 0; background: var(--teal); }
   font-size: 24px; font-weight: 400; color: var(--muted); }
 .caret { display: inline-block; width: 3px; height: 44px; background: var(--ink); vertical-align: -9px; }
 
-/* 第 1 站：回信 */
-.mailSubj { left: 40px; top: 96px; font-size: 30px; color: var(--muted); }
-.mailBody { left: 40px; font-size: 40px; white-space: pre; }
-/* 第 2 站：聊天（同宣傳片） */
-.avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--pink); border: 4px solid var(--line); box-sizing: border-box; }
+/* 各站視窗：外框沿用 .card.win，裡面仿照各程式的配色與版面、寫出程式名稱（不畫任何 Logo 圖示） */
+.appbar { color: #fff; }   /* 桌面程式的標題列（LINE、Word）：取代瀏覽器列 */
+.appbar b { font-size: 30px; }
+.appbar span { font-weight: 400; }
+.pane { left: 0; top: 68px; width: 100%; height: 702px; }   /* 標題列以下的整塊底色 */
+
+/* 第 1 站：Gmail */
+#gmBg { background: #F6F8FC; }
+#gmName { left: 32px; top: 8px; font-size: 28px; color: #5F6368; }
+#gmCompose { left: 20px; top: 54px; width: 940px; height: 620px; background: #fff; border-radius: 16px;
+  box-shadow: 0 6px 24px rgba(60, 64, 67, .28); overflow: hidden; }
+#mailSubj { left: 0; top: 0; width: 100%; height: 48px; box-sizing: border-box; padding-left: 24px; background: #F2F6FC;
+  font-size: 24px; line-height: 48px; color: #1F1F1F; }
+#gmTo { left: 24px; right: 24px; top: 48px; height: 48px; border-bottom: 2px solid #E3E3E3; font-size: 24px; line-height: 48px; }
+#gmTo i { font-style: normal; color: #5F6368; margin-right: 18px; }
+/* 回信那行的位置決定 Chrome 版候選窗的位置（開在游標下方），往右或往下移都會讓候選窗出界 */
+.mailBody { left: 24px; font-size: 38px; white-space: pre; }
+#mailGreet { top: 108px; }
+#mailText { top: 160px; }
+#gmSend { left: 24px; bottom: 26px; background: #0B57D0; color: #fff; font-size: 26px; font-weight: 700;
+  border-radius: 28px; padding: 10px 34px; }
+
+/* 第 2 站：LINE */
+#lineBar { background: #06C755; }
+#lineBg { background: #9BB4D8; }
+#lineAvatar { left: 30px; top: 114px; width: 60px; height: 60px; border-radius: 50%; background: #F3D9C4; border: 3px solid #fff; }
 .bubble { font-size: 36px; line-height: 50px; padding: 18px 28px; border-radius: 28px; white-space: pre; }
-#chatInBubble { left: 40px; top: 110px; background: #EEF0F2; }
-#chatIn { left: 30px; top: 640px; width: 910px; height: 100px; box-sizing: border-box; border: 4px solid var(--line);
-  border-radius: 26px; font-size: 38px; line-height: 92px; padding-left: 30px; white-space: pre; }
-/* 第 4 站：Google 文件（通用的線上文件樣式） */
-#docsDesk { left: 0; top: 68px; width: 100%; height: 702px; background: #EEF1F4; }
-#docsPage { left: 120px; top: 40px; width: 740px; height: 700px; background: #fff; border: 3px solid #D0D4D9; }
-#docsTitle { left: 60px; top: 50px; font-size: 40px; font-weight: 700; }
-#docsText { left: 60px; top: 140px; font-size: 36px; white-space: pre; }
+#chatInBubble { left: 108px; top: 110px; background: #fff; }
+#lineInput { left: 0; top: 542px; width: 100%; height: 160px; background: #fff; border-top: 2px solid #D5DCE6; }
+#chatIn { left: 30px; top: 640px; width: 910px; height: 100px; box-sizing: border-box;
+  font-size: 38px; line-height: 92px; padding-left: 30px; white-space: pre; }
+
+/* 第 3 站：Word */
+#wordBar { background: #2B579A; }
+#wordRibbon { left: 0; top: 68px; width: 100%; height: 50px; background: #F3F2F1; border-bottom: 2px solid #E1DFDD;
+  display: flex; gap: 34px; padding-left: 30px; box-sizing: border-box; font-size: 23px; line-height: 46px; color: #323130; }
+#wordRibbon .on { color: #2B579A; font-weight: 700; border-bottom: 4px solid #2B579A; }
+#wordBg { top: 118px; height: 652px; background: #E6E6E6; }
+#wordPage { left: 60px; top: 16px; width: 860px; height: 700px; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+
+/* 第 4 站：Google 文件 */
+#gdHead { left: 0; top: 68px; width: 100%; height: 112px; background: #fff; border-bottom: 2px solid #E3E3E3; }
+#docsTitle { left: 30px; top: 12px; font-size: 32px; color: #1F1F1F; }
+#gdMenu { left: 30px; top: 62px; font-size: 22px; color: #444746; word-spacing: 0; }
+#gdShare { right: 30px; top: 30px; background: #C2E7FF; color: #001D35; font-size: 26px; font-weight: 700;
+  border-radius: 26px; padding: 8px 34px; }
+#docsDesk { left: 0; top: 180px; width: 100%; height: 590px; background: #F9FBFD; }
+#docsPage { left: 120px; top: 30px; width: 740px; height: 700px; background: #fff; border: 2px solid #E1E3E6; }
+#docsText { left: 60px; top: 56px; font-size: 36px; white-space: pre; }
+
+/* 第 5 站：Facebook */
+#fbBar { left: 0; top: 68px; width: 100%; height: 56px; background: #1877F2; color: #fff; font-size: 30px; font-weight: 700;
+  line-height: 56px; padding-left: 30px; box-sizing: border-box; }
+#fbBg { top: 124px; height: 646px; background: #F0F2F5; }
+#postCard { left: 40px; top: 18px; width: 890px; height: 320px; background: #fff; border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .18); }
+#postAvatar { left: 24px; top: 20px; width: 52px; height: 52px; border-radius: 50%; background: #F3D9C4; }
+#postAuthor { left: 92px; top: 26px; font-size: 28px; font-weight: 700; }
+#postText { left: 24px; top: 88px; font-size: 32px; }
+#fbActions { left: 24px; right: 24px; top: 144px; height: 56px; box-sizing: border-box; border-top: 2px solid #E4E6EB;
+  border-bottom: 2px solid #E4E6EB; display: flex; justify-content: space-around; font-size: 26px; line-height: 52px; color: #65676B; }
+
 /* 第 3 站：整段會議紀錄（同宣傳片的做法） */
-#docLines { left: 50px; top: 96px; }
-.line { position: relative; height: 56px; font-size: 36px; line-height: 56px; white-space: pre; }
+#docLines { left: 30px; top: 14px; }
+.line { position: relative; height: 52px; font-size: 36px; line-height: 52px; white-space: pre; }
 .line span { position: absolute; left: 0; top: 0; padding: 0 4px; border-radius: 6px; }
 .line span.bad { text-decoration: underline wavy var(--wave) 3px; text-underline-offset: 10px; text-decoration-skip-ink: none; }
 #keys { display: flex; justify-content: center; gap: 18px; }
 .key { position: relative; height: 90px; min-width: 90px; padding: 0 22px; box-sizing: border-box; border-radius: 18px;
   background: #fff; border: 4px solid var(--line); box-shadow: 0 7px 0 var(--line); font-size: 36px; line-height: 82px;
   text-align: center; font-weight: 700; }
-/* 第 5 站：留言 */
-#postCard { left: 40px; top: 90px; width: 890px; }
-#postAuthor { left: 64px; top: 0; font-size: 30px; font-weight: 700; }
-#postText { left: 0; top: 56px; font-size: 32px; }
-#cmt { left: 40px; top: 200px; width: 890px; height: 90px; box-sizing: border-box; border: 4px solid var(--line);
-  border-radius: 18px; font-size: 36px; line-height: 82px; padding-left: 24px; white-space: pre; }
+/* 第 5 站：留言框（Facebook 的灰底圓角膠囊，在貼文卡裡）。候選窗開在它下方，再往下移會出界 */
+#cmt { left: 64px; top: 360px; width: 842px; height: 80px; box-sizing: border-box; background: #F0F2F5;
+  border-radius: 40px; font-size: 36px; line-height: 80px; padding-left: 30px; white-space: pre; }
 #cmtSel { background: var(--pick); }
 /* 游標要蓋在擴充元件上面（見 module script 裡把游標搬到 <html> 最後的那段） */
 #cursor { left: 0; top: 0; width: 34px; height: 46px; z-index: 2147483647; }
@@ -105,6 +150,7 @@ html, body { margin: 0; background: var(--teal); }
 .row div:first-child { font-weight: 700; }
 #sumTip { margin-top: 26px; font-size: 27px; line-height: 1.45; background: var(--bar); border: 4px solid var(--line);
   border-radius: 16px; padding: 14px 20px; }
+#sumTm { margin-top: 14px; font-size: 20px; color: var(--muted); }
 
 #fade { left: 0; top: 0; width: 1080px; height: 1080px; background: var(--teal); z-index: 50; pointer-events: none; }
 </style>
@@ -120,35 +166,58 @@ html, body { margin: 0; background: var(--teal); }
   <div id="title" class="abs sticker"></div>
   <div id="clock" class="abs"></div>
 
+  <!-- 第 1 站：Gmail（瀏覽器） -->
   <div id="w1" class="abs card win">
     <div class="wbar"><i class="dots"></i><span id="mailTab" class="addr"></span></div>
-    <div id="mailSubj" class="abs mailSubj"></div>
-    <div id="mailGreet" class="abs mailBody" style="top:170px"></div>
-    <div id="mailText" class="abs mailBody" style="top:240px"></div>
+    <div id="gmBg" class="abs pane">
+      <div id="gmName" class="abs"></div>
+      <div id="gmCompose" class="abs">
+        <div id="mailSubj" class="abs"></div>
+        <div id="gmTo" class="abs"><i>收件者</i><span id="mailTo"></span></div>
+        <div id="mailGreet" class="abs mailBody"></div>
+        <div id="mailText" class="abs mailBody"></div>
+        <div id="gmSend" class="abs"></div>
+      </div>
+    </div>
   </div>
+  <!-- 第 2 站：LINE（Windows 程式） -->
   <div id="w2" class="abs card win">
-    <div class="wbar"><i class="avatar"></i><span id="chatName"></span></div>
+    <div id="lineBar" class="wbar appbar"><b id="chatApp"></b><span id="chatName"></span></div>
+    <div id="lineBg" class="abs pane"><div id="lineInput" class="abs"></div></div>
+    <i id="lineAvatar" class="abs"></i>
     <div id="chatInBubble" class="abs bubble"></div>
     <div id="chatIn" class="abs"></div>
   </div>
+  <!-- 第 3 站：Word（Windows 程式） -->
   <div id="w3" class="abs card win">
-    <div class="wbar"><span id="docApp"></span></div>
-    <div id="docLines" class="abs"></div>
+    <div id="wordBar" class="wbar appbar"><b id="docApp"></b><span id="docFile"></span></div>
+    <div id="wordRibbon" class="abs"></div>
+    <div id="wordBg" class="abs pane"><div id="wordPage" class="abs">
+      <div id="docLines" class="abs"></div>
+    </div></div>
   </div>
+  <!-- 第 4 站：Google 文件（瀏覽器） -->
   <div id="w4" class="abs card win">
     <div class="wbar"><i class="dots"></i><span id="docsTab" class="addr"></span></div>
-    <div id="docsDesk" class="abs"><div id="docsPage" class="abs">
+    <div id="gdHead" class="abs">
       <div id="docsTitle" class="abs"></div>
+      <div id="gdMenu" class="abs"></div>
+      <div id="gdShare" class="abs"></div>
+    </div>
+    <div id="docsDesk" class="abs"><div id="docsPage" class="abs">
       <div id="docsText" class="abs"></div>
     </div></div>
   </div>
+  <!-- 第 5 站：Facebook（瀏覽器） -->
   <div id="w5" class="abs card win">
     <div class="wbar"><i class="dots"></i><span id="postTab" class="addr"></span></div>
-    <div id="postCard" class="abs">
-      <i class="avatar abs" style="left:0;top:0"></i>
+    <div id="fbBar" class="abs"></div>
+    <div id="fbBg" class="abs pane"><div id="postCard" class="abs">
+      <i id="postAvatar" class="abs"></i>
       <div id="postAuthor" class="abs"></div>
       <div id="postText" class="abs"></div>
-    </div>
+      <div id="fbActions" class="abs"></div>
+    </div></div>
     <div id="cmt" class="abs"><span id="cmtPre"></span><span id="cmtSel"></span><span id="cmtPost"></span></div>
   </div>
 
@@ -367,12 +436,18 @@ HITS.push(...[...MAIL_AT, ...CHAT_AT, ...DOCS_AT].map(t => ({ t, gain: 0.5 })),
   ...Object.values(ENTER).map(t => ({ t, gain: 1 })));
 
 $('mailTab').textContent = K.mail.tab;
+$('gmName').textContent = K.mail.app;
 $('mailSubj').textContent = K.mail.subject;
+$('mailTo').textContent = K.mail.to;
 $('mailGreet').textContent = K.mail.greet;
+$('gmSend').textContent = K.mail.send;
+$('chatApp').textContent = K.chatApp;
 $('chatName').textContent = CHAT.name;
 $('chatInBubble').textContent = CHAT.incoming;
 $('docsTab').textContent = K.docs.tab;
 $('docsTitle').textContent = K.docs.title;
+$('gdMenu').textContent = K.docs.menu.join('　');
+$('gdShare').textContent = K.docs.share;
 
 function drawMail(t) {
   const done = t >= ENTER.mail + 0.05;
@@ -421,12 +496,20 @@ const LINE_EL = ROWS.map((r) => {
   return { a, b };
 });
 $('docApp').textContent = K.docApp;
+$('docFile').textContent = K.docFile;
+// 功能區：「常用」那一頁是開著的（藍字＋底線）
+$('wordRibbon').replaceChildren(...K.docRibbon.map((s, i) => {
+  const d = document.createElement('span');
+  d.textContent = s;
+  if (i === 1) d.className = 'on';
+  return d;
+}));
 const BLOCK = TL.block;
 // 選取轉換的小浮窗：照 desktop/app.ahk 的 BuildIcon／ShowIcon 重建（同 scene.html）
 //   白底、#DCDCDC 邊；圖示 (11,10) 18×18；主文字 (35,9) 11pt；提示 (35,33) 9pt #1A5FB4；寬 = Max(230, 60 + 字數×20)、高 58
 const fit = (s, n) => (n < 4 || s.length <= n) ? s : s.slice(0, n - 1) + '…';   // 同 app.ahk 的 Fit()
 const ICON_SHOWN = fit(fit(ROWS[GARBLE_ROWS[0]].zh, 20) + '　還原 ' + GARBLE_ROWS.length + ' 行', 32);
-const ICON_POS = { left: 90, top: 840 };   // 會議紀錄最後一行的下緣約在 819
+const ICON_POS = { left: 90, top: 856 };   // 會議紀錄最後一行的下緣約在 839
 {
   const w = Math.max(230, 60 + ICON_SHOWN.length * 20);
   Object.assign($('icon').style, { left: ICON_POS.left + 'px', top: ICON_POS.top + 'px', width: w * S + 'px', height: 58 * S + 'px',
@@ -450,8 +533,8 @@ const ICON_POS = { left: 90, top: 840 };   // 會議紀錄最後一行的下緣�
 }
 // 按鍵提示：每格都重建，不留跨格狀態
 const KEYS = [
-  { from: BLOCK.keys0, to: BLOCK.keys1, press: [BLOCK.keys], left: 90, top: 840, width: 700, labels: ['Ctrl', 'Alt', 'Z'] },
-  { from: BLOCK.enter0, to: BLOCK.enter1, press: [BLOCK.enter], left: 760, top: 839, width: 220, labels: ['Enter'] },
+  { from: BLOCK.keys0, to: BLOCK.keys1, press: [BLOCK.keys], left: 90, top: 856, width: 700, labels: ['Ctrl', 'Alt', 'Z'] },
+  { from: BLOCK.enter0, to: BLOCK.enter1, press: [BLOCK.enter], left: 760, top: 855, width: 220, labels: ['Enter'] },
 ];
 function drawKeys(t) {
   const g = KEYS.find(k => inR(t, k.from, k.to)) || null;
@@ -490,6 +573,8 @@ function drawBlock(t) {
 // ---------- 第 5 站：留言 —— 選取 → 小按鈕 → 候選窗 → Enter ----------
 const POST = TL.post;
 $('postTab').textContent = K.post.tab;
+$('fbBar').textContent = K.post.app;
+$('fbActions').replaceChildren(...K.post.actions.map(s => { const d = document.createElement('span'); d.textContent = s; return d; }));
 $('postAuthor').textContent = K.post.author;
 $('postText').textContent = K.post.text;
 // 游標要蓋在擴充元件上面：候選窗的宿主是 z-index 2147483647、接在 <html> 最後，
@@ -557,7 +642,7 @@ HITS.push({ t: BLOCK.keys, gain: 1 }, { t: BLOCK.enter, gain: 1 }, { t: POST.cli
 {
   const rows = [K.summary.head, ...K.summary.rows];
   $('sum').innerHTML = rows.map((r, i) => `<div class="row${i ? '' : ' head'}">${r.map(c => `<div>${c}</div>`).join('')}</div>`).join('')
-    + `<div id="sumTip">${K.summary.tip}</div>`;
+    + `<div id="sumTip">${K.summary.tip}</div><div id="sumTm">${K.summary.tm}</div>`;
 }
 function drawSummary(t) {
   const p = easeOutBack(seg(t, TIMES.sum, TIMES.sum + 0.35));
@@ -611,6 +696,7 @@ window.state = () => ({
   clock: seen($('clock')) ? $('clock').textContent : '',
   summary: seen($('sum')) ? [...$('sum').querySelectorAll('.row')].map(r => [...r.children].map(c => c.textContent)) : [],
   tip: seen($('sum')) ? $('sumTip').textContent : '',
+  tm: seen($('sum')) ? $('sumTm').textContent : '',
   mail: ownText($('mailText')),
   chat: ownText($('chatIn')),
   docs: ownText($('docsText')),

@@ -14,16 +14,22 @@ window.COMPARE = {
     '最好兩個都裝',
   ],
   tags: { none: '沒有這個功能', cant: '讀不到' },
-  // 09:00 回信：Chrome 版打字偵測（detectTail，積極模式）
-  mail: { tab: '信件', subject: '回覆：週五的會議', greet: '王經理您好，', zh: '我晚點再回你', garble: 'ji3j032u03y94cjo6su3' },
-  // 10:30 聊天：桌面版（CONTENT.chat）
-  chatApp: '聊天',
-  // 14:00 整段還原：桌面版（CONTENT.meeting）
-  docApp: '會議紀錄 — 文書軟體',
+  // 各站視窗只仿照程式的配色與版面、寫出程式名稱，不畫任何 Logo 圖示（名稱見 summary.tm 的商標聲明）
+  // 09:00 回信（Gmail）：Chrome 版打字偵測（detectTail，積極模式）
+  mail: { tab: 'mail.google.com', app: 'Gmail', subject: '回覆：週五的會議', to: '王經理', send: '傳送',
+    greet: '王經理您好，', zh: '我晚點再回你', garble: 'ji3j032u03y94cjo6su3' },
+  // 10:30 聊天（LINE）：桌面版（CONTENT.chat）
+  chatApp: 'LINE',
+  // 14:00 整段還原（Word）：桌面版（CONTENT.meeting）
+  docApp: 'Word',
+  docFile: '會議紀錄.docx',
+  docRibbon: ['檔案', '常用', '插入', '設計', '版面配置'],
   // 16:00 Google 文件：桌面版打字偵測（DetectTail，靈敏度 4）
-  docs: { tab: '線上文件', title: '第三章 草稿', zh: '第三章還沒寫完', garble: '2u4n0 5; c96ao6vu,3j06' },
-  // 21:00 留言：Chrome 版被動選取（detect，與打字同一組門檻）
-  post: { tab: '社群', author: '阿哲', text: '週末去吃了這家拉麵，超好吃！', zh: '下次一起去', garble: 'vu84h4u fu3fm4' },
+  docs: { tab: 'docs.google.com', menu: ['檔案', '編輯', '查看', '插入', '格式', '工具'], share: '共用',
+    title: '第三章 草稿', zh: '第三章還沒寫完', garble: '2u4n0 5; c96ao6vu,3j06' },
+  // 21:00 留言（Facebook）：Chrome 版被動選取（detect，與打字同一組門檻）
+  post: { tab: 'facebook.com', app: 'Facebook', actions: ['讚', '留言', '分享'],
+    author: '阿哲', text: '週末去吃了這家拉麵，超好吃！', zh: '下次一起去', garble: 'vu84h4u fu3fm4' },
   summary: {
     head: ['', 'Chrome 版', '桌面版'],
     rows: [
@@ -33,5 +39,6 @@ window.COMPARE = {
       ['安裝', '商店點一下，自動更新', '下載解壓縮，第一次執行會跳 Windows 警告'],
     ],
     tip: '兩個都裝時：桌面版設定取消勾選「在 Chrome 中也偵測」，Google 文件仍由桌面版處理',
+    tm: 'LINE、Word、Gmail、Google 文件、Facebook 為各公司的商標，本工具與其無關',
   },
 };
