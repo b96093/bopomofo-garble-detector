@@ -3,6 +3,9 @@
 ; 影片照著畫 —— 版面、文字、顏色都是產品真的會畫出來的樣子，不是目測。
 ;   用法（PowerShell）：
 ;     & "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" video\dump-popup.ahk "ji3u3ru/ 2l4x.6vu84xk7" | Out-String
+;   第 2 個參數（可省略）：輸出檔名，放在 video\ 底下，預設 popup.js
+;   第 3 個參數（可省略）：變數名（window.<變數名>），預設 POPUP
+;     & "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" video\dump-popup.ahk "2u4n0 5; c96ao6vu,3j06" compare-popup-docs.js POPUP_DOCS | Out-String
 ; 以縮放 100%（DPIF = 1）輸出邏輯像素，影片端再統一放大。
 global DPIF := 1, TRAYCOLS := 0
 #Include ..\desktop\engine.ahk
@@ -43,10 +46,14 @@ J(v) {
         return v . ""
     return '"' . StrReplace(StrReplace(v, "\", "\\"), '"', '\"') . '"'
 }
-out := A_ScriptDir . "\popup.js"
+; 第 2、3 個參數：輸出檔名（預設 popup.js）與變數名（預設 POPUP）。
+; 版本比較影片的 Google 文件那句輸出成 compare-popup-docs.js / POPUP_DOCS。
+outName := A_Args.Length >= 2 ? A_Args[2] : "popup.js"
+varName := A_Args.Length >= 3 ? A_Args[3] : "POPUP"
+out := A_ScriptDir . "\" . outName
 try FileDelete(out)
 FileAppend("// 由 dump-popup.ahk 從產品的 BuildLayout 產生，請勿手改`n"
-         . "window.POPUP = {`"w`":" . lay.w . ",`"h`":" . lay.h . ",`"ops`":" . J(lay.ops) . "};`n",
+         . "window." . varName . " = {`"w`":" . lay.w . ",`"h`":" . lay.h . ",`"ops`":" . J(lay.ops) . "};`n",
            out, "UTF-8-RAW")
-Say("popup.js：" . lay.w . "x" . lay.h . "，" . lay.ops.Length . " 個繪圖指令")
+Say(outName . "：" . lay.w . "x" . lay.h . "，" . lay.ops.Length . " 個繪圖指令")
 ExitApp(0)
