@@ -4,21 +4,21 @@
 <meta charset="utf-8">
 <title>注音亂碼偵測 — 版本比較</title>
 <!--
-  版本比較說明影片：1080×1080、30fps、90 秒。設計：docs/superpowers/specs/2026-10-12-版本比較影片-design.md
+  版本比較說明影片：1080×1080、30fps、54 秒。設計：docs/superpowers/specs/2026-10-12-版本比較影片-design.md
   render(t) 依時間 t（秒）畫出每一格，同一個 t 永遠畫出同一格；state() 從 DOM 讀出畫面狀態給 check-compare.mjs。
   Chrome 版的候選窗與小按鈕直接 import 擴充本身的 src/content/popup.js、hint.js，候選來自擴充引擎 detect
   的實際輸出（需用 --allow-file-access-from-files 開啟，見 cdp.mjs）。桌面版候選窗照產品 BuildLayout 匯出的
   popup.js、compare-popup-docs.js 畫。網址加 ?play 可在瀏覽器裡直接播放預覽。
 
-  時間軸（秒）
-    0–6     標題；兩盞燈依序閃一下；字卡說明燈的意思
-    6–18    09:00 回信（瀏覽器）→ Chrome 版
-    18–30   10:30 聊天 → 桌面版
-    30–44   14:00 整段會議紀錄 → 桌面版（Chrome 版：沒有這個功能）
-    44–58   16:00 Google 文件 → Chrome 版讀不到，桌面版接手
-    58–70   21:00 留言：選取 → 小按鈕 → 候選窗 → Chrome 版
-    70–88   總結卡，兩盞燈都亮
-    88–90   淡出
+  時間軸（秒；細部時間點見 module script 的 TL）
+    0–5          標題；兩盞燈依序閃一下；字卡說明燈的意思
+    5–11         09:00 回信（Gmail）→ Chrome 版
+    11–17        10:30 聊天（LINE）→ 桌面版
+    17–23.6      14:00 整段會議紀錄（Word）→ 桌面版（Chrome 版：沒有這個功能）
+    23.6–31.2    16:00 Google 文件 → Chrome 版讀不到，桌面版接手
+    31.2–37.8    21:00 留言（Facebook）：選取 → 小按鈕 → 候選窗 → Chrome 版
+    37.8–51.8    總結卡，兩盞燈都亮
+    51.8–54      淡出
 -->
 <style>
 :root {
@@ -183,37 +183,50 @@ const lerp = (a, b, p) => a + (b - a) * p;
 const fade = (t, a, b, f = 0.2) => Math.min(seg(t, a, a + f), 1 - seg(t, b - f, b));
 const inR = (t, a, b) => t >= a && t < b;
 
-const TIMES = { s: [6, 18, 30, 44, 58], sum: 70, out: 88, end: 90 };
-window.TIMES = TIMES;
+// ---------- 時間軸：每一站的開始時間＋相對偏移（秒）。check-compare.mjs 從 window.TL 讀 ----------
+const TIMES = { s: [5, 11, 17, 23.6, 31.2], sum: 37.8, out: 51.8, end: 54 };
 const [S1, S2, S3, S4, S5] = TIMES.s;
+const TL = {
+  TIMES,
+  intro: { title: [0.3, 2.7], blinkC: [1.4, 1.9], blinkD: [2.1, 2.6], legend: 2.8 },
+  // 打字 type0～type1；候選窗 popup 出現；enter 按下後換成中文
+  mail: { type0: S1 + 0.6, type1: S1 + 2.4, popup: S1 + 2.6, enter: S1 + 4.8 },
+  chat: { type0: S2 + 0.6, type1: S2 + 2.4, popup: S2 + 2.6, enter: S2 + 4.8 },
+  // 全選 → Ctrl Alt Z（keys0～keys1 顯示、keys 按下）→ 浮窗 icon → Enter（enter0～enter1 顯示、enter 按下）→ 逐行翻
+  block: { select: S3 + 0.8, keys0: S3 + 1.0, keys: S3 + 1.5, keys1: S3 + 2.2, icon: S3 + 2.2,
+    enter0: S3 + 3.5, enter: S3 + 4.0, enter1: S3 + 4.4, flip: S3 + 4.2, flipStep: 0.22 },
+  // Chrome 版燈閃 blink0～blink1（每 blinkStep 切換）；「讀不到」標籤 cant 起；桌面版候選窗 popup
+  docs: { type0: S4 + 0.6, type1: S4 + 2.4, blink0: S4 + 2.6, blink1: S4 + 3.8, blinkStep: 0.3, cant: S4 + 3.8,
+    popup: S4 + 4.2, enter: S4 + 6.4 },
+  // 游標移入 → 拖曳選取 drag0～drag1 → 小按鈕 hint → 游標移到按鈕 move0～move1 → 點擊 → Enter
+  post: { cursorIn: S5 + 0.6, drag0: S5 + 1.0, drag1: S5 + 1.8, hint: S5 + 2.0, move0: S5 + 2.6, move1: S5 + 3.2,
+    click: S5 + 3.4, enter: S5 + 5.4 },
+};
+window.TL = TL;
+window.TIMES = TIMES;
 const STATION_END = [S2, S3, S4, S5, TIMES.sum];
 
 // ---------- 燈 ----------
-// 各站「產品出手」的時間點；Task 4、5 會用到同一組常數
-const AT = {
-  mailPopup: S1 + 3.8, chatPopup: S2 + 3.4, blockIcon: S3 + 3.2,
-  blink0: S4 + 3.6, blink1: S4 + 4.8, docsPopup: S4 + 5.4, postHint: S5 + 2.9,
-};
 function lampOn(which, t) {
   if (which === 'C') {
-    if (inR(t, 2.0, 2.6)) return true;
-    if (inR(t, AT.blink0, AT.blink1)) return Math.floor((t - AT.blink0) / 0.3) % 2 === 0;   // 試著幫忙，閃兩下
-    return inR(t, AT.mailPopup, S2) || inR(t, AT.postHint, TIMES.sum) || t >= TIMES.sum;
+    if (inR(t, ...TL.intro.blinkC)) return true;
+    if (inR(t, TL.docs.blink0, TL.docs.blink1)) return Math.floor((t - TL.docs.blink0) / TL.docs.blinkStep) % 2 === 0;   // 試著幫忙，閃兩下
+    return inR(t, TL.mail.popup, S2) || inR(t, TL.post.hint, TIMES.sum) || t >= TIMES.sum;
   }
-  if (inR(t, 2.8, 3.4)) return true;
-  return inR(t, AT.chatPopup, S3) || inR(t, AT.blockIcon, S4) || inR(t, AT.docsPopup, S5) || t >= TIMES.sum;
+  if (inR(t, ...TL.intro.blinkD)) return true;
+  return inR(t, TL.chat.popup, S3) || inR(t, TL.block.icon, S4) || inR(t, TL.docs.popup, S5) || t >= TIMES.sum;
 }
 function drawLamps(t) {
   $('lampC').firstChild.className = 'bulb' + (lampOn('C', t) ? ' on' : '');
   $('lampD').firstChild.className = 'bulb' + (lampOn('D', t) ? ' on' : '');
-  const tag = inR(t, AT.blockIcon, S4) ? K.tags.none : inR(t, AT.blink1, S5) ? K.tags.cant : '';
+  const tag = inR(t, TL.block.icon, S4) ? K.tags.none : inR(t, TL.docs.cant, S5) ? K.tags.cant : '';
   $('tagC').textContent = tag;
   $('tagC').style.opacity = tag ? '1' : '0';
 }
 
 // ---------- 字卡 ----------
 const CAPS = [
-  [3.6, S1, K.legend],
+  [TL.intro.legend, S1, K.legend],
   [S1 + 0.4, S2, K.captions[0]],
   [S2 + 0.4, S3, K.captions[1]],
   [S3 + 0.4, S4, K.captions[2]],
@@ -233,7 +246,7 @@ function drawCaptions(t) {
   if (k >= 0) popIn($('caption'), t, CAPS[k][0], CAPS[k][1], k % 2 ? 1.2 : -1.2);
   else { $('caption').style.opacity = '0'; $('caption').style.transform = 'none'; }
   $('title').textContent = K.title;
-  popIn($('title'), t, 0.3, 3.4, -1.5);
+  popIn($('title'), t, ...TL.intro.title, -1.5);
 }
 
 // ---------- 時鐘與視窗進出 ----------
@@ -346,10 +359,10 @@ function setTyping(el, text, t, typing, caretOn) {
   return c;
 }
 const CHAT = window.CONTENT.chat;
-const MAIL_AT = typeAt(K.mail.garble, S1 + 1.0, S1 + 3.6);
-const CHAT_AT = typeAt(CHAT.garble, S2 + 1.0, S2 + 3.2);
-const DOCS_AT = typeAt(K.docs.garble, S4 + 1.0, S4 + 3.4);
-const ENTER = { mail: S1 + 6.6, chat: S2 + 6.6, docs: S4 + 9.0 };
+const MAIL_AT = typeAt(K.mail.garble, TL.mail.type0, TL.mail.type1);
+const CHAT_AT = typeAt(CHAT.garble, TL.chat.type0, TL.chat.type1);
+const DOCS_AT = typeAt(K.docs.garble, TL.docs.type0, TL.docs.type1);
+const ENTER = { mail: TL.mail.enter, chat: TL.chat.enter, docs: TL.docs.enter };
 HITS.push(...[...MAIL_AT, ...CHAT_AT, ...DOCS_AT].map(t => ({ t, gain: 0.5 })),
   ...Object.values(ENTER).map(t => ({ t, gain: 1 })));
 
@@ -364,23 +377,23 @@ $('docsTitle').textContent = K.docs.title;
 function drawMail(t) {
   const done = t >= ENTER.mail + 0.05;
   const c = setTyping($('mailText'), done ? K.mail.zh : K.mail.garble.slice(0, typed(MAIL_AT, t)), t,
-    inR(t, S1 + 1.0, S1 + 3.6), inR(t, S1 + 0.6, S2));
+    inR(t, TL.mail.type0, TL.mail.type1), inR(t, TL.mail.type0, S2));
   // 擴充的 caretRect：候選窗開在游標下方
-  if (c && inR(t, AT.mailPopup, ENTER.mail)) return { popup: true, res: MAIL_RES, rect: c.getBoundingClientRect() };
+  if (c && inR(t, TL.mail.popup, ENTER.mail)) return { popup: true, res: MAIL_RES, rect: c.getBoundingClientRect() };
   return null;
 }
 // 這一站只演到第一次 Enter 把亂碼換成中文（產品裡第二次 Enter 才是聊天軟體的送出，這裡不演）
 function drawChat(t) {
   const text = t >= ENTER.chat + 0.05 ? CHAT.zh : CHAT.garble.slice(0, typed(CHAT_AT, t));
-  setTyping($('chatIn'), text, t, inR(t, S2 + 1.0, S2 + 3.2), inR(t, S2 + 0.6, S3));
+  setTyping($('chatIn'), text, t, inR(t, TL.chat.type0, TL.chat.type1), inR(t, TL.chat.type0, S3));
   // 候選窗開在輸入框上方（同宣傳片）
   const inputTop = 270 + 5 + 640;
-  showDesktopPopup($('dpopChat'), t, AT.chatPopup, ENTER.chat, 80, inputTop - 24 - window.POPUP.h * S);
+  showDesktopPopup($('dpopChat'), t, TL.chat.popup, ENTER.chat, 80, inputTop - 24 - window.POPUP.h * S);
 }
 function drawDocs(t) {
   const done = t >= ENTER.docs + 0.05;
   const c = setTyping($('docsText'), done ? K.docs.zh : K.docs.garble.slice(0, typed(DOCS_AT, t)), t,
-    inR(t, S4 + 1.0, S4 + 3.4), inR(t, S4 + 0.6, S5));
+    inR(t, TL.docs.type0, TL.docs.type1), inR(t, TL.docs.type0, S5));
   // 桌面版候選窗開在游標下方，靠右時往左收進畫面
   let left = 80, top = 600;
   if (c) {
@@ -388,7 +401,7 @@ function drawDocs(t) {
     left = Math.min(Math.max(20, r.left), 1080 - 20 - window.POPUP_DOCS.w * S);
     top = r.bottom + 12;
   }
-  showDesktopPopup($('dpopDocs'), t, AT.docsPopup, ENTER.docs, left, top);
+  showDesktopPopup($('dpopDocs'), t, TL.docs.popup, ENTER.docs, left, top);
 }
 
 // ---------- 第 3 站：整段會議紀錄 —— 桌面版選取轉換的整段路徑 ----------
@@ -408,7 +421,7 @@ const LINE_EL = ROWS.map((r) => {
   return { a, b };
 });
 $('docApp').textContent = K.docApp;
-const BLOCK = { select: S3 + 1.5, keys: S3 + 2.4, enter: S3 + 6.4, flip: S3 + 6.6 };
+const BLOCK = TL.block;
 // 選取轉換的小浮窗：照 desktop/app.ahk 的 BuildIcon／ShowIcon 重建（同 scene.html）
 //   白底、#DCDCDC 邊；圖示 (11,10) 18×18；主文字 (35,9) 11pt；提示 (35,33) 9pt #1A5FB4；寬 = Max(230, 60 + 字數×20)、高 58
 const fit = (s, n) => (n < 4 || s.length <= n) ? s : s.slice(0, n - 1) + '…';   // 同 app.ahk 的 Fit()
@@ -437,8 +450,8 @@ const ICON_POS = { left: 90, top: 840 };   // 會議紀錄最後一行的下緣�
 }
 // 按鍵提示：每格都重建，不留跨格狀態
 const KEYS = [
-  { from: S3 + 1.8, to: S3 + 3.2, press: [BLOCK.keys], left: 90, top: 840, width: 700, labels: ['Ctrl', 'Alt', 'Z'] },
-  { from: S3 + 5.8, to: S3 + 6.8, press: [BLOCK.enter], left: 760, top: 839, width: 220, labels: ['Enter'] },
+  { from: BLOCK.keys0, to: BLOCK.keys1, press: [BLOCK.keys], left: 90, top: 840, width: 700, labels: ['Ctrl', 'Alt', 'Z'] },
+  { from: BLOCK.enter0, to: BLOCK.enter1, press: [BLOCK.enter], left: 760, top: 839, width: 220, labels: ['Enter'] },
 ];
 function drawKeys(t) {
   const g = KEYS.find(k => inR(t, k.from, k.to)) || null;
@@ -460,23 +473,22 @@ function drawBlock(t) {
     a.style.background = sel ? 'var(--pick)' : 'transparent';
     if (b) {
       const k = GARBLE_ROWS.indexOf(i);
-      const p = easeOut(seg(t, BLOCK.flip + k * 0.22, BLOCK.flip + k * 0.22 + 0.3));
+      const p = easeOut(seg(t, BLOCK.flip + k * BLOCK.flipStep, BLOCK.flip + k * BLOCK.flipStep + 0.3));
       a.style.opacity = String(1 - p);
       a.style.transform = `translateY(${-14 * p}px)`;
       b.style.opacity = String(p);
       b.style.transform = `translateY(${14 * (1 - p)}px)`;
     }
   });
-  const on = inR(t, AT.blockIcon, BLOCK.enter);
-  const p = easeOut(seg(t, AT.blockIcon, AT.blockIcon + 0.15));
+  const on = inR(t, BLOCK.icon, BLOCK.enter);
+  const p = easeOut(seg(t, BLOCK.icon, BLOCK.icon + 0.15));
   $('icon').style.opacity = on ? String(p) : '0';
   $('icon').style.transform = `translateY(${on ? 10 * (1 - p) : 0}px)`;
   drawKeys(t);
 }
 
 // ---------- 第 5 站：留言 —— 選取 → 小按鈕 → 候選窗 → Enter ----------
-const POST = { cursorIn: S5 + 1.0, drag0: S5 + 1.6, drag1: S5 + 2.6, move0: S5 + 3.6, move1: S5 + 4.4,
-  click: S5 + 4.6, enter: S5 + 7.4 };
+const POST = TL.post;
 $('postTab').textContent = K.post.tab;
 $('postAuthor').textContent = K.post.author;
 $('postText').textContent = K.post.text;
@@ -535,7 +547,7 @@ function drawPost(t) {
   Object.assign($('cursor').style, { left: cx + 'px', top: cy + 'px',
     opacity: String(t >= POST.cursorIn ? 1 - seg(t, POST.click + 0.6, POST.click + 1.0) : 0),
     transform: `scale(${press ? 0.85 : 1})` });
-  if (inR(t, AT.postHint, POST.click)) return { hint: true, res: POST_RES, rect };
+  if (inR(t, POST.hint, POST.click)) return { hint: true, res: POST_RES, rect };
   if (inR(t, POST.click, POST.enter)) return { popup: true, res: POST_RES, rect };
   return null;
 }

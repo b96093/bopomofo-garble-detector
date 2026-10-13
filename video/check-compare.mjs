@@ -16,19 +16,26 @@ const page = await openPage(join(here, 'compare.html'), '', { width: 1080, heigh
 try {
   const K = await page.evaluate('COMPARE');
   const at = (t) => page.evaluate(`(render(${t}), state())`);
-  const T = await page.evaluate('TIMES');
+  // 時間錨點全部從頁面讀（compare.html 的 window.TL），不在這裡寫死秒數
+  const TL = await page.evaluate('TL');
+  const T = TL.TIMES;
   const [S1, S2, S3, S4, S5] = T.s;
+  const mid = ([a, b]) => +((a + b) / 2).toFixed(3);
+  const { intro, mail, chat, block, docs, post } = TL;
 
   eq('所有圖片都載入成功', await page.evaluate('[...document.images].every(i => i.naturalWidth > 0)'), true);
 
-  let s = await at(1);
-  eq('1 秒：標題', s.title, K.title);
-  eq('1 秒：兩盞燈都暗', [s.lampC, s.lampD], [false, false]);
-  eq('2.3 秒：Chrome 版的燈閃一下', (await at(2.3)).lampC, true);
-  eq('3.1 秒：桌面版的燈閃一下', (await at(3.1)).lampD, true);
-  s = await at(4.5);
-  eq('4.5 秒：說明燈的意思', s.caption, K.legend);
-  eq('4.5 秒：燈都暗', [s.lampC, s.lampD], [false, false]);
+  // 標題出現後、第一盞燈閃之前
+  const tTitle = mid([intro.title[0], intro.blinkC[0]]);
+  let s = await at(tTitle);
+  eq(`${tTitle} 秒：標題`, s.title, K.title);
+  eq(`${tTitle} 秒：兩盞燈都暗`, [s.lampC, s.lampD], [false, false]);
+  eq(`${mid(intro.blinkC)} 秒：Chrome 版的燈閃一下`, (await at(mid(intro.blinkC))).lampC, true);
+  eq(`${mid(intro.blinkD)} 秒：桌面版的燈閃一下`, (await at(mid(intro.blinkD))).lampD, true);
+  const tLegend = mid([intro.legend, S1]);
+  s = await at(tLegend);
+  eq(`${tLegend} 秒：說明燈的意思`, s.caption, K.legend);
+  eq(`${tLegend} 秒：燈都暗`, [s.lampC, s.lampD], [false, false]);
 
   s = await at(T.sum + 5);
   eq('總結：兩盞燈都亮', [s.lampC, s.lampD], [true, true]);
@@ -44,33 +51,33 @@ try {
 
   const CHAT = await page.evaluate('CONTENT.chat');
   // 第 1 站：回信 —— Chrome 版
-  s = await at(S1 + 3.0);
+  s = await at(mid([mail.type0, mail.type1]));
   eq('回信：打字中、候選窗還沒出現', [s.mail.length > 0 && s.mail.length < K.mail.garble.length, s.chromePopup], [true, '']);
-  s = await at(S1 + 5);
+  s = await at(mail.popup + 0.5);
   eq('回信：Chrome 版候選窗的第一個候選', s.chromePopup, K.mail.zh);
   eq('回信：輸入框仍是亂碼（不按 Enter 不會動）', s.mail, K.mail.garble);
   eq('回信：只有 Chrome 版的燈亮', [s.lampC, s.lampD], [true, false]);
-  s = await at(S1 + 7.5);
+  s = await at(mail.enter + 0.5);
   eq('回信：按 Enter 後換成中文、候選窗關閉', [s.mail, s.chromePopup], [K.mail.zh, '']);
 
   // 第 2 站：聊天 —— 桌面版
-  s = await at(S2 + 5);
+  s = await at(chat.popup + 0.5);
   eq('聊天：桌面版候選窗', s.desktopPopup, 'chat');
   eq('聊天：輸入框是亂碼', s.chat, CHAT.garble);
   eq('聊天：只有桌面版的燈亮', [s.lampC, s.lampD], [false, true]);
-  s = await at(S2 + 7.5);
+  s = await at(chat.enter + 0.5);
   eq('聊天：按 Enter 後換成中文', [s.chat, s.desktopPopup], [CHAT.zh, '']);
 
   // 第 4 站：Google 文件 —— Chrome 版讀不到，桌面版接手
-  s = await at(S4 + 3.0);
+  s = await at(mid([docs.type0, docs.type1]));
   eq('Google 文件：打字中，兩盞燈都暗', [s.lampC, s.lampD, s.desktopPopup, s.chromePopup], [false, false, '', '']);
-  eq('Google 文件：Chrome 版的燈閃（亮）', (await at(S4 + 3.7)).lampC, true);
-  eq('Google 文件：Chrome 版的燈閃（暗）', (await at(S4 + 4.0)).lampC, false);
-  s = await at(S4 + 6);
+  eq('Google 文件：Chrome 版的燈閃（亮）', (await at(docs.blink0 + docs.blinkStep / 2)).lampC, true);
+  eq('Google 文件：Chrome 版的燈閃（暗）', (await at(docs.blink0 + docs.blinkStep * 1.5)).lampC, false);
+  s = await at(docs.popup + 0.5);
   eq('Google 文件：標「讀不到」', s.tag, K.tags.cant);
   eq('Google 文件：桌面版接手', [s.lampC, s.lampD, s.desktopPopup, s.chromePopup], [false, true, 'docs', '']);
   eq('Google 文件：文件裡仍是亂碼', s.docs, K.docs.garble);
-  s = await at(S4 + 10);
+  s = await at(docs.enter + 0.5);
   eq('Google 文件：按 Enter 後換成中文', [s.docs, s.desktopPopup], [K.docs.zh, '']);
   eq('桌面版 Google 文件候選窗的第一個候選＝要還原的句子',
      await page.evaluate("POPUP_DOCS.ops.find(o => o.t === 'text' && o.pt === 13).s"), K.docs.zh);
@@ -79,27 +86,28 @@ try {
   const zhRows = [M.header, ...M.lines.map(l => l.keep ?? l.zh)];
   const typedRows = [M.header, ...M.lines.map(l => l.keep ?? l.garble)];
   // 第 3 站：整段還原 —— 只有桌面版
-  s = await at(S3 + 1);
+  s = await at(mid([S3, block.select]));
   eq('整段：一開始整頁是亂碼', s.doc, typedRows);
-  s = await at(S3 + 4.5);
+  s = await at(block.icon + 0.5);
   eq('整段：桌面版浮窗文字', s.icon, `→ ${M.lines.find(l => l.zh).zh}　還原 ${M.lines.filter(l => l.zh).length} 行`);
   eq('整段：Chrome 版標「沒有這個功能」', s.tag, K.tags.none);
   eq('整段：只有桌面版的燈亮', [s.lampC, s.lampD], [false, true]);
-  s = await at(S3 + 9);
+  // 最後一行翻完（每行 0.3 秒）之後
+  s = await at(block.flip + M.lines.filter(l => l.zh).length * block.flipStep + 0.3);
   eq('整段：按 Enter 後整頁換成中文', s.doc, zhRows);
   eq('整段：浮窗已關閉', s.icon, '');
 
   // 第 5 站：留言 —— 選取後浮出按鈕 → 候選窗 → Enter
-  s = await at(S5 + 1);
+  s = await at(mid([post.cursorIn, post.drag0]));
   eq('留言：留言框裡是亂碼、還沒選取', [s.post, s.selected, s.chromeHint], [K.post.garble, '', '']);
-  s = await at(S5 + 3.2);
+  s = await at(post.hint + 0.5);
   eq('留言：整段選起來', s.selected, K.post.garble);
   eq('留言：浮出 Chrome 版的小按鈕（預覽中文）', s.chromeHint, K.post.zh);
   eq('留言：只有 Chrome 版的燈亮', [s.lampC, s.lampD], [true, false]);
-  s = await at(S5 + 6);
+  s = await at(post.click + 0.5);
   eq('留言：點了按鈕 → 開出候選窗、按鈕消失', [s.chromePopup, s.chromeHint], [K.post.zh, '']);
   eq('留言：還沒按 Enter，留言框仍是亂碼', s.post, K.post.garble);
-  s = await at(S5 + 8.5);
+  s = await at(post.enter + 0.5);
   eq('留言：按 Enter 後換成中文', [s.post, s.chromePopup, s.selected], [K.post.zh, '', '']);
 
   // 字卡至少停留到讀得完：每秒 6 個字
