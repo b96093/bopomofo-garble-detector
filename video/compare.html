@@ -246,7 +246,7 @@ function drawChromeUI(t, which) {
 }
 
 // ---------- 桌面版候選窗：照 popup.js（產品 BuildLayout 的實際輸出）畫，同 scene.html ----------
-const S = 1.8;   // 桌面版介面的放大倍率（產品以 100% 縮放的邏輯像素為準）
+const S = 1.5;   // 桌面版介面的放大倍率（產品以 100% 縮放的邏輯像素為準）；1.8 時聊天候選窗會蓋住對方的訊息
 const argb = (v) => `rgba(${(v >>> 16) & 255},${(v >>> 8) & 255},${v & 255},${((v >>> 24) & 255) / 255})`;
 function buildDesktopPopup(el, P) {
   Object.assign(el.style, { width: P.w * S + 'px', height: P.h * S + 'px' });
